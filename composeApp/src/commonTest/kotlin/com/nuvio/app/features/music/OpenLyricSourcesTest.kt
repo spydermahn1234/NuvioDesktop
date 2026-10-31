@@ -3,6 +3,7 @@ package com.nuvio.app.features.music
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -94,13 +95,23 @@ class OpenLyricSourcesTest {
     }
 
     @Test
-    fun anotherSongAnotherLengthOrNoWordsIsTurnedAway() {
+    fun aLineTimedAnswerIsKeptAsLineSyncedLyrics() {
+        // LRCMux answers `"level":"line"` for songs its catalogue timed only by line, as for the Ren track.
+        val lineTimedOnly = """[{"text":"Paper boats","start":2000,"end":3300},{"text":"Gone","start":20000,"end":21000}]"""
+        val lyrics = lrcMuxLyricsOf(json(mux(lines = lineTimedOnly)), "Paper Boats", 60)
+        assertNotNull(lyrics)
+        assertEquals(listOf("Paper boats", "Gone"), lyrics.lines.filter { it.text.isNotBlank() }.map { it.text })
+        assertFalse(lyrics.isWordTimed)
+        assertEquals("Line-synced · LRCMux (Deezer)", lyrics.sourceNote())
+    }
+
+    @Test
+    fun anotherSongAnotherLengthOrNoLinesIsTurnedAway() {
         assertNull(lrcMuxLyricsOf(json(mux(title = "Something Else")), "Paper Boats", 60))
         // A remix as long as the song is caught by the title; one of a different length by the length.
         assertNull(lrcMuxLyricsOf(json(mux(duration = 120)), "Paper Boats", 60))
         assertNotNull(lrcMuxLyricsOf(json(mux(duration = 62)), "Paper Boats", 60))
-        val lineTimedOnly = """[{"text":"Paper boats","start":2000,"end":3300}]"""
-        assertNull(lrcMuxLyricsOf(json(mux(lines = lineTimedOnly)), "Paper Boats", 60))
+        assertNull(lrcMuxLyricsOf(json(mux(lines = "[]")), "Paper Boats", 60))
         assertNull(lrcMuxLyricsOf(json("{\"track\":{\"title\":\"Paper Boats\"}}"), "Paper Boats", 60))
         assertNull(lrcMuxLyricsOf(null, "Paper Boats", 60))
     }

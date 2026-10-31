@@ -73,12 +73,19 @@ internal fun lrcMuxLyricsOf(root: JsonElement?, title: String, durationSeconds: 
             if (glued) piece.copy(text = piece.text + " ") else piece
         }
         val words = mergeTimedSyllables(spaced)
-        if (words.isEmpty()) continue
+        val lineStartMs = line.num("start")?.let { (it * scale).toLong() }
+        if (words.isEmpty()) {
+            // A catalogue that only timed whole lines (its `meta.level` is "line"): keep the line as it is.
+            val plain = line.text("text")?.trim().orEmpty()
+            if (plain.isNotEmpty() && lineStartMs != null) lines += LyricLine(lineStartMs, plain)
+            continue
+        }
         val text = spaced.joinToString("") { it.text }.trim()
-        val startMs = line.num("start")?.let { (it * scale).toLong() } ?: words.first().startMs
+        val startMs = lineStartMs ?: words.first().startMs
         lines += LyricLine(minOf(startMs, words.first().startMs), text, words)
     }
-    // Word timing is the only reason to use this source; a plain line-timed answer adds nothing over LRCLIB.
+    // A line-timed answer is kept too: LyricsRepository prefers any word-timed source and uses a line-timed one only
+    // when LRCLIB has nothing, which is exactly when (an outage, a song LRCLIB lacks) this is the only lyric there is.
     if (lines.isEmpty()) return null
     val ordered = withRestLines(lines.sortedBy { it.timeMs })
     if (!unisonFitsTrack(ordered, durationSeconds)) return null
