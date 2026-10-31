@@ -67,12 +67,13 @@ jobs:
 
       # innertubex=true here too, the same as the distributable below: a different value changes the
       # compiled sources, so the two steps would each compile the whole app instead of sharing one compile.
-      - name: Unit tests (music, pre-show)
+      - name: Unit tests (music, pre-show, what's new)
         shell: pwsh
         run: >
           ./gradlew.bat :composeApp:desktopTest
           --tests "com.nuvio.app.features.music.*"
           --tests "com.nuvio.app.features.preroll.*"
+          --tests "com.nuvio.app.features.whatsnew.*"
           --tests "*Trivia*"
           "-Pnuvio.innertubex=true"
           "-Pnuvio.webview2.dir=C:/libs/webview2"
