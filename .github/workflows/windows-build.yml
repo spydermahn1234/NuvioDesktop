@@ -74,6 +74,7 @@ jobs:
           --tests "com.nuvio.app.features.music.*"
           --tests "com.nuvio.app.features.preroll.*"
           --tests "com.nuvio.app.features.whatsnew.*"
+          --tests "com.nuvio.app.core.network.*"
           --tests "*Trivia*"
           "-Pnuvio.innertubex=true"
           "-Pnuvio.webview2.dir=C:/libs/webview2"
