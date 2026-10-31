@@ -36,7 +36,8 @@ internal const val LYRIC_CACHE_SLACK = 50
 
 /**
  * Written in front of every key. Bump it when the layout below changes, or when a source's rules change so that an
- * old "none here" may now be wrong, and the old entries are simply never read (and are dropped on the next write).
+ * old "none here" may now be wrong, and the old entries are simply never read. They are left on disk, untouched (the
+ * cache never deletes another version's entries), which is at most a few hundred KB.
  * v2: LRCMux line-timed answers are no longer turned away, so a v1 miss for a song it only had by line was false.
  */
 private const val CACHE_VERSION = "v2"
@@ -139,9 +140,7 @@ internal class LyricCacheStore(
 
     /** Drops the oldest entries once there are more than [maxEntries] plus [slack] (so it is not done on every write). */
     private fun trim() {
-        val (keys, stale) = backend.keys().partition { it.startsWith("$CACHE_VERSION:") }
-        // Entries of an older layout are never read again.
-        stale.forEach { backend.put(it, null) }
+        val keys = backend.keys().filter { it.startsWith("$CACHE_VERSION:") }
         if (keys.size <= maxEntries + slack) return
         val byAge = keys.map { k ->
             val at = backend.get(k)?.let { AT_PREFIX.find(it)?.groupValues?.get(1)?.toLongOrNull() } ?: 0L
