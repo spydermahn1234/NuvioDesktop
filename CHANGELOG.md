@@ -4,6 +4,9 @@
 
 ### Added
 
+#### Update Dialog Shows The Real Download Size
+The update dialog quoted the full zip ("296 MB") even though an in-place update only fetches the files that changed. It now reads the zip's index first and shows "58 MB to download (296 MB full)".
+
 - **Poster And Loud Lyric Styles** - the Now Playing stage's top bar has a "Lyrics: scroll / calm / loud" chip that cycles the way the lyrics are set; the left side (logo, spinning disc, title, controls, queue) is unchanged. Scroll is the list as before. **Calm** shows one line at a time, big, in a marker-pen face, centred, with the line before and after small either side; its words wait as faint ghosts and each lands from above at its own crooked angle as it is sung. **Loud**, after the Aeon Nox Silvo Kodi skin, sets every line in its own typeface (marker, comic, poster, spray), colour (the skin's six) and entrance (drop from above, slam in from the right, zoom with overshoot, diagonal), stacked into one to three chunks as wide as the lyric area allows; words wait as outlines and each fills in, with a hard shadow, as it is sung. Click a line to seek, as before. With Motion reduced the words simply light up. Fonts: Permanent Marker, Luckiest Guy (Apache 2.0), Bangers and Rubik Spray Paint (OFL), listed in `licenses/`.
 - **Stage Titles And Genres Are Links** - under the song title on the Now Playing stage, each artist opens that artist's page, the album opens its album page (when the track has one), and a genre chip starts a ladder into that genre in the Music tab. The mood chip stays a plain label.
 - **"Where Next" Opens The Artist** - the three artists under "Where next from ..." on the Now Playing stage were plain labels; clicking one now closes the stage and opens that artist's page (found on YouTube Music by name, with "... isn't on YouTube Music" under the row if there is no such artist). They also take the keyboard focus ring.
