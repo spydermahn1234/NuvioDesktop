@@ -127,12 +127,12 @@ actual fun MusicPlayerSurface(
     // Re-opens of this load's URL after a googlevideo 403 (see forbiddenStreamRetryDelayMs).
     var forbiddenRetries by remember(loadId) { mutableIntStateOf(0) }
 
-    // fork:music - a video opened part way in (switching to Video mid-song) on YouTube's separate video and audio
-    // streams, or an HLS manifest, sat in the native player's start-position hand-off: held paused until the seek
-    // landed, which it did not within the stall watchdog's ten seconds, so the load was dropped and the next fallback
-    // tried, down to the 360p stream from the beginning. Such a load now opens at 0:00, muted, and jumps to the
-    // position once it is really playing; until then its position is not reported, so a fallback keeps the place.
-    val deferStartMs = remember(loadId, forbiddenRetries) {
+    // fork:music - a song opened part way in (switching to Video mid-song, or past a non-music intro) on YouTube's
+    // separate video and audio streams, or an HLS manifest. The native player's start-position hand-off (open, then seek
+    // with playback held) stalled on these: the seek did not land within the stall watchdog's ten seconds. Opening at
+    // 0:00 and jumping once playing worked but stalled too, on the jump. mpv's own start option opens the stream at
+    // that time instead, as a ?t= link does on YouTube: no play-then-seek at all.
+    val openAtMs = remember(loadId, forbiddenRetries) {
         if (startPositionMs > 0L && (sourceAudioUrl != null || "/manifest/" in sourceUrl)) startPositionMs else 0L
     }
 
@@ -156,7 +156,7 @@ actual fun MusicPlayerSurface(
             sourceAudioUrl = sourceAudioUrl,
             sourceHeaders = source.headers,
             playWhenReady = playWhenReady,
-            initialPositionMs = if (deferStartMs > 0L) 0L else startPositionMs,
+            initialPositionMs = if (openAtMs > 0L) 0L else startPositionMs,
             nvidiaRtxSuperResolutionEnabled = false,
             nvidiaRtxHdrEnabled = false,
             animeSvpEnabled = false,
@@ -176,13 +176,17 @@ actual fun MusicPlayerSurface(
             controlsPageUrlSuffix = "?heroTrailer=1&chromeless=1",
             // fork:alternate-upload — an upload standing in for album audio is quieter; it and everything else
             // goes to the shared loudness, set as an init option so the first audio frame already has it.
-            initMpvOptions = listOf(
-                "volume=${volume.coerceIn(0, 100)}",
-                "af=$MUSIC_LOUDNESS_FILTER",
-            ),
+            initMpvOptions = buildList {
+                add("volume=${volume.coerceIn(0, 100)}")
+                add("af=$MUSIC_LOUDNESS_FILTER")
+                // Set on the new instance itself (attach swaps the native player on a worker thread), so it applies to
+                // this load's open and nothing else.
+                if (openAtMs > 0L) add("start=${formatMpvSeconds(openAtMs)}")
+                // Bounded range requests, so opening part way in does not stall (see youtubeStreamMpvOptions).
+                addAll(com.nuvio.app.features.home.components.youtubeStreamMpvOptions(sourceUrl))
+            },
         )
         controller.setMpvProperty("panscan", if (letterbox) "0.0" else "1.0")
-        if (deferStartMs > 0L) controller.setMuted(true)
     }
 
     // A thumbnail fills its frame (cropped); a big view shows the whole picture.
@@ -210,18 +214,15 @@ actual fun MusicPlayerSurface(
 
     // playWhenReady is read through this so a pause does not restart the poll (and the watchdog).
     val latestPlayWhenReady = rememberUpdatedState(playWhenReady)
-    LaunchedEffect(controller, loadId, forbiddenRetries, deferStartMs) {
+    LaunchedEffect(controller, loadId, forbiddenRetries) {
         var endedReported = false
         var readyReported = false
         // mpv's end-of-file flag outlives the file: the first polls of a new load can still read the previous
         // track's "ended", which advanced the queue a second time and skipped every other track. A load only
         // counts as ended once it has been seen not ended (a load stuck on that flag is the watchdog's to catch).
         var seenUnended = false
-        var pendingStartMs = deferStartMs
-        // The first polls after an attach still read the stream that was playing before (it was at, say, 0:40): the jump
-        // fired on that within a few milliseconds, before the new file had opened, and was lost, so the video restarted at
-        // 0:00. It now waits until this load is seen at its own start (loading, or under a second in) and then playing.
-        var freshStartSeen = false
+        if (openAtMs > 0L) log.i { "load $loadId: opening at ${openAtMs}ms" }
+        var openLogged = openAtMs == 0L
         val attachedAt = System.currentTimeMillis()
         // A googlevideo stream can hang "reconnecting" with no error and no end of file, which held
         // the player on a frozen frame (or a spinner) for good. No progress for a while is treated as
@@ -237,17 +238,13 @@ actual fun MusicPlayerSurface(
                 log.w { "load $loadId stalled for ${stuckMs}ms at ${snapshot.positionMs}ms" }
                 latestOnError.value(loadId)
             }
-            if (snapshot.isLoading || snapshot.positionMs < FRESH_START_MS) freshStartSeen = true
-            val ownPlayback = freshStartSeen && snapshot.isPlaying && snapshot.positionMs >= 150L &&
-                System.currentTimeMillis() - attachedAt >= MIN_JUMP_DELAY_MS
-            if (pendingStartMs > 0L && ownPlayback) {
-                log.i { "load $loadId: playing, jumping to ${pendingStartMs}ms" }
-                controller.seekTo(pendingStartMs)
-                pendingStartMs = 0L
-                delay(350)
-                controller.setMuted(false)
+            // How long an open part way in takes to play, for comparing against the old jump in the log.
+            // Near the target only: the first polls can still read the previous track's position.
+            if (!openLogged && snapshot.isPlaying && snapshot.positionMs in (openAtMs - OPEN_AT_SLACK_MS)..(openAtMs + OPEN_AT_SLACK_MS)) {
+                openLogged = true
+                log.i { "load $loadId: playing at ${snapshot.positionMs}ms after ${System.currentTimeMillis() - attachedAt}ms" }
             }
-            if (pendingStartMs == 0L) latestOnSnapshot.value(loadId, snapshot)
+            latestOnSnapshot.value(loadId, snapshot)
             if (!snapshot.isEnded) seenUnended = true
             if (snapshot.isEnded && seenUnended && !endedReported) {
                 endedReported = true
@@ -273,6 +270,8 @@ actual fun MusicPlayerSurface(
     }
 }
 
-/** A deferred start only jumps once its load was seen this near its own beginning, and no sooner than this after attaching. */
-private const val FRESH_START_MS = 1_000L
-private const val MIN_JUMP_DELAY_MS = 400L
+/** An open part way in can land a few seconds short of its time (on a keyframe); that still counts as there. */
+private const val OPEN_AT_SLACK_MS = 10_000L
+
+/** mpv's start option in seconds, with a decimal point whatever the locale. */
+private fun formatMpvSeconds(ms: Long): String = "${ms / 1000}.${(ms % 1000).toString().padStart(3, '0')}"

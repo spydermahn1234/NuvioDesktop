@@ -1067,6 +1067,8 @@
     <string name="settings_appearance_app_font_none_installed">No installed fonts could be listed.</string>
     <string name="settings_appearance_app_font_no_matches">No installed font matches that name.</string>
     <string name="settings_appearance_app_font_preview">The quick brown fox jumps over the lazy dog</string>
+    <string name="settings_appearance_app_font_scale">App Font Size</string>
+    <string name="settings_appearance_app_font_scale_description">Resizes text in a chosen font so it takes up about as much room as the bundled one. Needs a font other than the default.</string>
     <string name="settings_appearance_app_font_player_note">Also restyles the player controls; open a video again to see it there.</string>
     <string name="settings_appearance_app_language">App Language</string>
     <string name="settings_appearance_app_language_sheet_title">Choose Language</string>
@@ -4140,6 +4142,8 @@
     <string name="shortcut_app_open_discover">Open Discover (toggle back to Home)</string>
     <string name="shortcut_app_open_calendar">Open Calendar</string>
     <string name="shortcut_app_open_live_tv">Open Live TV (toggle back to Home)</string>
+    <string name="shortcut_app_open_music">Open Music (toggle back to Home)</string>
+    <string name="shortcut_app_focus_music_player">Focus the music player (again to go back)</string>
     <string name="shortcut_app_toggle_trailer">Play / dismiss focused trailer</string>
     <string name="shortcut_app_toggle_trailer_mute">Toggle trailer mute</string>
     <string name="shortcut_app_toggle_people_panel">Swap Starring / Production in hero</string>

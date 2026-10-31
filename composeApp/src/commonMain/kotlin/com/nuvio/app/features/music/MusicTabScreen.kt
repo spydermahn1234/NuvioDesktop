@@ -1,5 +1,7 @@
 package com.nuvio.app.features.music
 
+import com.nuvio.app.core.ui.collectIsKeyboardFocusedAsState
+import com.nuvio.app.features.music.library.musicKeyFocusRing
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.window.Popup
@@ -33,6 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +44,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.nuvio.app.core.ui.arrowFocusDirection
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.nuvio
@@ -81,6 +88,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -110,10 +119,14 @@ import com.nuvio.app.features.settings.settingsSkyBackground
 import kotlinx.coroutines.CancellationException
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.SmartDisplay
+import com.nuvio.app.core.ui.NuvioToastController
+import com.nuvio.app.core.ui.secondaryClick
 import androidx.compose.material.icons.rounded.QueueMusic
 import kotlinx.coroutines.delay
 
-private enum class MusicSearchKind { Albums, Artists }
+/** fork:music-youtube - [YouTube] searches plain YouTube for the query as typed, for songs YouTube Music has no album for. */
+private enum class MusicSearchKind { Albums, Artists, YouTube }
 
 private enum class MusicSection { Search, Library }
 
@@ -139,6 +152,42 @@ private object MusicTabState {
 
     /** True while the top bar holds the box, so the tab leaves its own out. */
     var barHosted by mutableStateOf(false)
+
+    /** The page under the box (the Library's view, the start screen or the results): Escape and Enter go there. */
+    val bodyFocus = FocusRequester()
+
+    /** The row of icons under the box (the Library's views, or Search's kinds): Down from the box and its buttons. */
+    val pillsFocus = FocusRequester()
+
+    /** Down from the bar: onto that row. */
+    fun focusPills(): Boolean = runCatching { pillsFocus.requestFocus() }.getOrDefault(false)
+
+    /** Enter was pressed before the results came in: they take focus when they arrive. */
+    var focusResultsWhenReady by mutableStateOf(false)
+}
+
+/** fork:music-navbar - the recent searches the bar-hosted box offers, highlighted row [picked] (-1 for none). */
+class MusicBarSuggestions(
+    val items: List<String>,
+    val picked: Int,
+    val onPick: (String) -> Unit,
+)
+
+/**
+ * fork:music-navbar - what the app's top bar needs from the Music search box it hosts: the recent searches to hang
+ * under the bar (drawn by the bar, like its own search history), and the search shortcut, which focuses this box.
+ */
+object MusicTopBarSearch {
+    var suggestions by mutableStateOf<MusicBarSuggestions?>(null)
+        internal set
+
+    internal var focusRequests by mutableIntStateOf(0)
+        private set
+
+    /** The search key on the Music tab: into the Music box rather than the video search. */
+    fun requestFocus() {
+        focusRequests++
+    }
 }
 
 /**
@@ -153,7 +202,7 @@ fun MusicTopBarContent(onLeave: () -> Unit, modifier: Modifier = Modifier) {
         onDispose { MusicTabState.barHosted = false }
     }
     Row(
-        modifier.fillMaxWidth().padding(end = 6.dp),
+        modifier.fillMaxWidth().padding(end = 6.dp).musicKeyboardRoot(takeFocus = false),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // The swap button is centred on the pill's rounded end, not on the box from the edge to the divider: the curve
@@ -164,7 +213,9 @@ fun MusicTopBarContent(onLeave: () -> Unit, modifier: Modifier = Modifier) {
                 description = "Back to the main bar",
                 active = false,
                 onClick = onLeave,
-                modifier = Modifier.padding(start = 10.dp, end = 4.dp),
+                modifier = Modifier
+                    .padding(start = 10.dp, end = 4.dp)
+                    .onKeyEvent { arrowFocusDirection(it) == FocusDirection.Down && MusicTabState.focusPills() },
             )
         }
         MusicFieldDivider()
@@ -180,6 +231,32 @@ private fun MusicSearchBox(chromeless: Boolean, modifier: Modifier = Modifier) {
     val library = state.section == MusicSection.Library
     // In the Library the filter icon turns the box into the Library's filter, the same box on every view.
     val filterMode = library && state.filtering
+    val fieldFocus = remember { FocusRequester() }
+    // The buttons at the box's right end, in order. They sit inside the text field, which takes the arrow keys bubbling
+    // up from them as cursor moves, so each button moves focus along the row itself: Left from the first goes back to
+    // the box, Right from the last goes nowhere.
+    val buttonFocus = remember { List(3) { FocusRequester() } }
+    val trailingFocus = buttonFocus[0]
+    val buttonCount = if (library) 3 else 1
+    fun trailingButton(index: Int) = Modifier
+        .focusRequester(buttonFocus[index])
+        .onKeyEvent { event ->
+            when (arrowFocusDirection(event)) {
+                // A disabled button (Refresh while nothing can refresh) takes no focus: the move goes on past it.
+                FocusDirection.Left -> {
+                    val targets = (index - 1 downTo 0).map { buttonFocus[it] } + fieldFocus
+                    targets.firstOrNull { runCatching { it.requestFocus() }.getOrDefault(false) }
+                    true
+                }
+                FocusDirection.Right -> {
+                    (index + 1 until buttonCount).map { buttonFocus[it] }
+                        .firstOrNull { runCatching { it.requestFocus() }.getOrDefault(false) }
+                    true
+                }
+                FocusDirection.Down -> MusicTabState.focusPills()
+                else -> false
+            }
+        }
     MusicGlassField(
         value = if (filterMode) state.libraryFilter else state.query,
         onValueChange = {
@@ -200,6 +277,8 @@ private fun MusicSearchBox(chromeless: Boolean, modifier: Modifier = Modifier) {
             state.query = it
             state.section = MusicSection.Search
         },
+        fieldFocus = fieldFocus,
+        trailingFocus = trailingFocus,
     ) {
         MusicFieldDivider()
         if (library) {
@@ -212,6 +291,7 @@ private fun MusicSearchBox(chromeless: Boolean, modifier: Modifier = Modifier) {
                     state.filtering = !state.filtering
                     if (!state.filtering) state.libraryFilter = ""
                 },
+                modifier = trailingButton(0),
             )
             MusicFieldIconButton(
                 icon = Icons.Rounded.Refresh,
@@ -219,6 +299,7 @@ private fun MusicSearchBox(chromeless: Boolean, modifier: Modifier = Modifier) {
                 active = false,
                 enabled = libraryState.artists.isNotEmpty() && libraryState.working.isEmpty(),
                 onClick = { MusicLibraryRepository.refreshAll() },
+                modifier = trailingButton(1),
             )
         }
         MusicFieldIconButton(
@@ -226,6 +307,7 @@ private fun MusicSearchBox(chromeless: Boolean, modifier: Modifier = Modifier) {
             description = if (library) "Back to search" else "Your library",
             active = library,
             onClick = { state.section = if (library) MusicSection.Search else MusicSection.Library },
+            modifier = trailingButton(if (library) 2 else 0),
         )
     }
 }
@@ -234,6 +316,7 @@ private fun MusicSearchBox(chromeless: Boolean, modifier: Modifier = Modifier) {
 private fun MusicSearchResults.answers(kind: MusicSearchKind): Boolean = when (this) {
     is MusicSearchResults.Albums -> kind == MusicSearchKind.Albums
     is MusicSearchResults.Artists -> kind == MusicSearchKind.Artists
+    is MusicSearchResults.Videos -> kind == MusicSearchKind.YouTube
     else -> false
 }
 
@@ -244,6 +327,7 @@ private sealed interface MusicSearchResults {
     data object Failed : MusicSearchResults // the search itself could not run (offline, YouTube Music unreachable), as opposed to Empty
     data class Albums(val items: List<MusicAlbumSummary>) : MusicSearchResults
     data class Artists(val items: List<MusicArtistSummary>) : MusicSearchResults
+    data class Videos(val items: List<MusicTrack>) : MusicSearchResults // fork:music-youtube
 }
 
 private const val MIN_QUERY_LENGTH = 2
@@ -280,7 +364,9 @@ fun MusicTabScreen(
     var ladder by remember { mutableStateOf<LadderRequest?>(null) } // fork:music - the open ladder, if any
     var libraryView by rememberSaveable { mutableStateOf(LibraryView.Shelf) }
     // A search typed into the top bar while a ladder is open is meant to be seen.
-    LaunchedEffect(query) { if (query.isNotBlank()) ladder = null }
+    LaunchedEffect(query) {
+        if (query.isNotBlank()) ladder = null else MusicTabState.focusResultsWhenReady = false
+    }
 
     // Restarts on every keystroke or kind change, so the delay is the typing pause.
     LaunchedEffect(query, kind, attempt) {
@@ -300,6 +386,9 @@ fun MusicTabScreen(
                 }
                 MusicSearchKind.Artists -> catalog.searchArtists(q).let {
                     if (it.isEmpty()) MusicSearchResults.Empty else MusicSearchResults.Artists(it)
+                }
+                MusicSearchKind.YouTube -> catalog.searchYouTube(q).let {
+                    if (it.isEmpty()) MusicSearchResults.Empty else MusicSearchResults.Videos(it)
                 }
             }
         } catch (e: CancellationException) {
@@ -357,11 +446,14 @@ fun MusicTabScreen(
                 val libraryState by MusicLibraryRepository.state.collectAsState()
                 // The views as icons, the way Discover's row header shows its filters; the one in use is lit.
                 Row(
+                    modifier = Modifier.focusRequester(MusicTabState.pillsFocus),
                     horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    LIBRARY_VIEW_ICONS.forEach { (view, icon, label) ->
-                        BrowseFilterIconAction(icon, label, on = libraryView == view) { libraryView = view }
+                    LIBRARY_VIEW_ICONS.forEachIndexed { index, (view, icon, label) ->
+                        Box(Modifier.rowEndStops(first = index == 0, last = index == LIBRARY_VIEW_ICONS.lastIndex)) {
+                            BrowseFilterIconAction(icon, label, on = libraryView == view) { libraryView = view }
+                        }
                     }
                 }
                 // fork:music - the Constellation's thin spots: genres you tag but barely own, each a ladder into it.
@@ -384,12 +476,18 @@ fun MusicTabScreen(
             }
             if (section == MusicSection.Search) {
                 Row(
+                    modifier = Modifier.focusRequester(MusicTabState.pillsFocus),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // The kinds as icons, like the Library's views above them; the one in use is lit.
-                    BrowseFilterIconAction(Icons.Rounded.Album, "Albums", on = kind == MusicSearchKind.Albums) { kind = MusicSearchKind.Albums }
+                    Box(Modifier.rowEndStops(first = true, last = false)) {
+                        BrowseFilterIconAction(Icons.Rounded.Album, "Albums", on = kind == MusicSearchKind.Albums) { kind = MusicSearchKind.Albums }
+                    }
                     BrowseFilterIconAction(Icons.Rounded.Person, "Artists", on = kind == MusicSearchKind.Artists) { kind = MusicSearchKind.Artists }
+                    BrowseFilterIconAction(Icons.Rounded.SmartDisplay, "YouTube: songs not on an album", on = kind == MusicSearchKind.YouTube) {
+                        kind = MusicSearchKind.YouTube
+                    }
                     // fork:music - the first result's ladders, as short pills beside the kind
                     val offers = when (val shown = results) {
                         is MusicSearchResults.Albums -> {
@@ -412,13 +510,13 @@ fun MusicTabScreen(
 
         if (section == MusicSection.Library) {
             if (libraryView == LibraryView.Playlists) {
-                com.nuvio.app.features.music.playlist.PlaylistsView(onOpenPlaylist = onPlaylistClick, modifier = Modifier.weight(1f).fillMaxWidth())
+                com.nuvio.app.features.music.playlist.PlaylistsView(onOpenPlaylist = onPlaylistClick, modifier = Modifier.weight(1f).fillMaxWidth().focusRequester(MusicTabState.bodyFocus))
                 return@Column
             }
             MusicLibraryShelf(
                 onArtistClick = onArtistClick,
                 onAlbumClick = onAlbumClick,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                modifier = Modifier.weight(1f).fillMaxWidth().focusRequester(MusicTabState.bodyFocus),
                 onOpenLadder = { ladder = it }, // fork:music
                 view = libraryView,
                 filterQuery = if (filtering) libraryFilter else "",
@@ -439,14 +537,14 @@ fun MusicTabScreen(
                 SearchStartView(
                     recent = recent, starters = starters, continues = continues, tiles = tiles,
                     onRecent = { query = it }, onLadder = { ladder = it }, onGenre = { query = it },
-                    modifier = Modifier.weight(1f), art = startArtwork,
+                    modifier = Modifier.weight(1f).focusRequester(MusicTabState.bodyFocus), art = startArtwork,
                 )
                 return@Column
             }
         }
 
         when (val shown = results) {
-            MusicSearchResults.Idle -> MusicMessage("Search for an album or an artist.")
+            MusicSearchResults.Idle -> MusicMessage("Search for an album, an artist, or a song on YouTube.")
             MusicSearchResults.Loading -> Box(Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = colors.accent)
             }
@@ -464,6 +562,11 @@ fun MusicTabScreen(
             is MusicSearchResults.Artists -> MusicResultGrid(Modifier.weight(1f)) {
                 items(shown.items, key = { it.browseId }) { artist ->
                     MusicArtistTile(artist, onClick = { onArtistClick(artist.browseId) })
+                }
+            }
+            is MusicSearchResults.Videos -> MusicResultGrid(Modifier.weight(1f)) {
+                items(shown.items, key = { it.videoId }) { track ->
+                    MusicVideoTile(track)
                 }
             }
         }
@@ -509,6 +612,9 @@ private fun MusicGlassField(
     /** Recent searches, offered in a panel under the empty box while it has focus (like the top bar's search). */
     suggestions: List<String> = emptyList(),
     onSuggestion: (String) -> Unit = {},
+    /** The box's own focus, and the first button in [trailing] (Right from an empty box goes there). */
+    fieldFocus: FocusRequester = remember { FocusRequester() },
+    trailingFocus: FocusRequester? = null,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
     val query = value
@@ -521,12 +627,38 @@ private fun MusicGlassField(
     var fieldWidthPx by remember { mutableIntStateOf(0) }
     var picked by remember(suggestions) { mutableIntStateOf(-1) }
     val showSuggestions = focused && query.isEmpty() && suggestions.isNotEmpty()
+    // On the top bar the bar draws the recent searches itself, attached under it like its own search history.
+    if (chromeless) {
+        val published = if (showSuggestions) MusicBarSuggestions(suggestions, picked, onSuggestion) else null
+        SideEffect { MusicTopBarSearch.suggestions = published }
+        DisposableEffect(Unit) { onDispose { MusicTopBarSearch.suggestions = null } }
+    }
+    // The search shortcut focuses the box. Requests made before this box existed are not replayed, and the key's own
+    // "s" is kept out of the empty box it just focused.
+    val focusRequester = fieldFocus
+    var handledFocusRequests by remember { mutableIntStateOf(MusicTopBarSearch.focusRequests) }
+    var swallowActivationKey by remember { mutableStateOf(false) }
+    LaunchedEffect(MusicTopBarSearch.focusRequests) {
+        if (MusicTopBarSearch.focusRequests == handledFocusRequests) return@LaunchedEffect
+        handledFocusRequests = MusicTopBarSearch.focusRequests
+        swallowActivationKey = true
+        runCatching { focusRequester.requestFocus() }
+        delay(150)
+        swallowActivationKey = false
+    }
     Box(modifier) {
     BasicTextField(
         value = query,
-        onValueChange = onQueryChange,
+        onValueChange = { next ->
+            if (swallowActivationKey && query.isEmpty() && next.length == 1) {
+                swallowActivationKey = false
+            } else {
+                onQueryChange(next)
+            }
+        },
         modifier = Modifier
             .fillMaxWidth()
+            .focusRequester(focusRequester)
             .onSizeChanged { fieldWidthPx = it.width }
             .height(44.dp)
             .then(
@@ -565,10 +697,42 @@ private fun MusicGlassField(
                         else -> Unit
                     }
                 }
+                // The buttons at the box's right end sit inside the field, so their keys pass through here too: what
+                // follows is for the box's own text only.
+                if (!focused) return@onPreviewKeyEvent false
+                // Down leaves the box for the row of icons under it (the field would take it as a cursor move).
+                if (event.key == Key.DirectionDown && event.type == KeyEventType.KeyDown && MusicTabState.focusPills()) {
+                    return@onPreviewKeyEvent true
+                }
+                // An empty box has no cursor to move: Left and Right go on to the buttons either side of it.
+                if (query.isEmpty() && event.type == KeyEventType.KeyDown) {
+                    when (event.key) {
+                        Key.DirectionLeft -> {
+                            focusManager.moveFocus(FocusDirection.Left)
+                            return@onPreviewKeyEvent true
+                        }
+                        Key.DirectionRight -> {
+                            if (trailingFocus != null) runCatching { trailingFocus.requestFocus() }
+                            return@onPreviewKeyEvent true
+                        }
+                        else -> Unit
+                    }
+                }
+                // Backspace in an empty box is the app's Back, as everywhere else; there is nothing to delete.
+                if (query.isEmpty() && event.key == Key.Backspace) {
+                    if (event.type == KeyEventType.KeyDown) com.nuvio.app.core.ui.DesktopNavigationGestureBridge.requestBack()
+                    return@onPreviewKeyEvent true
+                }
+                // Enter takes the keyboard to the results (now, or as soon as they come in).
+                if ((event.key == Key.Enter || event.key == Key.NumPadEnter) && query.isNotBlank()) {
+                    if (event.type == KeyEventType.KeyDown) MusicTabState.focusResultsWhenReady = true
+                    return@onPreviewKeyEvent true
+                }
                 if (event.key != Key.Escape) return@onPreviewKeyEvent false
+                // Escape clears the box and puts the keyboard back on the page under it, rather than nowhere.
                 if (event.type == KeyEventType.KeyUp) {
                     onQueryChange("")
-                    focusManager.clearFocus()
+                    if (!runCatching { MusicTabState.bodyFocus.requestFocus() }.getOrDefault(false)) focusManager.clearFocus()
                 }
                 true
             },
@@ -599,14 +763,14 @@ private fun MusicGlassField(
                         Icons.Rounded.Close,
                         contentDescription = "Clear search",
                         tint = tokens.colors.textMuted,
-                        modifier = Modifier.size(20.dp).clip(CircleShape).clickable { onQueryChange("") },
+                        modifier = Modifier.size(20.dp).clip(CircleShape).musicKeyFocusRing(CircleShape).clickable { onQueryChange("") },
                     )
                 }
                 trailing()
             }
         },
     )
-    if (showSuggestions) {
+    if (showSuggestions && !chromeless) {
         val density = LocalDensity.current
         Popup(
             alignment = Alignment.TopStart,
@@ -648,7 +812,7 @@ private fun MusicRecentPanel(items: List<String>, picked: Int, onPick: (String) 
                     .clip(RoundedCornerShape(percent = 50))
                     .background(if (hovered || index == picked) Color.White.copy(alpha = 0.07f) else Color.Transparent)
                     .hoverable(source)
-                    .clickable(interactionSource = source, indication = null) { onPick(text) }
+                    .musicKeyFocusRing(RoundedCornerShape(percent = 50)).clickable(interactionSource = source, indication = null) { onPick(text) }
                     .padding(horizontal = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -681,7 +845,7 @@ private fun MusicFieldIconButton(
             .size(32.dp)
             .clip(CircleShape)
             .background(if (active) tokens.colors.accent.copy(alpha = 0.22f) else Color.Transparent)
-            .clickable(enabled = enabled, onClick = onClick),
+            .musicKeyFocusRing(CircleShape).clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -704,7 +868,7 @@ private fun MusicGlassPill(label: String, selected: Boolean, accent: Boolean = f
     val shape = RoundedCornerShape(16.dp)
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    val keyFocused by interaction.collectIsFocusedAsState()
+    val keyFocused by interaction.collectIsKeyboardFocusedAsState()
     Text(
         text = label,
         style = MaterialTheme.typography.labelLarge,
@@ -722,10 +886,29 @@ private fun MusicGlassPill(label: String, selected: Boolean, accent: Boolean = f
     )
 }
 
+/** The Music tab's page body, where the keyboard lands when the tab opens. */
+internal fun musicTabBodyFocus(): FocusRequester = MusicTabState.bodyFocus
+
+/** Left out of the first of a row of icons, or Right out of the last, goes nowhere. */
+private fun Modifier.rowEndStops(first: Boolean, last: Boolean): Modifier = onKeyEvent { event ->
+    val direction = arrowFocusDirection(event)
+    (first && direction == FocusDirection.Left) || (last && direction == FocusDirection.Right)
+}
+
 /** Search results as a centred grid of covers. */
 @Composable
 private fun MusicResultGrid(modifier: Modifier, content: LazyGridScope.() -> Unit) {
-    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+    LaunchedEffect(MusicTabState.focusResultsWhenReady) {
+        if (!MusicTabState.focusResultsWhenReady) return@LaunchedEffect
+        repeat(8) {
+            delay(40)
+            if (runCatching { MusicTabState.bodyFocus.requestFocus() }.getOrDefault(false)) {
+                MusicTabState.focusResultsWhenReady = false
+                return@LaunchedEffect
+            }
+        }
+    }
+    Box(modifier.fillMaxWidth().focusRequester(MusicTabState.bodyFocus), contentAlignment = Alignment.TopCenter) {
         LazyVerticalGrid(
             columns = GridCells.Adaptive(MUSIC_TILE_MIN_WIDTH),
             modifier = Modifier.widthIn(max = MUSIC_GRID_MAX_WIDTH).fillMaxSize(),
@@ -752,6 +935,20 @@ private fun MusicAlbumTile(album: MusicAlbumSummary, onClick: () -> Unit) {
     ) { MusicCoverFill(album.thumbnailUrl, album.title, circle = false) }
 }
 
+/** fork:music-youtube - a YouTube hit: a click plays it on its own, a right click puts it after what is queued. */
+@Composable
+private fun MusicVideoTile(track: MusicTrack) {
+    MusicTile(
+        title = track.title,
+        subtitle = track.artists.firstOrNull()?.name,
+        badge = youTubeLengthLabel(track.durationSeconds),
+        onClick = { MusicPlayback.player.play(youTubeSingleAlbum(track)) },
+        onSecondary = {
+            if (MusicPlayback.player.enqueue(youTubeSingleAlbum(track))) NuvioToastController.show("Queued ${track.title}")
+        },
+    ) { MusicCoverFill(track.coverUrl, track.title, circle = false) }
+}
+
 @Composable
 private fun MusicArtistTile(artist: MusicArtistSummary, onClick: () -> Unit) {
     MusicTile(title = artist.name, subtitle = null, badge = null, centred = true, onClick = onClick) {
@@ -769,18 +966,20 @@ private fun MusicTile(
     badge: String?,
     onClick: () -> Unit,
     centred: Boolean = false,
+    onSecondary: (() -> Unit)? = null,
     artwork: @Composable () -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    val keyFocused by interaction.collectIsFocusedAsState()
+    val keyFocused by interaction.collectIsKeyboardFocusedAsState()
     val scale by animateFloatAsState(if (hovered || keyFocused) 1.03f else 1f, label = "musicTileScale")
     val shape = RoundedCornerShape(10.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .hoverable(interaction)
+            .secondaryClick(onSecondary)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start,
     ) {
