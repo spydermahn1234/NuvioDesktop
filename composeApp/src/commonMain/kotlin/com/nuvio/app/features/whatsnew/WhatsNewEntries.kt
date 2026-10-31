@@ -6,6 +6,23 @@ package com.nuvio.app.features.whatsnew
  * sentence. This list is plain Kotlin rather than string resources on purpose: the resources are
  * shared with upstream in many languages and conflict on every merge, and this file is the fork's own.
  *
- * Empty until the first real entries land.
+ * Numbers only go up and are never reused: the app remembers the highest one it has shown.
  */
-internal val whatsNewEntries: List<WhatsNewEntry> = emptyList()
+internal val whatsNewEntries: List<WhatsNewEntry> = listOf(
+    WhatsNewEntry(
+        number = 1,
+        title = "Previously on",
+        pitch = "Before an episode, short cards recap the last one you watched, then a quick quiz. Turn it on in Settings, Pre-show.",
+    ),
+    WhatsNewEntry(
+        number = 2,
+        title = "Post-show cards",
+        pitch = "When a film's credits start, it shrinks into a corner and cards explain the ending. Turn it on in Settings, Pre-show.",
+    ),
+    WhatsNewEntry(
+        number = 3,
+        title = "Word-by-word lyrics",
+        pitch = "Lyrics sweep word by word, like karaoke, when a song has word timing. More sources can be switched on in Music settings.",
+        weight = WhatsNewWeight.Spotlight,
+    ),
+)

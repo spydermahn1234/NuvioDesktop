@@ -445,6 +445,7 @@ import com.nuvio.app.features.watchprogress.opensDetails
 import com.nuvio.app.features.watchprogress.toContinueWatchingItem
 import com.nuvio.app.features.watching.application.WatchingActions
 import com.nuvio.app.features.watching.application.WatchingState
+import com.nuvio.app.features.whatsnew.WhatsNewHost
 import io.ktor.http.Url
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -5442,6 +5443,13 @@ private fun MainAppContent(
                     selectedTab = AppScreenTab.Home
                 },
             )
+
+            // The "What's new" cards: last in StartupOverlayCoordinator, so the wizard, the key prompt
+            // and the updater all go first. Only over the tabs (never a player or a details page) and
+            // never over game mode; nothing is marked seen until the cards have been shown and closed.
+            WhatsNewHost(
+                canShow = currentBackStackEntry?.destination?.hasRoute<TabsRoute>() == true && !gameModeActive,
+            ) // fork:whatsnew
 
             // Game mode sits on top of a still-composed app rather than replacing it, so toggling
             // back lands on exactly the row and scroll position the user left. The wrapper is a
