@@ -426,7 +426,7 @@ private fun MusicNowPlayingScreen(
                     Column(
                         // Under a video nothing is held back for the cut-out (it is small, in the corner), so the picture is centred on the
                         // area right of the sidebar column rather than shifted left of it.
-                        Modifier.weight(1f).fillMaxSize().padding(end = if (cutout != null && !realVideo) 200.dp else 0.dp),
+                        Modifier.weight(1f).fillMaxSize().padding(end = if (cutout != null && !realVideo) CUTOUT_CLEARANCE else 0.dp),
                         // Under a video the column is centred: the picture, then the lyric strip beneath it.
                         horizontalAlignment = if (realVideo) Alignment.CenterHorizontally else Alignment.Start,
                     ) {
@@ -628,6 +628,12 @@ private fun StageLogo(url: String?, name: String, maxHeight: Dp = 72.dp, maxWidt
         Text(name, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
+
+/**
+ * Room kept free of lyrics on the right when the artist's cut-out stands there. The cut-out is up to 460.dp wide and fades in over its
+ * left third, so what is solid starts about 300.dp in; the lyrics (and the sync status under them) stop short of it.
+ */
+private val CUTOUT_CLEARANCE = 300.dp
 
 /** The artist cut out on nothing, standing in front of the backdrop and fading into it on the left. */
 @Composable
