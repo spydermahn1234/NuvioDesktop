@@ -80,11 +80,9 @@ internal fun loudFaceWidthFactor(face: Int): Float = if (face == 2) 1.12f else 1
 internal fun loudChunks(wordLengths: List<Int>): List<List<Int>> {
     val n = wordLengths.size
     if (n == 0) return emptyList()
-    val k = when {
-        n <= 2 -> n
-        n <= 5 -> 2
-        else -> 3
-    }
+    // A word or two: each is its own chunk (the length rule below never reaches its threshold for so few).
+    if (n <= 2) return List(n) { listOf(it) }
+    val k = if (n <= 5) 2 else 3
     val target = wordLengths.sum().toFloat() / k
     val out = mutableListOf<List<Int>>()
     var current = mutableListOf<Int>()
