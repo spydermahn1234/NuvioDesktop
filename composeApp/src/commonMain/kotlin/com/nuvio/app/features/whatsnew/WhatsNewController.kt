@@ -56,7 +56,43 @@ internal object WhatsNewController {
         _uiState.update { it.back() }
     }
 
+    private var pendingReturn: WhatsNewReturn? = null
+
+    /**
+     * "Set it up": close the cards as usual (everything counts as seen), but remember where they
+     * were so they come back when the person leaves [page]. Call before opening the page.
+     */
+    fun closeToSettingsPage(page: String) {
+        val resume = _uiState.value
+        close()
+        pendingReturn = if (resume.visible) WhatsNewReturn(page = page, resume = resume) else null
+    }
+
+    /** Settings reports the page it is showing. */
+    fun onSettingsPage(currentPage: String) {
+        val pending = pendingReturn ?: return
+        apply(whatsNewReturnOnPage(pending, currentPage))
+    }
+
+    /** The Settings tab was left. */
+    fun onSettingsTabLeft() {
+        val pending = pendingReturn ?: return
+        apply(whatsNewReturnOnTabLeft(pending))
+    }
+
+    private fun apply(step: WhatsNewReturnStep) {
+        when (step) {
+            is WhatsNewReturnStep.Wait -> pendingReturn = step.pending
+            is WhatsNewReturnStep.Resume -> {
+                pendingReturn = null
+                // Not over a card screen that is already up (the person opened it from Settings).
+                if (!_uiState.value.visible) _uiState.value = step.state
+            }
+        }
+    }
+
     fun close() {
+        pendingReturn = null
         if (!_uiState.value.visible) return
         if (isDesktop) {
             WhatsNewStorage.setLastSeen(lastSeenAfterClosing(whatsNewEntries, WhatsNewStorage.lastSeen()))

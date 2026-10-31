@@ -273,9 +273,14 @@ private fun WhatsNewDialog(state: WhatsNewUiState, onOpenSettingsPage: (String) 
                                         toggle?.turnOn?.invoke()
                                     } else {
                                         // Closing records every card as seen, then the page opens.
+                                        // The cards come back when the person leaves that page.
                                         val page = whatsNewSettingsPage(action)
-                                        WhatsNewController.close()
-                                        if (page != null) onOpenSettingsPage(page)
+                                        if (page != null) {
+                                            WhatsNewController.closeToSettingsPage(page)
+                                            onOpenSettingsPage(page)
+                                        } else {
+                                            WhatsNewController.close()
+                                        }
                                     }
                                 },
                             )
