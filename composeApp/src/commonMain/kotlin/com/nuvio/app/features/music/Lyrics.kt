@@ -461,7 +461,19 @@ object LyricsRepository {
             val amll = if (settings.amllLyrics) async { remembered("amll", id) { AmllLyricsClient.find(title, artist, seconds) } } else null
             val netease = if (settings.neteaseLyrics) async { remembered("netease", id) { NeteaseLyricsClient.find(title, artist, seconds) } } else null
             val lrcMux = if (settings.lrcMuxLyrics) async { remembered("lrcmux", id) { LrcMuxLyricsClient.find(title, artist, seconds) } } else null
-            listOfNotNull(unison?.await(), amll?.await(), netease?.await(), lrcMux?.await())
+            val inOrder = listOfNotNull(unison, amll, netease, lrcMux)
+            // Best first: the first word-timed answer wins, so once one is in, the sources after it are not waited for
+            // (a slow one would hold the lyrics back by its whole time limit) and not asked at all if still running.
+            val answers = ArrayList<Lyrics.Synced>(inOrder.size)
+            for ((position, source) in inOrder.withIndex()) {
+                val answer = source.await()
+                if (answer != null) answers += answer
+                if (answer?.isWordTimed == true) {
+                    for (later in inOrder.drop(position + 1)) later.cancel()
+                    break
+                }
+            }
+            answers
         }
     }
 

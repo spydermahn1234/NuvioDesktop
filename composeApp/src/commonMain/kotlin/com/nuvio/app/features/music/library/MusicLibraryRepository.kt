@@ -10,6 +10,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -99,6 +100,9 @@ data class MusicLibraryState(
                 .firstOrNull { artist -> artist.releases.any { it.ytBrowseId == browseId } }
 }
 
+/** How long a burst of library writes (a fill-in, palettes) is gathered into one save. */
+internal const val LIBRARY_PERSIST_DELAY_MS = 1_500L
+
 /** An artist whose top albums could not be ranked is asked about again after this long. */
 private const val TOP_RECHECK_MS = 7L * 24 * 60 * 60 * 1000
 
@@ -154,6 +158,8 @@ object MusicLibraryRepository {
     fun ensureLoaded() {
         val profileId = ProfileRepository.activeProfileId
         if (loadedProfileId == profileId) return
+        // The outgoing profile's last change lands before its artists are swapped out.
+        if (loadedProfileId != null) flushPendingPersist()
         loadedProfileId = profileId
         val artists = MusicLibraryStorage.loadLibrary(profileId)
             ?.let { runCatching { json.decodeFromString<StoredMusicLibrary>(it).artists }.getOrNull() }
@@ -165,10 +171,39 @@ object MusicLibraryRepository {
         _state.value = MusicLibraryState(artists = sorted(artists.map { it.withSaneDates() }), settings = settings)
     }
 
+    // The key is built once per artist, not once per comparison: a refresh sorts the whole library on every write.
     private fun sorted(artists: List<LibraryArtist>) =
-        artists.sortedBy { (it.sortName ?: it.name).lowercase() }
+        artists.map { (it.sortName ?: it.name).lowercase() to it }.sortedBy { it.first }.map { it.second }
+
+    /**
+     * Saves the library a moment from now instead of at once. A fill-in writes the artist several times as it grows
+     * (and five run together), and every save encodes the whole library, so writes that arrive within
+     * [LIBRARY_PERSIST_DELAY_MS] of each other become one. Used where the writes come in bursts; what the person does
+     * (star, remove, genres) still saves immediately. Exit and a profile switch write whatever is pending.
+     */
+    private fun persistSoon() {
+        if (loadedProfileId == null) return
+        if (persistPending.compareAndSet(false, true)) {
+            persistScope.launch {
+                delay(LIBRARY_PERSIST_DELAY_MS)
+                flushPendingPersist()
+            }
+        }
+    }
+
+    private val persistPending = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val persistScope = CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
+
+    /** Writes a pending save now, on the caller. For the exit path and a profile switch. */
+    internal fun flushPendingPersist() {
+        if (persistPending.getAndSet(false)) persist()
+    }
 
     private fun persist() {
+        // A save made now covers anything still waiting.
+        persistPending.set(false)
         val profileId = loadedProfileId ?: return
         runCatching {
             MusicLibraryStorage.saveLibrary(profileId, json.encodeToString(StoredMusicLibrary(_state.value.artists)))
@@ -230,7 +265,7 @@ object MusicLibraryRepository {
             ).keepingPalettesFrom(old)
             state.copy(artists = sorted(without + kept))
         }
-        persist()
+        persistSoon()
     }
 
     /**
@@ -245,7 +280,7 @@ object MusicLibraryRepository {
                 _state.update { s ->
                     s.copy(artists = s.artists.map { if (it.id == artistId) it.copy(palette = palette) else it })
                 }
-                persist()
+                persistSoon()
             }
             state.preview.containsKey(artistId) -> {
                 _state.update { s ->
@@ -266,7 +301,7 @@ object MusicLibraryRepository {
         when {
             state.contains(artistId) -> {
                 _state.update { s -> s.copy(artists = s.artists.map { if (it.id == artistId) it.withPalettes() else it }) }
-                persist()
+                persistSoon()
             }
             state.preview.containsKey(artistId) -> {
                 _state.update { s ->
