@@ -75,6 +75,7 @@
 
 ### Fixed
 
+- **Rating Prompt No Longer Hides Behind A Trailer** - the "rate what you just finished" prompt that appears after playback is drawn above every screen, so the details page (and the Home hero) kept playing their trailer in a native window that painted over it, cutting the prompt off. Both now park the trailer while the prompt is up and resume when it closes, as they already did for their own dialogs.
 - **Calm Lyrics No Longer Jumble** - on the Now Playing stage's Calm lyrics, the words not yet sung were drawn at 1.7 times their size, and because enlarging does not move the neighbours they smeared over the words beside them. Unsung words now wait at normal size and a word only grows a little (30%, dropping 22 dp) as it lands.
 
 - **Groq Trivia Works Again** - Groq switched off llama-3.3-70b-versatile, the model the Groq provider used when the Model box was empty, so every trivia request came back "model does not exist" and the pre-show quietly fell back to Wikipedia. The default is now openai/gpt-oss-120b, which Groq names as its replacement. A model you typed in yourself is left alone, so if it is still llama-3.3-70b-versatile, clear it or change it.
