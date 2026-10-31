@@ -675,9 +675,10 @@ private fun LyricsPane(
                     }
                 }
             }
-            if ((ui as? LyricsUi.Ready)?.lyrics is Lyrics.Synced) {
+            val compactSynced = (ui as? LyricsUi.Ready)?.lyrics as? Lyrics.Synced
+            if (compactSynced != null) {
                 Spacer(Modifier.height(26.dp))
-                LyricSyncStrip(syncState, tapping, { tapping = !tapping }, onNudge, onResetSync, Modifier.align(Alignment.CenterHorizontally))
+                LyricSyncStrip(syncState, tapping, { tapping = !tapping }, onNudge, onResetSync, Modifier.align(Alignment.CenterHorizontally), note = compactSynced.sourceNote())
             }
         }
         return
@@ -702,6 +703,7 @@ private fun LyricsPane(
                         syncState, tapping, { tapping = !tapping }, onNudge, onResetSync,
                         // Down at the pane's foot, apart from the lines, so it does not read as one of them.
                         Modifier.align(Alignment.BottomEnd).offset(y = 36.dp),
+                        note = lyrics.sourceNote(),
                     )
                 }
             }
@@ -718,6 +720,8 @@ private fun LyricSyncStrip(
     onNudge: (Long) -> Unit,
     onReset: () -> Unit,
     modifier: Modifier = Modifier,
+    /** How the lyrics are timed and by whom ("Word-synced \u00B7 Unison"), shown when there is no sync status to show instead. */
+    note: String? = null,
 ) {
     val offset = state.offsetMs()
     // A word or two above the buttons: the offset itself, or what is going on.
@@ -726,7 +730,7 @@ private fun LyricSyncStrip(
         state is LyricSyncState.Checking -> "Syncing\u2026"
         state is LyricSyncState.Unsure -> "Couldn't auto-sync"
         offset != 0L -> formatLyricOffset(offset)
-        else -> null
+        else -> note
     }
     Column(modifier.padding(bottom = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label.orEmpty(), color = Color.White.copy(alpha = if (tapping) 0.85f else 0.5f), fontSize = 12.sp, maxLines = 1)

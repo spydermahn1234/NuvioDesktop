@@ -59,11 +59,18 @@ internal fun parseYrc(raw: String): List<LyricLine> {
         if (words.isEmpty()) continue
         sung += LyricLine(timeMs = minOf(start, words.first().startMs), text = words.joinToString(" ") { it.text }, words = words)
     }
-    val ordered = sung.sortedBy { it.timeMs }
+    return withRestLines(sung.sortedBy { it.timeMs })
+}
+
+/**
+ * [ordered] (sorted by time) with a blank line after each word-timed line that is followed by a rest of
+ * [YRC_REST_MS] or more, so the lyric view shows its "get ready" dots. Shared by every word-timed source.
+ */
+internal fun withRestLines(ordered: List<LyricLine>): List<LyricLine> {
     val out = ArrayList<LyricLine>(ordered.size + 4)
     for ((i, line) in ordered.withIndex()) {
         out += line
-        val ends = line.words.last().endMs
+        val ends = line.words.lastOrNull()?.endMs ?: continue
         val next = ordered.getOrNull(i + 1)?.timeMs
         if (next != null && next - ends >= YRC_REST_MS) out += LyricLine(ends + 800L, "")
     }
@@ -233,28 +240,35 @@ object NeteaseLyricsClient {
         }
 
     private const val BUDGET_MS = 6_000L
-    private val NONE = Lyrics.Synced(emptyList())
+
+    /** Word-timed lyrics, or null. Kept for callers that do not care why there are none; see [find]. */
+    suspend fun wordTimed(title: String, artist: String, durationSeconds: Int): Lyrics.Synced? =
+        (find(title, artist, durationSeconds) as? LyricsLookup.Found)?.lyrics as? Lyrics.Synced
 
     /**
-     * Word-timed lyrics, or null. The whole lookup gets [BUDGET_MS]: the app's HTTP client waits far longer than that
-     * for a host that does not answer, and the lyrics LRCLIB already found must not wait on this one.
+     * Word-timed lyrics. [LyricsLookup.Missing] means Netease answered and has none for this cut (worth remembering);
+     * [LyricsLookup.Unreachable] is a failure, a timeout or a pause (not). The whole lookup gets [BUDGET_MS]: the app's
+     * HTTP client waits far longer than that for a host that does not answer, and the lyrics the other sources already
+     * found must not wait on this one.
      */
-    suspend fun wordTimed(title: String, artist: String, durationSeconds: Int): Lyrics.Synced? {
-        if (title.isBlank() || artist.isBlank() || paused()) return null
-        val found = withTimeoutOrNull(BUDGET_MS) { lookup(title, artist, durationSeconds) ?: NONE }
-        if (found == null) { failed(); return null }
-        return found.takeIf { it !== NONE }
+    suspend fun find(title: String, artist: String, durationSeconds: Int): LyricsLookup {
+        if (title.isBlank() || artist.isBlank()) return LyricsLookup.Missing
+        if (paused()) return LyricsLookup.Unreachable
+        val found = withTimeoutOrNull(BUDGET_MS) { lookup(title, artist, durationSeconds) }
+        if (found == null) { failed(); return LyricsLookup.Unreachable }
+        return found
     }
 
-    private suspend fun lookup(title: String, artist: String, durationSeconds: Int): Lyrics.Synced? {
+    private suspend fun lookup(title: String, artist: String, durationSeconds: Int): LyricsLookup {
         val search = post(SEARCH_URL, SEARCH_PATH, neteaseSearchPayload("${coreTrackTitle(title)} $artist"))
-        if (search == null) { failed(); return null }
-        val song = pickNeteaseSong(parseNeteaseSearch(search), title, artist, durationSeconds) ?: return null.also { failuresInARow = 0 }
+        if (search == null) { failed(); return LyricsLookup.Unreachable }
+        val song = pickNeteaseSong(parseNeteaseSearch(search), title, artist, durationSeconds)
+            ?: return LyricsLookup.Missing.also { failuresInARow = 0 }
         val answer = post(LYRIC_URL, LYRIC_PATH, neteaseLyricPayload(song.id))
-        if (answer == null) { failed(); return null }
+        if (answer == null) { failed(); return LyricsLookup.Unreachable }
         failuresInARow = 0
         val lines = yrcOf(answer)?.let(::parseYrc).orEmpty()
-        if (lines.none { it.words.isNotEmpty() }) return null
-        return Lyrics.Synced(lines, durationSeconds = song.durationMs / 1_000.0)
+        if (lines.none { it.words.isNotEmpty() }) return LyricsLookup.Missing
+        return LyricsLookup.Found(Lyrics.Synced(lines, durationSeconds = song.durationMs / 1_000.0, source = "Netease"))
     }
 }

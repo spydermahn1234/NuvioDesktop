@@ -2,8 +2,12 @@ package com.nuvio.app.features.music
 
 import co.touchlab.kermit.Logger
 import com.nuvio.app.features.addons.httpGetTextWithHeaders
+import com.nuvio.app.features.music.library.MusicLibraryRepository
+import com.nuvio.app.features.streams.epochMs
 import io.ktor.http.encodeURLParameter
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
@@ -30,14 +34,29 @@ sealed interface Lyrics {
      * length of the recording the timing was made on (LRCLIB's `duration`), 0 when not known. It is what the
      * played stream is compared with to tell whether these lines already fit it.
      */
-    data class Synced(val lines: List<LyricLine>, val durationSeconds: Double = 0.0) : Lyrics {
+    data class Synced(
+        val lines: List<LyricLine>,
+        val durationSeconds: Double = 0.0,
+        /** Where the timing came from ("LRCLIB", "Unison", "Netease"...), shown in the lyric view; null when not known. */
+        val source: String? = null,
+    ) : Lyrics {
         val durationMs: Long get() = (durationSeconds * 1_000.0).roundToLong()
+
+        /** True when the source timed words itself (the view sweeps to the word), false when it only timed lines and the view estimates. */
+        val isWordTimed: Boolean get() = lines.any { it.words.isNotEmpty() }
     }
 
     /** Words only, no timing. */
     data class Plain(val lines: List<String>) : Lyrics
 
     data object Instrumental : Lyrics
+}
+
+/** The short note the lyric view shows under the lyrics: how they are timed and by whom. Null when the source is not known. */
+internal fun Lyrics.Synced.sourceNote(): String? = when {
+    isWordTimed -> if (source != null) "Word-synced \u00B7 $source" else "Word-synced"
+    source != null -> "Line-synced \u00B7 $source"
+    else -> null
 }
 
 /** What a lookup came back with. [Unreachable] is not cached: it may be a network blip. */
@@ -74,7 +93,7 @@ internal fun enhancedLrcWords(body: String): List<TimedWord> {
     return mergeTimedSyllables(pieces)
 }
 
-private fun isLatinWordChar(c: Char): Boolean = (c.isLetterOrDigit() && c.code < 0x2E80) || c == '\''
+internal fun isLatinWordChar(c: Char): Boolean = (c.isLetterOrDigit() && c.code < 0x2E80) || c == '\''
 
 /**
  * Joins the pieces a source splits a word into ("beau" "ti" "ful") back into one word, so the highlight moves by
@@ -343,26 +362,64 @@ object LyricsRepository {
         val key = track.videoId
         lock.withLock { if (cache.containsKey(key)) return cache[key] }
         val albumName = (track.albumTitle ?: album?.title).orEmpty()
-        // fork:music-playlists - a YouTube upload in a playlist (a cover, a duet) names several people in one artist
-        // string and the original song in its title; each reading is asked in turn until one has lyrics.
-        var result: LyricsLookup = LyricsLookup.Missing
-        var reached = false
-        for ((title, artist) in lyricLookupCandidates(track.title, artistOf(track, album))) {
-            val found = LrcLibClient.find(title, artist, albumName, track.durationSeconds)
-            if (found is LyricsLookup.Found) { result = found; break }
-            if (found == LyricsLookup.Missing) reached = true
-            result = if (reached) LyricsLookup.Missing else found
+        val artistName = artistOf(track, album)
+        // The word-timing sources are asked while LRCLIB is, not after it, so a new track waits for the slower of the two.
+        val (lrclibLookup, others) = coroutineScope {
+            val timed = async { timedSources(track, artistName, albumName) }
+            // fork:music-playlists - a YouTube upload in a playlist (a cover, a duet) names several people in one artist
+            // string and the original song in its title; each reading is asked in turn until one has lyrics.
+            var result: LyricsLookup = LyricsLookup.Missing
+            var reached = false
+            for ((title, artist) in lyricLookupCandidates(track.title, artistName)) {
+                val found = LrcLibClient.find(title, artist, albumName, track.durationSeconds)
+                if (found is LyricsLookup.Found) { result = found; break }
+                if (found == LyricsLookup.Missing) reached = true
+                result = if (reached) LyricsLookup.Missing else found
+            }
+            result to timed.await()
         }
-        // Word-by-word timing from Netease replaces line timing when it has this very cut of the song; any failure
-        // there leaves LRCLIB's lines exactly as before.
-        val lrclib = (result as? LyricsLookup.Found)?.lyrics
-        val wordTimed = if (lrclib === Lyrics.Instrumental) null
-        else NeteaseLyricsClient.wordTimed(track.title, artistOf(track, album), track.durationSeconds)
-        val best: Lyrics? = wordTimed ?: lrclib
+        val lrclib = (lrclibLookup as? LyricsLookup.Found)?.lyrics?.let { found ->
+            if (found is Lyrics.Synced && found.source == null) found.copy(source = "LRCLIB") else found
+        }
+        // Word-by-word timing replaces LRCLIB's line timing when a source has this very cut of the song; any failure
+        // there leaves LRCLIB's lines exactly as before. A source that only has line timing is used only when LRCLIB has nothing.
+        val timed = if (lrclib === Lyrics.Instrumental) emptyList() else others
+        val best: Lyrics? = timed.firstOrNull { it.isWordTimed } ?: lrclib ?: timed.firstOrNull()
         return when {
             best != null -> best.also { lock.withLock { cache[key] = it } }
-            result == LyricsLookup.Missing -> null.also { lock.withLock { cache[key] = null } }
+            lrclibLookup == LyricsLookup.Missing -> null.also { lock.withLock { cache[key] = null } }
             else -> null
+        }
+    }
+
+    /**
+     * What each switched-on word-timing source has for the track, best first: Unison, AMLL TTML DB, Netease, LRCMux.
+     * They are asked together (each has its own time limit and its own pause after repeated failures), and what a
+     * source answered, hit or miss, is remembered on disk so it is not asked again soon.
+     */
+    private suspend fun timedSources(track: MusicTrack, artist: String, albumName: String): List<Lyrics.Synced> {
+        MusicLibraryRepository.ensureLoaded()
+        val settings = MusicLibraryRepository.state.value.settings
+        val id = track.videoId
+        val title = track.title
+        val seconds = track.durationSeconds
+        return coroutineScope {
+            val unison = if (settings.unisonLyrics) async { remembered("unison", id) { UnisonLyricsClient.find(id, title, artist, albumName, seconds) } } else null
+            val amll = if (settings.amllLyrics) async { remembered("amll", id) { AmllLyricsClient.find(title, artist, seconds) } } else null
+            val netease = if (settings.neteaseLyrics) async { remembered("netease", id) { NeteaseLyricsClient.find(title, artist, seconds) } } else null
+            val lrcMux = if (settings.lrcMuxLyrics) async { remembered("lrcmux", id) { LrcMuxLyricsClient.find(title, artist, seconds) } } else null
+            listOfNotNull(unison?.await(), amll?.await(), netease?.await(), lrcMux?.await())
+        }
+    }
+
+    /** [fetch]'s answer unless the disk cache already holds one for [source]; a hit or a "none here" is kept, a failure is not. */
+    private suspend fun remembered(source: String, videoId: String, fetch: suspend () -> LyricsLookup): Lyrics.Synced? {
+        val now = epochMs()
+        LyricCache.get(source, videoId, now)?.let { return it.lyrics }
+        return when (val found = fetch()) {
+            is LyricsLookup.Found -> (found.lyrics as? Lyrics.Synced)?.also { LyricCache.put(source, videoId, now, it) }
+            LyricsLookup.Missing -> null.also { LyricCache.put(source, videoId, now, null) }
+            LyricsLookup.Unreachable -> null
         }
     }
 }

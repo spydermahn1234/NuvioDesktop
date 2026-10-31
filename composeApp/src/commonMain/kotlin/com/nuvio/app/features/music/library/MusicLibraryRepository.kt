@@ -49,6 +49,14 @@ data class MusicLibrarySettings(
     val nebulaSecretLink: String = "",
     /** An album the addon has opens on the addon (lossless) rather than YouTube Music. The album page's switch still overrides it. */
     val preferAddon: Boolean = false,
+    /** Word-by-word lyrics from Unison, the community lyrics database (Better Lyrics). A lookup sends the song's title and artist to it. */
+    val unisonLyrics: Boolean = true,
+    /** Word-by-word lyrics from AMLL TTML DB, an open collection of community-timed lyrics. */
+    val amllLyrics: Boolean = true,
+    /** Word-by-word lyrics from Netease Cloud Music (an unofficial interface; it may refuse requests outside China). */
+    val neteaseLyrics: Boolean = true,
+    /** Word-by-word lyrics from LRCMux, a third-party service that relays other catalogues' lyrics. Off until chosen. */
+    val lrcMuxLyrics: Boolean = false,
 )
 
 /** What is happening to one artist while it is added or refreshed. */
