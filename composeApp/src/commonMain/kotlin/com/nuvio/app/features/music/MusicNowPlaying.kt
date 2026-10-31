@@ -111,7 +111,7 @@ import com.nuvio.app.features.music.library.rememberCdArtFor
 import kotlinx.coroutines.delay
 
 /** Lines light up this long before their stamp, so the eye is on the line as it is sung. */
-private const val NOW_PLAYING_LYRIC_LEAD_MS = 250L
+internal const val NOW_PLAYING_LYRIC_LEAD_MS = 250L
 
 /** Tries at starting the lyric sync (the stream may not be readable the moment it opens), and the wait between. */
 private const val LYRIC_SYNC_ATTEMPTS = 3
@@ -284,6 +284,7 @@ private fun MusicNowPlayingScreen(
     var inputTick by remember { mutableIntStateOf(0) }
     var widgetsVisible by remember { mutableStateOf(true) }
     val fadeQueue = MusicLibraryRepository.state.collectAsStateWithLifecycle().value.settings.fadeQueue
+    val lyricStyle = MusicLibraryRepository.state.collectAsStateWithLifecycle().value.settings.lyricStyle
     LaunchedEffect(inputTick, track?.videoId) {
         widgetsVisible = true
         delay(WIDGET_IDLE_MS)
@@ -435,6 +436,7 @@ private fun MusicNowPlayingScreen(
                         shownLyrics, state.positionMs, state.isPlaying, onSeek, reduced,
                         if (realVideo) Modifier.fillMaxWidth() else Modifier.weight(1f).fillMaxWidth(),
                         compact = realVideo,
+                        style = lyricStyle,
                         syncState = syncState,
                         onNudge = { delta -> syncKey?.let { MusicLyricSync.nudge(it, delta) } },
                         onResetSync = { syncKey?.let { MusicLyricSync.reset(it) } },
@@ -459,6 +461,7 @@ private fun MusicNowPlayingScreen(
                         shownLyrics, state.positionMs, state.isPlaying, onSeek, reduced,
                         if (realVideo) Modifier.fillMaxWidth() else Modifier.weight(1f).fillMaxWidth(),
                         compact = realVideo,
+                        style = lyricStyle,
                         syncState = syncState,
                         onNudge = { delta -> syncKey?.let { MusicLyricSync.nudge(it, delta) } },
                         onResetSync = { syncKey?.let { MusicLyricSync.reset(it) } },
@@ -485,6 +488,11 @@ private fun MusicNowPlayingScreen(
                 }
             },
             onToggleMotion = { setMusicReducedMotion(!reduced) },
+            lyricStyle = lyricStyle,
+            onCycleLyricStyle = {
+                val settings = MusicLibraryRepository.state.value.settings
+                MusicLibraryRepository.updateSettings(settings.copy(lyricStyle = settings.lyricStyle.next()))
+            },
             fadeQueue = fadeQueue,
             onToggleFadeQueue = {
                 val settings = MusicLibraryRepository.state.value.settings
@@ -518,6 +526,8 @@ private fun StageTopBar(
     modifier: Modifier = Modifier,
     fadeQueue: Boolean = true,
     onToggleFadeQueue: () -> Unit = {},
+    lyricStyle: LyricStyle = LyricStyle.Scroll,
+    onCycleLyricStyle: () -> Unit = {},
 ) {
     Row(
         modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -546,6 +556,7 @@ private fun StageTopBar(
             selected = view,
             onSelect = onView,
         )
+        MusicTextChip("Lyrics: ${lyricStyle.label}", onCycleLyricStyle)
         MusicTextChip(if (fadeQueue) "Fade queue: on" else "Fade queue: off", onToggleFadeQueue)
         MusicTextChip(if (reduced) "Motion: reduced" else "Motion: full", onToggleMotion)
         if (canFullscreen) MusicTextChip("Fullscreen", onFullscreen)
@@ -753,6 +764,8 @@ private fun LyricsPane(
     onTapSync: (shownLineTimeMs: Long, positionMs: Long) -> Unit = { _, _ -> },
     /** Under a video: four lines (the one before, the sung one, the next two) and the sync strip, at a fixed height. */
     compact: Boolean = false,
+    /** How the Stage sets the lyrics (the compact strip under a video ignores it). */
+    style: LyricStyle = LyricStyle.Scroll,
 ) {
     // Tap to sync: the next line tapped is the one being heard, not a seek.
     var tapping by remember { mutableStateOf(false) }
@@ -790,14 +803,15 @@ private fun LyricsPane(
                 Lyrics.Instrumental -> Message("Instrumental")
                 is Lyrics.Plain -> PlainLyrics(lyrics.lines)
                 is Lyrics.Synced -> {
-                    SyncedLyrics(
-                        lyrics.lines, positionMs, playing, onSeek, reduced,
-                        tapping = tapping,
-                        onTapLine = { lineTimeMs, tappedAtMs ->
-                            onTapSync(lineTimeMs, tappedAtMs)
-                            tapping = false
-                        },
-                    )
+                    val onTap: (Long, Long) -> Unit = { lineTimeMs, tappedAtMs ->
+                        onTapSync(lineTimeMs, tappedAtMs)
+                        tapping = false
+                    }
+                    when (style) {
+                        LyricStyle.Calm -> PosterLyrics(lyrics.lines, positionMs, playing, reduced, tapping, onSeek, onTap)
+                        LyricStyle.Loud -> LoudLyrics(lyrics.lines, positionMs, playing, reduced, tapping, onSeek, onTap)
+                        LyricStyle.Scroll -> SyncedLyrics(lyrics.lines, positionMs, playing, onSeek, reduced, tapping = tapping, onTapLine = onTap)
+                    }
                     LyricSyncStrip(
                         syncState, tapping, { tapping = !tapping }, onNudge, onResetSync,
                         // Down at the pane's foot, apart from the lines, so it does not read as one of them.
