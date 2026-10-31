@@ -854,6 +854,7 @@ private fun SyncedLyrics(
                         isChorus = index in chorus,
                         emphasis = false,
                         effects = !reduced,
+                        entrance = lineEntranceFor(index),
                     )
                 } else {
                     Text(
