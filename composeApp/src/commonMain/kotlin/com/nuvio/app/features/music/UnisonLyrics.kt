@@ -229,12 +229,16 @@ internal fun unisonFitsTrack(lines: List<LyricLine>, durationSeconds: Int): Bool
  * The timed lyric in a Unison `/lyrics` answer (`{"data": {"lyrics", "format", ...}}`) for the track [title] by
  * [artist], or null: no lyric, plain words only, hidden or down-voted, another song, or timed past the track's end.
  */
-internal fun unisonLyricsOf(root: JsonElement?, title: String, artist: String, durationSeconds: Int): Lyrics.Synced? {
+internal fun unisonLyricsOf(root: JsonElement?, title: String, artist: String, durationSeconds: Int, videoId: String = ""): Lyrics.Synced? {
     val data = root.asObject()?.get("data").asObject() ?: return null
     if ((data["hidden"] as? JsonPrimitive)?.booleanOrNull == true) return null
     if ((data.number("effectiveScore") ?: 0.0) < 0.0) return null
     val body = data.string("lyrics")?.takeIf { it.isNotBlank() } ?: return null
-    if (!unisonNamesTrack(data.string("song"), data.string("artist"), title, artist)) return null
+    // A lyric attached to the very video that is playing is this recording, however the artist is spelt: a soundtrack
+    // credits "Michael Jackson" for a song Unison files under "The Jackson 5". The title must still agree.
+    val sameVideo = videoId.isNotBlank() && data.string("videoId") == videoId
+    val artistToMatch = if (sameVideo) "" else artist
+    if (!unisonNamesTrack(data.string("song"), data.string("artist"), title, artistToMatch)) return null
     val lines = when (data.string("format")) {
         "ttml" -> parseTtml(body).lines
         "lrc" -> parseLrc(body)
@@ -316,7 +320,7 @@ object UnisonLyricsClient {
             else -> {
                 breaker.succeeded()
                 val root = runCatching { json.parseToJsonElement(response.body) }.getOrNull()
-                val lyrics = unisonLyricsOf(root, title, artist, durationSeconds)
+                val lyrics = unisonLyricsOf(root, title, artist, durationSeconds, videoId.takeIf { YOUTUBE_ID.matches(it) }.orEmpty())
                 if (lyrics != null) LyricsLookup.Found(lyrics) else LyricsLookup.Missing
             }
         }

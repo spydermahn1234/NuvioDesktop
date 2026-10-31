@@ -90,12 +90,14 @@ class UnisonLyricsTest {
         lyrics: String = ttml,
         score: Double = 0.0,
         hidden: Boolean = false,
+        videoId: String = "aaaaaaaaaaa",
     ): JsonElement = buildJsonObject {
         put("success", true)
         put(
             "data",
             buildJsonObject {
                 put("id", 7)
+                put("videoId", videoId)
                 put("song", song)
                 put("artist", artist)
                 put("lyrics", lyrics)
@@ -144,6 +146,18 @@ class UnisonLyricsTest {
         assertNull(unisonLyricsOf(answer(lyrics = ""), "Paper Boats", "Someone", 60))
         assertNull(unisonLyricsOf(JsonNull, "Paper Boats", "Someone", 60))
         assertNull(unisonLyricsOf(Json.parseToJsonElement("{\"success\":false,\"code\":\"NOT_FOUND\"}"), "Paper Boats", "Someone", 60))
+    }
+
+    @Test
+    fun aLyricOnTheSameVideoIsKeptWhateverTheArtistIsCalled() {
+        // A soundtrack credits "Someone"; Unison files the song under "The Band" but on this very video.
+        val sameVideo = answer(artist = "The Band", videoId = "2S6aXFg7CdA")
+        assertNotNull(unisonLyricsOf(sameVideo, "Paper Boats", "Someone", 60, videoId = "2S6aXFg7CdA"))
+        // Another video, or no video id to compare, still needs the artist to agree.
+        assertNull(unisonLyricsOf(sameVideo, "Paper Boats", "Someone", 60, videoId = "zzzzzzzzzzz"))
+        assertNull(unisonLyricsOf(sameVideo, "Paper Boats", "Someone", 60))
+        // The title has to agree even on the same video.
+        assertNull(unisonLyricsOf(answer(song = "Other Song", artist = "The Band", videoId = "2S6aXFg7CdA"), "Paper Boats", "Someone", 60, videoId = "2S6aXFg7CdA"))
     }
 
     @Test
