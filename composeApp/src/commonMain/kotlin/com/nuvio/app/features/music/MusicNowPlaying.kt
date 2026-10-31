@@ -59,6 +59,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -365,7 +366,7 @@ private fun MusicNowPlayingScreen(
                     // With a video: as large as the column allows, and four lines of lyrics under it.
                     if (realVideo) InlineVideoSlot()
                     LyricsPane(
-                        shownLyrics, state.positionMs, onSeek, reduced,
+                        shownLyrics, state.positionMs, state.isPlaying, onSeek, reduced,
                         if (realVideo) Modifier.fillMaxWidth() else Modifier.weight(1f).fillMaxWidth(),
                         compact = realVideo,
                         syncState = syncState,
@@ -389,7 +390,7 @@ private fun MusicNowPlayingScreen(
                     Spacer(Modifier.height(12.dp))
                     if (realVideo) InlineVideoSlot()
                     LyricsPane(
-                        shownLyrics, state.positionMs, onSeek, reduced,
+                        shownLyrics, state.positionMs, state.isPlaying, onSeek, reduced,
                         if (realVideo) Modifier.fillMaxWidth() else Modifier.weight(1f).fillMaxWidth(),
                         compact = realVideo,
                         syncState = syncState,
@@ -647,6 +648,7 @@ private fun FanartBackdrop(images: List<String>, coverUrl: String?, spec: StageM
 private fun LyricsPane(
     ui: LyricsUi,
     positionMs: Long,
+    playing: Boolean,
     onSeek: (Long) -> Unit,
     reduced: Boolean,
     modifier: Modifier,
@@ -692,7 +694,7 @@ private fun LyricsPane(
                 is Lyrics.Plain -> PlainLyrics(lyrics.lines)
                 is Lyrics.Synced -> {
                     SyncedLyrics(
-                        lyrics.lines, positionMs, onSeek, reduced,
+                        lyrics.lines, positionMs, playing, onSeek, reduced,
                         tapping = tapping,
                         onTapLine = { lineTimeMs, tappedAtMs ->
                             onTapSync(lineTimeMs, tappedAtMs)
@@ -773,13 +775,18 @@ private fun PlainLyrics(lines: List<String>) {
 private fun SyncedLyrics(
     lines: List<LyricLine>,
     positionMs: Long,
+    playing: Boolean,
     onSeek: (Long) -> Unit,
     reduced: Boolean,
     tapping: Boolean = false,
     onTapLine: (lineTimeMs: Long, positionMs: Long) -> Unit = { _, _ -> },
 ) {
     val accent = MaterialTheme.nuvio.colors.accent
-    val active = activeLyricIndex(lines, positionMs + NOW_PLAYING_LYRIC_LEAD_MS)
+    // The player reports its position a few times a second; the smooth clock carries it between reports
+    // so the word sweep moves every frame (see rememberSmoothPositionMs).
+    val smooth = rememberSmoothPositionMs(positionMs, playing)
+    val active by remember(lines) { derivedStateOf { activeLyricIndex(lines, smooth.value + NOW_PLAYING_LYRIC_LEAD_MS) } }
+    val chorus = remember(lines) { chorusLineIndices(lines) }
     val listState = rememberLazyListState()
     // Keep the sung line a third of the way down: far enough from the top to see what is coming.
     LaunchedEffect(active, lines) {
@@ -803,14 +810,8 @@ private fun SyncedLyrics(
             }
             val alpha by animateFloatAsState(target, tween(if (reduced) 0 else 350), label = "lineAlpha")
             val scale by animateFloatAsState(if (index == active && !reduced) 1.1f else 1f, tween(if (reduced) 0 else 300), label = "lineScale")
-            Text(
-                text = line.text.ifBlank { "♪" },
-                // The line being sung is lit in the artist's accent.
-                color = (if (index == active) accent else Color.White).copy(alpha = alpha),
-                fontSize = 30.sp,
-                lineHeight = 38.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
+            Box(
+                Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
                     .clickable { if (tapping) onTapLine(line.timeMs, positionMs) else onSeek(line.timeMs) }
@@ -820,7 +821,28 @@ private fun SyncedLyrics(
                         scaleY = scale
                         transformOrigin = TransformOrigin(0f, 0.5f)
                     },
-            )
+            ) {
+                if (index == active && line.text.isNotBlank()) {
+                    // The sung line: each word is lit as it is sung, using the source's own word times when it
+                    // has them (Netease, Unison, AMLL, LRCMux) and an estimate from word length when it has not.
+                    ActiveLine(
+                        words = remember(lines, index) { lineWords(lines, index) },
+                        progress = { lineProgress(lines, index, smooth.value) },
+                        accent = accent,
+                        isChorus = index in chorus,
+                        emphasis = false,
+                        effects = !reduced,
+                    )
+                } else {
+                    Text(
+                        text = line.text.ifBlank { "♪" },
+                        color = Color.White.copy(alpha = alpha),
+                        fontSize = 30.sp,
+                        lineHeight = 38.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
         }
     }
 }

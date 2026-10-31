@@ -225,7 +225,7 @@ private fun LyricRow(
 /** The line being sung: its words sweep, hop and glow in turn. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ActiveLine(
+internal fun ActiveLine(
     words: List<LyricWord>,
     progress: () -> Float,
     accent: Color,
