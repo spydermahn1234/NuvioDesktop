@@ -17,7 +17,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
@@ -179,9 +178,12 @@ internal fun LoudLyrics(
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        // Not clipped: the words are set tighter than the font's own line height and fly in from
+                        // above, so their tops and entrances reach past the box; a clip here cut the top off the
+                        // first row. The padding below gives the ring and the click area room around them.
                         .musicKeyFocusRing(RoundedCornerShape(12.dp))
-                        .clickable { if (tapping) onTapLine(current.timeMs, positionMs) else onSeek(current.timeMs) },
+                        .clickable { if (tapping) onTapLine(current.timeMs, positionMs) else onSeek(current.timeMs) }
+                        .padding(vertical = 14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     chunks.forEachIndexed { ci, chunk ->

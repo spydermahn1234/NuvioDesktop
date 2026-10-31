@@ -122,7 +122,8 @@ internal fun PosterLyrics(
                 val isChorus = shown in chorus
                 val lit = if (isChorus) lerp(Color.White, accent, 0.45f) else Color.White
                 FlowRow(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).musicKeyFocusRing(RoundedCornerShape(12.dp)).clickable { pick(current) }.padding(vertical = 8.dp),
+                    // Not clipped: words drop in from above and swell as they land, so they reach past the box.
+                    Modifier.fillMaxWidth().musicKeyFocusRing(RoundedCornerShape(12.dp)).clickable { pick(current) }.padding(vertical = 14.dp),
                     horizontalArrangement = Arrangement.spacedBy(size.dp * 0.28f, Alignment.CenterHorizontally),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {

@@ -75,6 +75,7 @@
 
 ### Fixed
 
+- **Loud And Calm Lyrics Are No Longer Cut Off At The Top** - on the Now Playing stage's Loud lyrics the tops of the first row's letters were sliced off ("POWER" lost its top edge), and on both Loud and Calm a word dropping in from above was clipped until it landed. The words are set tighter than the font's own line height, so they reach past their box, and the box clipped them. The clip is gone and there is more room round the lyric.
 - **Rating Prompt No Longer Hides Behind A Trailer** - the "rate what you just finished" prompt that appears after playback is drawn above every screen, so the details page (and the Home hero) kept playing their trailer in a native window that painted over it, cutting the prompt off. Both now park the trailer while the prompt is up and resume when it closes, as they already did for their own dialogs.
 - **Calm Lyrics No Longer Jumble** - on the Now Playing stage's Calm lyrics, the words not yet sung were drawn at 1.7 times their size, and because enlarging does not move the neighbours they smeared over the words beside them. Unsung words now wait at normal size and a word only grows a little (30%, dropping 22 dp) as it lands.
 
