@@ -140,6 +140,7 @@ fun MusicNowPlayingHost(
     hidden: Boolean,
     modifier: Modifier = Modifier,
     player: MusicPlayer = MusicPlayback.player,
+    onOpenArtist: (String) -> Unit = {},
 ) {
     val state by player.state.collectAsStateWithLifecycle()
     val open by MusicPlayback.nowPlayingOpen.collectAsStateWithLifecycle()
@@ -160,6 +161,7 @@ fun MusicNowPlayingHost(
                 player = player,
                 onSeek = player::seekTo,
                 onClose = { MusicPlayback.nowPlayingOpen.value = false },
+                onOpenArtist = onOpenArtist,
                 modifier = Modifier.fillMaxSize(), // takes the whole window; the content clears the bar itself
             )
         }
@@ -173,6 +175,7 @@ private fun MusicNowPlayingScreen(
     player: MusicPlayer,
     onSeek: (Long) -> Unit,
     onClose: () -> Unit,
+    onOpenArtist: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.nuvio.colors
@@ -374,6 +377,7 @@ private fun MusicNowPlayingScreen(
                             lyricsMissing = lyrics is LyricsUi.Missing,
                             visible = widgetsVisible || !fadeQueue,
                             modifier = Modifier.weight(1f, fill = false),
+                            onOpenArtist = onOpenArtist,
                         )
                     }
                     Column(

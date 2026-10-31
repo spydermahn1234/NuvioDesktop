@@ -5402,7 +5402,10 @@ private fun MainAppContent(
                     streamPickerRequest != null,
             )
 
-            MusicRootHosts(hidden = musicPlayerHidden) // fork:music
+            MusicRootHosts(
+                hidden = musicPlayerHidden,
+                onOpenArtist = { navController.navigateIfResumed(com.nuvio.app.features.music.MusicArtistRoute(it)) },
+            ) // fork:music
 
             NuvioToastHost(
                 modifier = Modifier
