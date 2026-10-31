@@ -89,6 +89,19 @@ class WhatsNewActionKeysTest {
     }
 
     @Test
+    fun `every toggle has a unique key and a lookup that finds it`() {
+        assertEquals(whatsNewToggles.size, whatsNewToggles.map { it.key }.toSet().size)
+        whatsNewToggles.forEach { assertEquals(it.key, whatsNewToggleFor(it.key)?.key) }
+        assertNull(whatsNewToggleFor("no-such-feature"))
+    }
+
+    @Test
+    fun `only the pre-show cards wait on the AI agreement`() {
+        val gated = whatsNewToggles.filter { it.needsAiConsent }.map { it.key }.toSet()
+        assertEquals(setOf(WHATS_NEW_KEY_PREVIOUSLY_ON, WHATS_NEW_KEY_POST_SHOW), gated)
+    }
+
+    @Test
     fun `the checker reports a turn-on key the screen cannot switch on`() {
         val entry = WhatsNewEntry(
             number = 1,

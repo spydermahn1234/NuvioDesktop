@@ -51,7 +51,6 @@ import com.nuvio.app.features.setup.WizardPrimaryButton
 import com.nuvio.app.features.setup.WizardTextButton
 import com.nuvio.app.isDesktop
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
  * Decides on launch whether the "What's new" cards are due, and shows them when the screen is free.
@@ -85,8 +84,8 @@ fun WhatsNewHost(canShow: Boolean, onOpenSettingsPage: (String) -> Unit) {
     WhatsNewDialog(state, onOpenSettingsPage)
 }
 
-/** Stands in for a card with no switch to watch, so the card can always collect one flow. */
-private val AlwaysOff = MutableStateFlow(false)
+/** Past this many cards the progress bars would be slivers, so only "N of M" is shown. */
+private const val WHATS_NEW_MAX_PROGRESS_BARS = 12
 
 /**
  * A dialog rather than a panel: the wizard sits in Home's corner so Home can preview live choices,
@@ -111,12 +110,12 @@ private fun WhatsNewDialog(state: WhatsNewUiState, onOpenSettingsPage: (String) 
     remember { DiscoverAiSettingsRepository.ensureLoaded() }
     val ai by DiscoverAiSettingsRepository.uiState.collectAsStateWithLifecycle()
     val action = state.current?.action ?: WhatsNewAction.None
-    val enabledFlow = (action as? WhatsNewAction.TurnOn)?.let { WhatsNewActions.enabledFlow(it.featureKey) }
-    val isOn by (enabledFlow ?: AlwaysOff).collectAsStateWithLifecycle()
+    val toggle = (action as? WhatsNewAction.TurnOn)?.let { whatsNewToggleFor(it.featureKey) }
+    val isOn = toggle?.isOn?.invoke() ?: false
     val button = whatsNewButtonFor(
         action = action,
         isOn = isOn,
-        needsConsent = ai.apiKey.isNotBlank() && !ai.consentGiven,
+        needsConsent = toggle?.needsAiConsent == true && ai.apiKey.isNotBlank() && !ai.consentGiven,
     )
     val actionPending = button == WhatsNewButton.TurnOn || button == WhatsNewButton.SetUp
     val advance: () -> Unit = { if (state.isLast) WhatsNewController.close() else WhatsNewController.next() }
@@ -183,7 +182,7 @@ private fun WhatsNewDialog(state: WhatsNewUiState, onOpenSettingsPage: (String) 
                     }
                 }
 
-                if (cardCount > 1) {
+                if (cardCount in 2..WHATS_NEW_MAX_PROGRESS_BARS) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s4),
@@ -271,7 +270,7 @@ private fun WhatsNewDialog(state: WhatsNewUiState, onOpenSettingsPage: (String) 
                                 modifier = Modifier.focusRequester(actionFocus),
                                 onClick = {
                                     if (button == WhatsNewButton.TurnOn) {
-                                        (action as? WhatsNewAction.TurnOn)?.let { WhatsNewActions.turnOn(it.featureKey) }
+                                        toggle?.turnOn?.invoke()
                                     } else {
                                         // Closing records every card as seen, then the page opens.
                                         val page = whatsNewSettingsPage(action)

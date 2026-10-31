@@ -5,9 +5,6 @@ import kotlin.math.max
 /** Cards in one visit: the spotlight and up to four small ones. */
 internal const val WHATS_NEW_MAX_CARDS = 5
 
-/** Cards when the screen is reopened from Settings, whatever has already been seen. */
-internal const val WHATS_NEW_HISTORY_LIMIT = 12
-
 /**
  * What one visit shows: a [spotlight] card, then [small] cards, and how many more there were than
  * fit ([moreCount], reached from Settings).
@@ -34,11 +31,9 @@ internal fun planWhatsNew(
     maxCards: Int = WHATS_NEW_MAX_CARDS,
 ): WhatsNewPlan? = planFrom(entries.filter { it.number > lastSeen }, maxCards)
 
-/** The newest [limit] entries whether or not they were seen, for the Settings row. */
-internal fun planWhatsNewHistory(
-    entries: List<WhatsNewEntry>,
-    limit: Int = WHATS_NEW_HISTORY_LIMIT,
-): WhatsNewPlan? = planFrom(entries, limit)
+/** Every entry, newest first, whether or not it was seen, for the Settings row. */
+internal fun planWhatsNewHistory(entries: List<WhatsNewEntry>): WhatsNewPlan? =
+    planFrom(entries, Int.MAX_VALUE)
 
 private fun planFrom(candidates: List<WhatsNewEntry>, maxCards: Int): WhatsNewPlan? {
     val newestFirst = candidates.sortedByDescending { it.number }.distinctBy { it.number }

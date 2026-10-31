@@ -3,15 +3,8 @@ package com.nuvio.app.features.whatsnew
 /** Keys for `WhatsNewAction.TurnOn`: the features whose switch a card can flip. */
 internal const val WHATS_NEW_KEY_PREVIOUSLY_ON = "previously-on"
 internal const val WHATS_NEW_KEY_POST_SHOW = "post-show"
-
-/**
- * The switches a card can flip, each with the Settings page that holds it (a `SettingsPage` name,
- * which is what the app's page request takes). A test checks that every page named here exists.
- */
-internal val whatsNewTurnOnPages: Map<String, String> = mapOf(
-    WHATS_NEW_KEY_PREVIOUSLY_ON to "Preshow",
-    WHATS_NEW_KEY_POST_SHOW to "Preshow",
-)
+internal const val WHATS_NEW_KEY_THEME_SONG_DETAILS = "theme-song-details"
+internal const val WHATS_NEW_KEY_RELATIVE_COUNTDOWN = "relative-countdown"
 
 /** The button a card draws for its action. */
 internal enum class WhatsNewButton {

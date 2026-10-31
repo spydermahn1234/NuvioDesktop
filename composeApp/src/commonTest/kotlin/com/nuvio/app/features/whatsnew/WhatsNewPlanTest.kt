@@ -133,11 +133,10 @@ class WhatsNewPlanTest {
     // ---- the Settings row ----
 
     @Test
-    fun `history shows the newest entries whether or not they were seen`() {
+    fun `history shows every entry newest first whether or not it was seen`() {
         val plan = planWhatsNewHistory((1..20).map { entry(it) })!!
-        assertEquals(WHATS_NEW_HISTORY_LIMIT, plan.cards.size)
-        assertEquals(20, plan.spotlight.number)
-        assertEquals(8, plan.moreCount)
+        assertEquals((20 downTo 1).toList(), numbers(plan.cards))
+        assertEquals(0, plan.moreCount)
     }
 
     @Test
