@@ -46,10 +46,12 @@ import com.nuvio.app.core.ui.NuvioDialogSurface
 import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.StartupOverlayCoordinator
 import com.nuvio.app.core.ui.nuvio
+import com.nuvio.app.features.discover.DiscoverAiSettingsRepository
 import com.nuvio.app.features.setup.WizardPrimaryButton
 import com.nuvio.app.features.setup.WizardTextButton
 import com.nuvio.app.isDesktop
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
  * Decides on launch whether the "What's new" cards are due, and shows them when the screen is free.
@@ -58,9 +60,12 @@ import kotlinx.coroutines.delay
  * and the updater all go first. [canShow] is false while anything other than the tabs is on screen
  * (a player, a details page): cards are not worth covering a film for, and nothing is recorded as
  * seen until they have actually been shown and closed, so they wait.
+ *
+ * [onOpenSettingsPage] takes a `SettingsPage` name and brings that page up, for a card whose button
+ * is "Set it up". The cards close first.
  */
 @Composable
-fun WhatsNewHost(canShow: Boolean) {
+fun WhatsNewHost(canShow: Boolean, onOpenSettingsPage: (String) -> Unit) {
     if (!isDesktop) return
     val state by WhatsNewController.uiState.collectAsStateWithLifecycle()
     val visibleOverlay by StartupOverlayCoordinator.visibleOverlay.collectAsStateWithLifecycle()
@@ -77,8 +82,11 @@ fun WhatsNewHost(canShow: Boolean) {
     if (!wants) return
     if (visibleOverlay != StartupOverlayCoordinator.Overlay.WhatsNew) return
 
-    WhatsNewDialog(state)
+    WhatsNewDialog(state, onOpenSettingsPage)
 }
+
+/** Stands in for a card with no switch to watch, so the card can always collect one flow. */
+private val AlwaysOff = MutableStateFlow(false)
 
 /**
  * A dialog rather than a panel: the wizard sits in Home's corner so Home can preview live choices,
@@ -86,14 +94,33 @@ fun WhatsNewHost(canShow: Boolean) {
  * on the HTPC: Escape and the gamepad's B close it, and clicking outside does not (a stray click
  * would otherwise mark every card as seen).
  *
- * Right and Left (the D-pad) step through, and the primary button holds focus so Select steps
- * forward too and finishes on the last card.
+ * Right and Left (the D-pad) step through. Focus sits on the button Select should press: the
+ * card's action ("Turn it on" or "Set it up") while one is waiting, otherwise Next, which finishes
+ * on the last card. After an action is taken, focus moves on to Next.
  */
 @Composable
-private fun WhatsNewDialog(state: WhatsNewUiState) {
+private fun WhatsNewDialog(state: WhatsNewUiState, onOpenSettingsPage: (String) -> Unit) {
     val tokens = MaterialTheme.nuvio
-    val primaryFocus = remember { FocusRequester() }
+    val nextFocus = remember { FocusRequester() }
+    val actionFocus = remember { FocusRequester() }
     val cardCount = state.cards.size
+
+    // What the current card's button is. The consent test mirrors the Pre-show page: with an AI key
+    // set and no agreement given, that page must ask first, so the card opens it instead of
+    // flipping the switch behind its back.
+    remember { DiscoverAiSettingsRepository.ensureLoaded() }
+    val ai by DiscoverAiSettingsRepository.uiState.collectAsStateWithLifecycle()
+    val action = state.current?.action ?: WhatsNewAction.None
+    val enabledFlow = (action as? WhatsNewAction.TurnOn)?.let { WhatsNewActions.enabledFlow(it.featureKey) }
+    val isOn by (enabledFlow ?: AlwaysOff).collectAsStateWithLifecycle()
+    val button = whatsNewButtonFor(
+        action = action,
+        isOn = isOn,
+        needsConsent = ai.apiKey.isNotBlank() && !ai.consentGiven,
+    )
+    val actionPending = button == WhatsNewButton.TurnOn || button == WhatsNewButton.SetUp
+    val advance: () -> Unit = { if (state.isLast) WhatsNewController.close() else WhatsNewController.next() }
+    val nextLabel = if (state.isLast) "Done" else "Next"
 
     Dialog(
         onDismissRequest = WhatsNewController::close,
@@ -102,12 +129,13 @@ private fun WhatsNewDialog(state: WhatsNewUiState) {
             usePlatformDefaultWidth = false,
         ),
     ) {
-        // Focus the primary button once the dialog's content is placed. Retried because the first
-        // frames may not have attached it yet, as in the setup wizard.
-        LaunchedEffect(Unit) {
+        // Focus the button Select should press, again whenever the card or its action changes.
+        // Retried because the first frames may not have attached it yet, as in the setup wizard.
+        LaunchedEffect(state.index, actionPending) {
+            val target = if (actionPending) actionFocus else nextFocus
             repeat(12) { attempt ->
                 delay(if (attempt == 0) 50 else 48)
-                if (runCatching { primaryFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+                if (runCatching { target.requestFocus() }.isSuccess) return@LaunchedEffect
             }
         }
 
@@ -230,11 +258,49 @@ private fun WhatsNewDialog(state: WhatsNewUiState) {
                         }
                     }
                     Spacer(modifier = Modifier.weight(1f))
-                    WizardPrimaryButton(
-                        text = if (state.isLast) "Done" else "Next",
-                        modifier = Modifier.focusRequester(primaryFocus),
-                        onClick = { if (state.isLast) WhatsNewController.close() else WhatsNewController.next() },
-                    )
+                    when (button) {
+                        WhatsNewButton.TurnOn, WhatsNewButton.SetUp -> {
+                            // The action is the accent button; moving on drops to a quiet one.
+                            WizardTextButton(
+                                text = nextLabel,
+                                onClick = advance,
+                                modifier = Modifier.focusRequester(nextFocus),
+                            )
+                            WizardPrimaryButton(
+                                text = if (button == WhatsNewButton.TurnOn) "Turn it on" else "Set it up",
+                                modifier = Modifier.focusRequester(actionFocus),
+                                onClick = {
+                                    if (button == WhatsNewButton.TurnOn) {
+                                        (action as? WhatsNewAction.TurnOn)?.let { WhatsNewActions.turnOn(it.featureKey) }
+                                    } else {
+                                        // Closing records every card as seen, then the page opens.
+                                        val page = whatsNewSettingsPage(action)
+                                        WhatsNewController.close()
+                                        if (page != null) onOpenSettingsPage(page)
+                                    }
+                                },
+                            )
+                        }
+                        WhatsNewButton.On -> {
+                            Text(
+                                text = "On",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = tokens.colors.accent,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = NuvioTokens.Space.s8),
+                            )
+                            WizardPrimaryButton(
+                                text = nextLabel,
+                                modifier = Modifier.focusRequester(nextFocus),
+                                onClick = advance,
+                            )
+                        }
+                        null -> WizardPrimaryButton(
+                            text = nextLabel,
+                            modifier = Modifier.focusRequester(nextFocus),
+                            onClick = advance,
+                        )
+                    }
                 }
 
                 if (cardCount > 1) {

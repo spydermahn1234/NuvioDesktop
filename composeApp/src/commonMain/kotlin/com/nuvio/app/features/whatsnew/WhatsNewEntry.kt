@@ -71,8 +71,11 @@ internal fun whatsNewEntryProblems(entries: List<WhatsNewEntry>): List<String> {
         }
         when (val action = entry.action) {
             WhatsNewAction.None -> Unit
-            is WhatsNewAction.TurnOn ->
-                if (action.featureKey.isBlank()) problems += "$name: the turn-on key is blank"
+            is WhatsNewAction.TurnOn -> when {
+                action.featureKey.isBlank() -> problems += "$name: the turn-on key is blank"
+                action.featureKey !in whatsNewTurnOnPages ->
+                    problems += "$name: the turn-on key '${action.featureKey}' is not one the screen can switch on"
+            }
             is WhatsNewAction.OpenSettings ->
                 if (action.pageKey.isBlank()) problems += "$name: the settings page key is blank"
         }

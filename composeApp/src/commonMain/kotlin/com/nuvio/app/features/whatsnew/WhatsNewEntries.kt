@@ -7,22 +7,28 @@ package com.nuvio.app.features.whatsnew
  * shared with upstream in many languages and conflict on every merge, and this file is the fork's own.
  *
  * Numbers only go up and are never reused: the app remembers the highest one it has shown.
+ *
+ * An action gives the card a button. `TurnOn` takes a key from `whatsNewTurnOnPages`; `OpenSettings`
+ * takes a `SettingsPage` name. A test checks both against what exists.
  */
 internal val whatsNewEntries: List<WhatsNewEntry> = listOf(
     WhatsNewEntry(
         number = 1,
         title = "Previously on",
-        pitch = "Before an episode, short cards recap the last one you watched, then a quick quiz. Turn it on in Settings, Pre-show.",
+        pitch = "Before an episode, short cards recap the last one you watched, then a quick quiz.",
+        action = WhatsNewAction.TurnOn(WHATS_NEW_KEY_PREVIOUSLY_ON),
     ),
     WhatsNewEntry(
         number = 2,
         title = "Post-show cards",
-        pitch = "When a film's credits start, it shrinks into a corner and cards explain the ending. Turn it on in Settings, Pre-show.",
+        pitch = "When a film's credits start, it shrinks into a corner and cards explain the ending.",
+        action = WhatsNewAction.TurnOn(WHATS_NEW_KEY_POST_SHOW),
     ),
     WhatsNewEntry(
         number = 3,
         title = "Word-by-word lyrics",
         pitch = "Lyrics sweep word by word, like karaoke, when a song has word timing. More sources can be switched on in Music settings.",
         weight = WhatsNewWeight.Spotlight,
+        action = WhatsNewAction.OpenSettings("Music"),
     ),
 )

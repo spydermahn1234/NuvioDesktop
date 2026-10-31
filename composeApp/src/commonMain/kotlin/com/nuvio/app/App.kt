@@ -5449,6 +5449,12 @@ private fun MainAppContent(
             // never over game mode; nothing is marked seen until the cards have been shown and closed.
             WhatsNewHost(
                 canShow = currentBackStackEntry?.destination?.hasRoute<TabsRoute>() == true && !gameModeActive,
+                // A card's "Set it up" lands on its Settings page, the way the setup wizard's last
+                // step lands on the keyboard shortcuts page.
+                onOpenSettingsPage = { page ->
+                    requestedSettingsPageName = page
+                    selectedTab = AppScreenTab.Settings
+                },
             ) // fork:whatsnew
 
             // Game mode sits on top of a still-composed app rather than replacing it, so toggling
