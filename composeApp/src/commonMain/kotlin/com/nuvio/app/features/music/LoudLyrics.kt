@@ -149,7 +149,7 @@ internal fun LoudLyrics(
     val next = lines.getOrNull(if (shown < 0) 0 else shown + 1)
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val widthPx = with(density) { (maxWidth - 40.dp).toPx() }
+        val widthPx = with(density) { (maxWidth * 0.9f - 48.dp).toPx() }
         val heightPx = with(density) { (maxHeight - 70.dp).toPx() }
         val stageScale = (maxWidth.value / 1000f).coerceIn(0.4f, 1f)
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -168,8 +168,8 @@ internal fun LoudLyrics(
                     val reference = TextStyle(fontFamily = faces[face], fontSize = with(density) { 100f.toSp() })
                     val raw = chunks.map { chunk ->
                         val measured = measurer.measure(AnnotatedString(chunk.joinToString(" ") { texts[it] }), reference, maxLines = 1, softWrap = false)
-                            .size.width * loudFaceWidthFactor(face) * 1.04f
-                        min(130f * density.density * stageScale * 1.4f, 100f * widthPx / measured.coerceAtLeast(1f))
+                            .size.width * loudFaceWidthFactor(face) * 1.14f
+                        min(130f * density.density * stageScale * 1.25f, 100f * widthPx / measured.coerceAtLeast(1f))
                     }
                     val fit = min(1f, heightPx / raw.sumOf { (it * 0.98f).toDouble() }.toFloat().coerceAtLeast(1f))
                     raw.map { it * fit }
@@ -178,6 +178,7 @@ internal fun LoudLyrics(
                 Column(
                     Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .musicKeyFocusRing(RoundedCornerShape(12.dp))
                         .clickable { if (tapping) onTapLine(current.timeMs, positionMs) else onSeek(current.timeMs) },
