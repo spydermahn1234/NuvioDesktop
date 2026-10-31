@@ -91,6 +91,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.NuvioAsyncImage
 import com.nuvio.app.core.ui.nuvio
@@ -141,6 +146,8 @@ fun MusicNowPlayingHost(
     modifier: Modifier = Modifier,
     player: MusicPlayer = MusicPlayback.player,
     onOpenArtist: (String) -> Unit = {},
+    onOpenAlbum: (String) -> Unit = {},
+    onOpenMusicTab: () -> Unit = {},
 ) {
     val state by player.state.collectAsStateWithLifecycle()
     val open by MusicPlayback.nowPlayingOpen.collectAsStateWithLifecycle()
@@ -162,6 +169,8 @@ fun MusicNowPlayingHost(
                 onSeek = player::seekTo,
                 onClose = { MusicPlayback.nowPlayingOpen.value = false },
                 onOpenArtist = onOpenArtist,
+                onOpenAlbum = onOpenAlbum,
+                onOpenMusicTab = onOpenMusicTab,
                 modifier = Modifier.fillMaxSize(), // takes the whole window; the content clears the bar itself
             )
         }
@@ -176,9 +185,13 @@ private fun MusicNowPlayingScreen(
     onSeek: (Long) -> Unit,
     onClose: () -> Unit,
     onOpenArtist: (String) -> Unit,
+    onOpenAlbum: (String) -> Unit,
+    onOpenMusicTab: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.nuvio.colors
+    val scope = rememberCoroutineScope()
+    val catalog = remember { defaultMusicCatalog() }
     val track = state.track
     val album = state.album
     val artist = (track?.artists?.takeIf { it.isNotEmpty() } ?: album?.artists.orEmpty())
@@ -352,19 +365,48 @@ private fun MusicNowPlayingScreen(
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         )
                         Spacer(Modifier.height(8.dp))
-                        Text(
-                            listOfNotNull(artist.takeIf { it.isNotBlank() }, state.albumTitle, album?.year).joinToString(" · "),
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontSize = 16.sp,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        )
+                        val artistRefs = (track?.artists?.takeIf { it.isNotEmpty() } ?: album?.artists.orEmpty())
+                        val albumId = track?.albumBrowseId ?: album?.browseId
+                        // Each part leads somewhere: an artist to their page, the album to its page, a genre to a ladder.
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.CenterHorizontally),
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            artistRefs.forEachIndexed { i, ref ->
+                                StageLink(ref.name + if (i < artistRefs.lastIndex) ", " else "", enabled = true) {
+                                    scope.launch {
+                                        val id = ref.browseId ?: com.nuvio.app.features.music.library.rungArtist(catalog, ref.name)?.browseId
+                                        if (id != null) { onClose(); onOpenArtist(id) }
+                                    }
+                                }
+                            }
+                            val albumName = state.albumTitle
+                            if (!albumName.isNullOrBlank()) {
+                                StageLinkText(if (artistRefs.isNotEmpty()) " · " else "")
+                                StageLink(albumName, enabled = !albumId.isNullOrBlank()) { albumId?.let { onClose(); onOpenAlbum(it) } }
+                            }
+                            state.album?.year?.let { StageLinkText(" · $it") }
+                        }
                         val chips = listOfNotNull(libraryArtist?.mood) + libraryArtist?.genres.orEmpty().take(2)
                         if (chips.isNotEmpty()) {
                             Spacer(Modifier.height(12.dp))
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                chips.forEachIndexed { i, chip -> StageChip(chip, accented = i == 0 && libraryArtist?.mood != null) }
+                                chips.forEachIndexed { i, chip ->
+                                    val isMood = i == 0 && libraryArtist?.mood != null
+                                    // A genre starts a ladder into it (in the Music tab); the mood is only a label.
+                                    val genre = if (isMood) null else com.nuvio.app.features.music.library.canonicalGenre(chip)
+                                    StageChip(
+                                        chip,
+                                        accented = isMood,
+                                        onClick = genre?.let { g ->
+                                            {
+                                                MusicPlayback.pendingLadder.value = com.nuvio.app.features.music.library.LadderRequest.Genre(g)
+                                                onClose()
+                                                onOpenMusicTab()
+                                            }
+                                        },
+                                    )
+                                }
                             }
                         }
                         Spacer(Modifier.height(16.dp))
@@ -511,7 +553,7 @@ private fun StageTopBar(
 }
 
 @Composable
-private fun StageChip(text: String, accented: Boolean) {
+private fun StageChip(text: String, accented: Boolean, onClick: (() -> Unit)? = null) {
     val colors = MaterialTheme.nuvio.colors
     val shape = RoundedCornerShape(14.dp)
     Text(
@@ -525,7 +567,36 @@ private fun StageChip(text: String, accented: Boolean) {
                 if (accented) Modifier.background(colors.accent)
                 else Modifier.border(1.dp, Color.White.copy(alpha = 0.3f), shape),
             )
+            .then(if (onClick != null) Modifier.musicKeyFocusRing(shape).clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 14.dp, vertical = 6.dp),
+    )
+}
+
+private val StageLinkStyle = 16.sp
+
+/** The plain separators and year beside the links in the line under the title. */
+@Composable
+private fun StageLinkText(text: String) {
+    Text(text, color = Color.White.copy(alpha = 0.8f), fontSize = StageLinkStyle)
+}
+
+/** A name in the line under the title that opens its page; underlined on hover would need more, so it is brighter and focusable. */
+@Composable
+private fun StageLink(text: String, enabled: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(6.dp)
+    val source = remember { MutableInteractionSource() }
+    val hovered by source.collectIsHoveredAsState()
+    Text(
+        text,
+        color = Color.White.copy(alpha = if (enabled && hovered) 1f else 0.8f),
+        fontSize = StageLinkStyle,
+        textDecoration = if (enabled && hovered) androidx.compose.ui.text.style.TextDecoration.Underline else null,
+        modifier = Modifier
+            .clip(shape)
+            .then(
+                if (enabled) Modifier.hoverable(source).musicKeyFocusRing(shape).clickable(interactionSource = source, indication = null, onClick = onClick)
+                else Modifier,
+            ),
     )
 }
 

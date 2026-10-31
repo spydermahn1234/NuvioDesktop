@@ -5405,6 +5405,8 @@ private fun MainAppContent(
             MusicRootHosts(
                 hidden = musicPlayerHidden,
                 onOpenArtist = { navController.navigateIfResumed(com.nuvio.app.features.music.MusicArtistRoute(it)) },
+                onOpenAlbum = { navController.navigateIfResumed(com.nuvio.app.features.music.MusicAlbumRoute(it)) },
+                onOpenMusicTab = { latestRootTabClick.value(AppScreenTab.Music) },
             ) // fork:music
 
             NuvioToastHost(
