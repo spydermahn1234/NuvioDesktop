@@ -8,6 +8,7 @@ import io.ktor.http.encodeURLParameter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
@@ -18,6 +19,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.math.abs
 import kotlin.math.roundToLong
+import kotlin.time.Duration.Companion.minutes
 
 /** A word of a line with the stretch of the song it is sung over (absolute milliseconds). */
 data class TimedWord(val startMs: Long, val endMs: Long, val text: String)
@@ -238,9 +240,19 @@ object LrcLibClient {
         "Accept" to "application/json",
     )
 
+    /**
+     * When LRCLIB keeps failing (it has had outages: a 502 for every request), stop asking for a couple of minutes so
+     * every track does not wait on it, then try again. A /get that finds nothing is a normal 404 and does not count;
+     * only a /search that gets no answer does.
+     */
+    private val breaker = LookupBreaker(failuresBeforePause = 3, pause = 2.minutes)
+    private const val RETRY_AFTER_MS = 800L
+
     suspend fun find(title: String, artist: String, album: String, durationSeconds: Int): LyricsLookup {
         if (title.isBlank() || artist.isBlank()) return LyricsLookup.Missing
+        if (breaker.paused()) return LyricsLookup.Unreachable
         var answered = false
+        var retried = false
         for (name in listOf(title, coreTrackTitle(title)).filter { it.isNotBlank() }.distinct()) {
             // Exact match first: LRCLIB matches artist, title, album and length to a couple of seconds.
             if (durationSeconds > 0 && album.isNotBlank()) {
@@ -248,17 +260,24 @@ object LrcLibClient {
                     "&album_name=${album.encodeURLParameter()}&duration=$durationSeconds"
                 val record = lrcLibRecord(fetchJson(url))
                 val lyrics = record?.let(::lyricsOf)
-                if (lyrics != null) return LyricsLookup.Found(lyrics)
+                if (lyrics != null) { breaker.succeeded(); return LyricsLookup.Found(lyrics) }
             }
             val searchUrl = "$BASE/search?track_name=${name.encodeURLParameter()}&artist_name=${artist.encodeURLParameter()}"
-            val results = fetchJson(searchUrl) as? JsonArray
+            var results = fetchJson(searchUrl) as? JsonArray
+            if (results == null && !retried) {
+                // A 502 or a dropped connection is often over a moment later. One more try per lookup, not per name.
+                retried = true
+                delay(RETRY_AFTER_MS)
+                results = fetchJson(searchUrl) as? JsonArray
+            }
             if (results != null) {
                 answered = true
                 val best = pickLrcLibRecord(results.mapNotNull { lrcLibRecord(it) }, artist, durationSeconds)
                 val lyrics = best?.let(::lyricsOf)
-                if (lyrics != null) return LyricsLookup.Found(lyrics)
+                if (lyrics != null) { breaker.succeeded(); return LyricsLookup.Found(lyrics) }
             }
         }
+        if (answered) breaker.succeeded() else breaker.failed()
         return if (answered) LyricsLookup.Missing else LyricsLookup.Unreachable
     }
 
@@ -326,6 +345,15 @@ internal fun pickLyricsForStream(
         .minByOrNull { abs(it.durationMs - playedDurationMs) }
 }
 
+internal const val LRCLIB_SOURCE = "LRCLIB"
+
+/** How long the lyric view waits before asking again when no service could be reached: 20 s, 40 s, then every minute. */
+internal fun lyricsRetryDelayMs(attempt: Int): Long = when {
+    attempt <= 0 -> 20_000L
+    attempt == 1 -> 40_000L
+    else -> 60_000L
+}
+
 /** Lyrics per track, for the session. Misses are remembered; network failures are not. */
 object LyricsRepository {
     private val lock = Mutex()
@@ -358,38 +386,63 @@ object LyricsRepository {
         return pickLyricsForStream(primary, alternatives, playedDurationMs)
     }
 
-    suspend fun forTrack(track: MusicTrack, album: MusicAlbum?): Lyrics? {
+    suspend fun forTrack(track: MusicTrack, album: MusicAlbum?): Lyrics? =
+        (lookup(track, album) as? LyricsLookup.Found)?.lyrics
+
+    /**
+     * What the services say about [track]: [LyricsLookup.Found], [LyricsLookup.Missing] (they answered and have none:
+     * worth remembering), or [LyricsLookup.Unreachable] (LRCLIB could not be reached and nothing else had it: the
+     * caller shows that and asks again later; it is never remembered).
+     */
+    suspend fun lookup(track: MusicTrack, album: MusicAlbum?): LyricsLookup {
         val key = track.videoId
-        lock.withLock { if (cache.containsKey(key)) return cache[key] }
+        lock.withLock {
+            if (cache.containsKey(key)) return cache[key]?.let { LyricsLookup.Found(it) } ?: LyricsLookup.Missing
+        }
         val albumName = (track.albumTitle ?: album?.title).orEmpty()
         val artistName = artistOf(track, album)
         // The word-timing sources are asked while LRCLIB is, not after it, so a new track waits for the slower of the two.
         val (lrclibLookup, others) = coroutineScope {
             val timed = async { timedSources(track, artistName, albumName) }
-            // fork:music-playlists - a YouTube upload in a playlist (a cover, a duet) names several people in one artist
-            // string and the original song in its title; each reading is asked in turn until one has lyrics.
-            var result: LyricsLookup = LyricsLookup.Missing
-            var reached = false
-            for ((title, artist) in lyricLookupCandidates(track.title, artistName)) {
-                val found = LrcLibClient.find(title, artist, albumName, track.durationSeconds)
-                if (found is LyricsLookup.Found) { result = found; break }
-                if (found == LyricsLookup.Missing) reached = true
-                result = if (reached) LyricsLookup.Missing else found
-            }
-            result to timed.await()
+            lrclibFor(track, artistName, albumName) to timed.await()
         }
-        val lrclib = (lrclibLookup as? LyricsLookup.Found)?.lyrics?.let { found ->
-            if (found is Lyrics.Synced && found.source == null) found.copy(source = "LRCLIB") else found
-        }
+        val lrclib = (lrclibLookup as? LyricsLookup.Found)?.lyrics
         // Word-by-word timing replaces LRCLIB's line timing when a source has this very cut of the song; any failure
         // there leaves LRCLIB's lines exactly as before. A source that only has line timing is used only when LRCLIB has nothing.
         val timed = if (lrclib === Lyrics.Instrumental) emptyList() else others
         val best: Lyrics? = timed.firstOrNull { it.isWordTimed } ?: lrclib ?: timed.firstOrNull()
         return when {
-            best != null -> best.also { lock.withLock { cache[key] = it } }
-            lrclibLookup == LyricsLookup.Missing -> null.also { lock.withLock { cache[key] = null } }
-            else -> null
+            best != null -> LyricsLookup.Found(best).also { lock.withLock { cache[key] = best } }
+            lrclibLookup == LyricsLookup.Missing -> LyricsLookup.Missing.also { lock.withLock { cache[key] = null } }
+            else -> LyricsLookup.Unreachable
         }
+    }
+
+    /**
+     * LRCLIB's answer for the track. A timed lyric it has given is kept on disk (like the other sources' answers), so a
+     * song that worked once still has its lyrics when LRCLIB is down or the app starts offline. A miss is not kept: a
+     * lyric can be added to LRCLIB at any time, and "nothing" must never outlive the next look.
+     */
+    private suspend fun lrclibFor(track: MusicTrack, artistName: String, albumName: String): LyricsLookup {
+        val now = epochMs()
+        LyricCache.get(LRCLIB_SOURCE, track.videoId, now)?.lyrics?.let { return LyricsLookup.Found(it) }
+        // fork:music-playlists - a YouTube upload in a playlist (a cover, a duet) names several people in one artist
+        // string and the original song in its title; each reading is asked in turn until one has lyrics.
+        var result: LyricsLookup = LyricsLookup.Missing
+        var reached = false
+        for ((title, artist) in lyricLookupCandidates(track.title, artistName)) {
+            val found = LrcLibClient.find(title, artist, albumName, track.durationSeconds)
+            if (found is LyricsLookup.Found) { result = found; break }
+            if (found == LyricsLookup.Missing) reached = true
+            result = if (reached) LyricsLookup.Missing else found
+            // LRCLIB is not answering: the other readings of the title would only wait the same way.
+            if (found == LyricsLookup.Unreachable) break
+        }
+        val lyrics = (result as? LyricsLookup.Found)?.lyrics ?: return result
+        if (lyrics !is Lyrics.Synced) return result
+        val tagged = if (lyrics.source == null) lyrics.copy(source = LRCLIB_SOURCE) else lyrics
+        LyricCache.put(LRCLIB_SOURCE, track.videoId, now, tagged)
+        return LyricsLookup.Found(tagged)
     }
 
     /**

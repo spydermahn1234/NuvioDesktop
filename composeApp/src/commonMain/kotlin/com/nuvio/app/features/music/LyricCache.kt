@@ -9,7 +9,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
 
-/** Where the word-timed lyric cache lives on disk: one text value per key. */
+/** Where the timed lyric cache (LRCLIB and the word-timing sources) lives on disk: one text value per key. */
 internal expect object LyricCacheStorage {
     fun keys(): Set<String>
     fun get(key: String): String?
@@ -27,9 +27,12 @@ private const val DAY_MS = 24L * 60L * 60L * 1_000L
 internal const val LYRIC_CACHE_HIT_TTL_MS = 30 * DAY_MS
 internal const val LYRIC_CACHE_MISS_TTL_MS = 7 * DAY_MS
 
-/** Entries kept per cache; past it the oldest go. A found lyric is a few KB, a miss a few bytes. */
-internal const val LYRIC_CACHE_MAX_ENTRIES = 300
-internal const val LYRIC_CACHE_SLACK = 25
+/**
+ * Entries kept per cache; past it the oldest go. A found lyric is a few KB, a miss a few bytes. A track can hold up to
+ * five entries (LRCLIB and the four word-timing sources), so this is a couple of hundred tracks.
+ */
+internal const val LYRIC_CACHE_MAX_ENTRIES = 1_000
+internal const val LYRIC_CACHE_SLACK = 50
 
 /** Written in front of every key. Bump it when the layout below changes and the old entries are simply never read. */
 private const val CACHE_VERSION = "v1"

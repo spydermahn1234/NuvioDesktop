@@ -118,6 +118,9 @@ private sealed interface LyricsUi {
     data object Loading : LyricsUi
     data class Ready(val lyrics: Lyrics) : LyricsUi
     data object Missing : LyricsUi
+
+    /** The lyric services could not be reached (so "none" is not known); the lookup is repeated on its own. */
+    data object Unreachable : LyricsUi
 }
 
 private enum class StageView { Stage, Video }
@@ -180,8 +183,23 @@ private fun MusicNowPlayingScreen(
 
     val baseLyrics by produceState<LyricsUi>(LyricsUi.Loading, track?.videoId) {
         value = LyricsUi.Loading
-        val found = track?.let { LyricsRepository.forTrack(it, album) }
-        value = if (found != null) LyricsUi.Ready(found) else LyricsUi.Missing
+        if (track == null) {
+            value = LyricsUi.Missing
+            return@produceState
+        }
+        // An outage is not "no lyrics": say so, and keep asking (20 s, 40 s, then every minute) until the track
+        // changes, so lyrics appear on their own once a service is back.
+        var attempt = 0
+        while (true) {
+            when (val answer = LyricsRepository.lookup(track, album)) {
+                is LyricsLookup.Found -> { value = LyricsUi.Ready(answer.lyrics); return@produceState }
+                LyricsLookup.Missing -> { value = LyricsUi.Missing; return@produceState }
+                LyricsLookup.Unreachable -> {
+                    value = LyricsUi.Unreachable
+                    delay(lyricsRetryDelayMs(attempt++))
+                }
+            }
+        }
     }
     val cdArt = rememberCdArtFor(album?.browseId)
 
@@ -667,6 +685,7 @@ private fun LyricsPane(
                 when (ui) {
                     LyricsUi.Loading -> Unit
                     LyricsUi.Missing -> Message("No lyrics found for this track")
+                    LyricsUi.Unreachable -> Message("Can't reach the lyrics services. Trying again…")
                     is LyricsUi.Ready -> when (val lyrics = ui.lyrics) {
                         Lyrics.Instrumental -> Message("Instrumental")
                         is Lyrics.Plain -> PlainLyrics(lyrics.lines)
@@ -689,6 +708,7 @@ private fun LyricsPane(
         when (ui) {
             LyricsUi.Loading -> Unit
             LyricsUi.Missing -> Message("No lyrics found for this track")
+            LyricsUi.Unreachable -> Message("Can't reach the lyrics services. Trying again…")
             is LyricsUi.Ready -> when (val lyrics = ui.lyrics) {
                 Lyrics.Instrumental -> Message("Instrumental")
                 is Lyrics.Plain -> PlainLyrics(lyrics.lines)
