@@ -14,6 +14,7 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlin.math.roundToLong
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
 /*
@@ -250,20 +251,34 @@ internal fun unisonLyricsOf(root: JsonElement?, title: String, artist: String, d
 
 internal const val UNISON_SOURCE = "Unison"
 
+/** How long a word-timing source rests after its first failure in a row (see [LookupBreaker]). The lyrics do not wait on it meanwhile. */
+internal val FIRST_FAILURE_PAUSE = 20.seconds
+
 // endregion
 
 // region client
 
-/** Stops asking a service for a while after it has failed several times in a row or asked us to slow down. */
-internal class LookupBreaker(private val failuresBeforePause: Int, private val pause: Duration) {
+/**
+ * Stops asking a service for a while after it has failed several times in a row or asked us to slow down.
+ *
+ * With [firstFailurePause] a failure short of the limit also rests the service briefly. Without it a dead host costs
+ * the full time limit on each of the first [failuresBeforePause] tracks before it is given up on; with it only the first.
+ * The failure count is kept through those brief rests and starts over after a full [pause] or a success.
+ */
+internal class LookupBreaker(
+    private val failuresBeforePause: Int,
+    private val pause: Duration,
+    private val firstFailurePause: Duration = Duration.ZERO,
+) {
     private var failures = 0
     private var pausedAt: TimeSource.Monotonic.ValueTimeMark? = null
+    private var held: Duration = pause
 
     fun paused(): Boolean {
         val since = pausedAt ?: return false
-        if (since.elapsedNow() < pause) return true
+        if (since.elapsedNow() < held) return true
         pausedAt = null
-        failures = 0
+        if (held >= pause) failures = 0
         return false
     }
 
@@ -273,10 +288,18 @@ internal class LookupBreaker(private val failuresBeforePause: Int, private val p
 
     fun failed() {
         failures++
-        if (failures >= failuresBeforePause) pauseNow()
+        when {
+            failures >= failuresBeforePause -> pauseNow()
+            firstFailurePause > Duration.ZERO -> pauseFor(firstFailurePause)
+        }
     }
 
-    fun pauseNow() {
+    /** The full pause: for a service that told us to stop, or has failed enough times in a row. */
+    fun pauseNow() = pauseFor(pause)
+
+    /** A rest of [length], for a service that asked for a short wait (a rate limit that clears in seconds). */
+    fun pauseFor(length: Duration) {
+        held = length
         pausedAt = TimeSource.Monotonic.markNow()
     }
 }
@@ -297,7 +320,7 @@ object UnisonLyricsClient {
         "Accept" to "application/json",
     )
     private val YOUTUBE_ID = Regex("[A-Za-z0-9_-]{11}")
-    private val breaker = LookupBreaker(failuresBeforePause = 3, pause = 10.minutes)
+    private val breaker = LookupBreaker(failuresBeforePause = 3, pause = 10.minutes, firstFailurePause = FIRST_FAILURE_PAUSE)
 
     suspend fun find(videoId: String, title: String, artist: String, album: String, durationSeconds: Int): LyricsLookup {
         if (title.isBlank() || artist.isBlank()) return LyricsLookup.Missing

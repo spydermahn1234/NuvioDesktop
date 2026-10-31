@@ -60,6 +60,8 @@ data class MusicLibrarySettings(
     val neteaseLyrics: Boolean = true,
     /** Word-by-word lyrics from LRCMux, a third-party service that relays other catalogues' lyrics. Off until chosen. */
     val lrcMuxLyrics: Boolean = false,
+    /** Word-by-word lyrics from LyricsPlus, a third-party service that relays Apple Music's lyrics. Off until chosen. */
+    val lyricsPlusLyrics: Boolean = false,
     /** Skips the parts of a song's video that SponsorBlock users marked as not music (spoken intros, skits, outros). */
     val skipNonMusic: Boolean = false,
 )

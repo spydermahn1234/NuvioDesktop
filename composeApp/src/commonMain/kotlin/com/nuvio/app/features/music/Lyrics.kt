@@ -2,11 +2,17 @@ package com.nuvio.app.features.music
 
 import co.touchlab.kermit.Logger
 import com.nuvio.app.features.addons.httpGetTextWithHeaders
+import com.nuvio.app.features.addons.httpRequestRaw
 import com.nuvio.app.features.music.library.MusicLibraryRepository
 import com.nuvio.app.features.streams.epochMs
 import io.ktor.http.encodeURLParameter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
@@ -247,6 +253,8 @@ object LrcLibClient {
      */
     private val breaker = LookupBreaker(failuresBeforePause = 3, pause = 2.minutes)
     private const val RETRY_AFTER_MS = 800L
+    private const val CALL_BUDGET_MS = 6_000L
+    private const val CONNECT_BUDGET_MS = 3_000L
 
     suspend fun find(title: String, artist: String, album: String, durationSeconds: Int): LyricsLookup {
         if (title.isBlank() || artist.isBlank()) return LyricsLookup.Missing
@@ -298,9 +306,22 @@ object LrcLibClient {
         return if (answered) emptyList() else null
     }
 
+    /**
+     * LRCLIB's answer as JSON, or null on any failure. The call has its own time limit: the app's shared HTTP client waits
+     * a minute for a host that does not answer, and a coroutine timeout cannot cut a blocked call short, so a hung LRCLIB
+     * used to hold every new track's lyrics for that long. Anything but a 2xx (a 404 from /get is "no exact match") is null.
+     */
     private suspend fun fetchJson(url: String): JsonElement? =
         try {
-            Json.parseToJsonElement(httpGetTextWithHeaders(url, HEADERS))
+            val response = httpRequestRaw(
+                method = "GET",
+                url = url,
+                headers = HEADERS,
+                body = "",
+                callTimeoutMs = CALL_BUDGET_MS,
+                connectTimeoutMs = CONNECT_BUDGET_MS,
+            )
+            if (response.status in 200..299) Json.parseToJsonElement(response.body) else null
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
@@ -354,6 +375,19 @@ internal fun lyricsRetryDelayMs(attempt: Int): Long = when {
     else -> 60_000L
 }
 
+/** How long the word-timing sources get to improve on lyrics LRCLIB already supplied, once it has answered. */
+internal const val WORD_SOURCES_GRACE_MS = 2_500L
+
+/**
+ * The lyric to show: a word-timed one from [others] (best source first) replaces LRCLIB's line timing when a source has
+ * this very cut of the song; a source that only has line timing is used only when LRCLIB has nothing; and a track LRCLIB
+ * calls instrumental stays instrumental whatever the others say.
+ */
+internal fun bestLyrics(lrclib: Lyrics?, others: List<Lyrics.Synced>): Lyrics? {
+    val timed = if (lrclib === Lyrics.Instrumental) emptyList() else others
+    return timed.firstOrNull { it.isWordTimed } ?: lrclib ?: timed.firstOrNull()
+}
+
 /** Lyrics per track, for the session. Misses are remembered; network failures are not. */
 object LyricsRepository {
     private val lock = Mutex()
@@ -401,21 +435,39 @@ object LyricsRepository {
         }
         val albumName = (track.albumTitle ?: album?.title).orEmpty()
         val artistName = artistOf(track, album)
-        // The word-timing sources are asked while LRCLIB is, not after it, so a new track waits for the slower of the two.
-        val (lrclibLookup, others) = coroutineScope {
-            val timed = async { timedSources(track, artistName, albumName) }
-            lrclibFor(track, artistName, albumName) to timed.await()
-        }
+        // The word-timing sources are asked while LRCLIB is, not after it. They run in the repository's own scope so a
+        // slow one can be left behind without being cancelled: it goes on filling the disk cache for the next play.
+        val timed = background.async { timedSources(track, artistName, albumName) }
+        val lrclibLookup = lrclibFor(track, artistName, albumName)
         val lrclib = (lrclibLookup as? LyricsLookup.Found)?.lyrics
-        // Word-by-word timing replaces LRCLIB's line timing when a source has this very cut of the song; any failure
-        // there leaves LRCLIB's lines exactly as before. A source that only has line timing is used only when LRCLIB has nothing.
-        val timed = if (lrclib === Lyrics.Instrumental) emptyList() else others
-        val best: Lyrics? = timed.firstOrNull { it.isWordTimed } ?: lrclib ?: timed.firstOrNull()
+        // With lyrics already in hand the sources get [WORD_SOURCES_GRACE_MS] to improve on them, not their whole time
+        // limits (the slowest is seven seconds). Without any, they are all there is, so they are waited for.
+        val others: List<Lyrics.Synced> = if (lrclib === Lyrics.Instrumental) {
+            // An instrumental needs no lyrics from anyone; do not spend requests (or time) on it.
+            timed.cancel()
+            emptyList()
+        } else if (lrclib != null) {
+            withTimeoutOrNull(WORD_SOURCES_GRACE_MS) { timed.await() } ?: run {
+                background.launch { upgradeWhenLate(key, lrclib, timed.await()) }
+                emptyList()
+            }
+        } else {
+            timed.await()
+        }
+        val best = bestLyrics(lrclib, others)
         return when {
             best != null -> LyricsLookup.Found(best).also { lock.withLock { cache[key] = best } }
             lrclibLookup == LyricsLookup.Missing -> LyricsLookup.Missing.also { lock.withLock { cache[key] = null } }
             else -> LyricsLookup.Unreachable
         }
+    }
+
+    private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** Word timing that arrived after the lyrics were handed out: the next lookup this session gets it (it is on disk already). */
+    private suspend fun upgradeWhenLate(key: String, base: Lyrics, late: List<Lyrics.Synced>) {
+        val better = bestLyrics(base, late)?.takeIf { it !== base && (it as? Lyrics.Synced)?.isWordTimed == true } ?: return
+        lock.withLock { if (cache[key] === base) cache[key] = better }
     }
 
     /**
@@ -460,8 +512,9 @@ object LyricsRepository {
             val unison = if (settings.unisonLyrics) async { remembered("unison", id) { UnisonLyricsClient.find(id, title, artist, albumName, seconds) } } else null
             val amll = if (settings.amllLyrics) async { remembered("amll", id) { AmllLyricsClient.find(title, artist, seconds) } } else null
             val netease = if (settings.neteaseLyrics) async { remembered("netease", id) { NeteaseLyricsClient.find(title, artist, seconds) } } else null
+            val lyricsPlus = if (settings.lyricsPlusLyrics) async { remembered("lyricsplus", id) { LyricsPlusLyricsClient.find(title, artist, seconds) } } else null
             val lrcMux = if (settings.lrcMuxLyrics) async { remembered("lrcmux", id) { LrcMuxLyricsClient.find(title, artist, seconds) } } else null
-            val inOrder = listOfNotNull(unison, amll, netease, lrcMux)
+            val inOrder = listOfNotNull(unison, amll, lyricsPlus, netease, lrcMux)
             // Best first: the first word-timed answer wins, so once one is in, the sources after it are not waited for
             // (a slow one would hold the lyrics back by its whole time limit) and not asked at all if still running.
             val answers = ArrayList<Lyrics.Synced>(inOrder.size)

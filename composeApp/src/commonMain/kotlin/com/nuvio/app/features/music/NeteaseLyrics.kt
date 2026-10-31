@@ -1,7 +1,7 @@
 package com.nuvio.app.features.music
 
 import co.touchlab.kermit.Logger
-import com.nuvio.app.features.addons.httpPostJsonWithHeaders
+import com.nuvio.app.features.addons.httpRequestRaw
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
@@ -13,7 +13,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.TimeSource
 
 /*
  * Word-by-word lyrics from Netease Cloud Music (YRC). LRCLIB only stamps where a line starts; YRC stamps every
@@ -210,28 +209,21 @@ object NeteaseLyricsClient {
     private const val SEARCH_URL = "https://interface.music.163.com/eapi/cloudsearch/pc"
     private const val LYRIC_PATH = "/api/song/lyric/v1"
     private const val LYRIC_URL = "https://interface3.music.163.com/eapi/song/lyric/v1"
-    private const val FAILURES_BEFORE_PAUSE = 3
-    private val pause = 10.minutes
-
-    private var failuresInARow = 0
-    private var pausedAt: TimeSource.Monotonic.ValueTimeMark? = null
-
-    private fun paused(): Boolean {
-        val since = pausedAt ?: return false
-        if (since.elapsedNow() < pause) return true
-        pausedAt = null
-        failuresInARow = 0
-        return false
-    }
-
-    private fun failed() {
-        failuresInARow++
-        if (failuresInARow >= FAILURES_BEFORE_PAUSE) pausedAt = TimeSource.Monotonic.markNow()
-    }
+    private val breaker = LookupBreaker(failuresBeforePause = 3, pause = 10.minutes, firstFailurePause = FIRST_FAILURE_PAUSE)
 
     private suspend fun post(url: String, path: String, payload: String): JsonElement? =
         try {
-            json.parseToJsonElement(httpPostJsonWithHeaders(url, neteaseEapiBody(path, payload), EAPI_HEADERS))
+            // The call's own time limits matter: Netease may silently drop requests from outside China, the shared client
+            // would wait a minute for that, and the [BUDGET_MS] below cannot cut a blocked call short.
+            val response = httpRequestRaw(
+                method = "POST",
+                url = url,
+                headers = EAPI_HEADERS,
+                body = neteaseEapiBody(path, payload),
+                callTimeoutMs = CALL_MS,
+                connectTimeoutMs = CONNECT_MS,
+            )
+            if (response.status in 200..299) json.parseToJsonElement(response.body) else null
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
@@ -240,6 +232,8 @@ object NeteaseLyricsClient {
         }
 
     private const val BUDGET_MS = 6_000L
+    private const val CALL_MS = 4_000L
+    private const val CONNECT_MS = 3_000L
 
     /** Word-timed lyrics, or null. Kept for callers that do not care why there are none; see [find]. */
     suspend fun wordTimed(title: String, artist: String, durationSeconds: Int): Lyrics.Synced? =
@@ -253,20 +247,20 @@ object NeteaseLyricsClient {
      */
     suspend fun find(title: String, artist: String, durationSeconds: Int): LyricsLookup {
         if (title.isBlank() || artist.isBlank()) return LyricsLookup.Missing
-        if (paused()) return LyricsLookup.Unreachable
+        if (breaker.paused()) return LyricsLookup.Unreachable
         val found = withTimeoutOrNull(BUDGET_MS) { lookup(title, artist, durationSeconds) }
-        if (found == null) { failed(); return LyricsLookup.Unreachable }
+        if (found == null) { breaker.failed(); return LyricsLookup.Unreachable }
         return found
     }
 
     private suspend fun lookup(title: String, artist: String, durationSeconds: Int): LyricsLookup {
         val search = post(SEARCH_URL, SEARCH_PATH, neteaseSearchPayload("${coreTrackTitle(title)} $artist"))
-        if (search == null) { failed(); return LyricsLookup.Unreachable }
+        if (search == null) { breaker.failed(); return LyricsLookup.Unreachable }
         val song = pickNeteaseSong(parseNeteaseSearch(search), title, artist, durationSeconds)
-            ?: return LyricsLookup.Missing.also { failuresInARow = 0 }
+            ?: return LyricsLookup.Missing.also { breaker.succeeded() }
         val answer = post(LYRIC_URL, LYRIC_PATH, neteaseLyricPayload(song.id))
-        if (answer == null) { failed(); return LyricsLookup.Unreachable }
-        failuresInARow = 0
+        if (answer == null) { breaker.failed(); return LyricsLookup.Unreachable }
+        breaker.succeeded()
         val lines = yrcOf(answer)?.let(::parseYrc).orEmpty()
         if (lines.none { it.words.isNotEmpty() }) return LyricsLookup.Missing
         return LyricsLookup.Found(Lyrics.Synced(lines, durationSeconds = song.durationMs / 1_000.0, source = "Netease"))

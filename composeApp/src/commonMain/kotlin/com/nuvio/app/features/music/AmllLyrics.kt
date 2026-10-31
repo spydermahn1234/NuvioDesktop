@@ -74,7 +74,7 @@ object AmllLyricsClient {
         "User-Agent" to "NuvioDesktop (https://github.com/UmbraProjects/NuvioDesktop)",
         "Accept" to "application/json",
     )
-    private val breaker = LookupBreaker(failuresBeforePause = 3, pause = 10.minutes)
+    private val breaker = LookupBreaker(failuresBeforePause = 3, pause = 10.minutes, firstFailurePause = FIRST_FAILURE_PAUSE)
 
     /**
      * [LyricsLookup.Found] with a [Lyrics.Synced] timed to the syllable, [LyricsLookup.Missing] when AMLL has no file

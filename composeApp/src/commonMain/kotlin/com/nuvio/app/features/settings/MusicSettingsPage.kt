@@ -50,6 +50,8 @@ import nuvio.composeapp.generated.resources.settings_music_lyrics_amll
 import nuvio.composeapp.generated.resources.settings_music_lyrics_amll_description
 import nuvio.composeapp.generated.resources.settings_music_lyrics_lrcmux
 import nuvio.composeapp.generated.resources.settings_music_lyrics_lrcmux_description
+import nuvio.composeapp.generated.resources.settings_music_lyrics_lyricsplus
+import nuvio.composeapp.generated.resources.settings_music_lyrics_lyricsplus_description
 import nuvio.composeapp.generated.resources.settings_music_lyrics_netease
 import nuvio.composeapp.generated.resources.settings_music_lyrics_netease_description
 import nuvio.composeapp.generated.resources.settings_music_lyrics_unison
@@ -236,6 +238,14 @@ internal fun LazyListScope.musicSettingsContent(isTablet: Boolean) {
                     checked = settings.lrcMuxLyrics,
                     isTablet = isTablet,
                     onCheckedChange = { MusicLibraryRepository.updateSettings(settings.copy(lrcMuxLyrics = it)) },
+                )
+                SettingsGroupDivider(isTablet)
+                SettingsSwitchRow(
+                    title = stringResource(Res.string.settings_music_lyrics_lyricsplus),
+                    description = stringResource(Res.string.settings_music_lyrics_lyricsplus_description),
+                    checked = settings.lyricsPlusLyrics,
+                    isTablet = isTablet,
+                    onCheckedChange = { MusicLibraryRepository.updateSettings(settings.copy(lyricsPlusLyrics = it)) },
                 )
             }
         }

@@ -103,7 +103,7 @@ object LrcMuxLyricsClient {
         "User-Agent" to "NuvioDesktop (https://github.com/UmbraProjects/NuvioDesktop)",
         "Accept" to "application/json",
     )
-    private val breaker = LookupBreaker(failuresBeforePause = 3, pause = 10.minutes)
+    private val breaker = LookupBreaker(failuresBeforePause = 3, pause = 10.minutes, firstFailurePause = FIRST_FAILURE_PAUSE)
 
     suspend fun find(title: String, artist: String, durationSeconds: Int): LyricsLookup {
         if (title.isBlank() || artist.isBlank()) return LyricsLookup.Missing

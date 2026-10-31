@@ -2523,6 +2523,7 @@ private fun settingsSearchEntries(
             PlaybackSearchRow("music-lyrics-amll", resolve(Res.string.settings_music_lyrics_amll), resolve(Res.string.settings_music_lyrics_amll_description), resolve(Res.string.settings_music_section_lyrics)),
             PlaybackSearchRow("music-lyrics-netease", resolve(Res.string.settings_music_lyrics_netease), resolve(Res.string.settings_music_lyrics_netease_description), resolve(Res.string.settings_music_section_lyrics)),
             PlaybackSearchRow("music-lyrics-lrcmux", resolve(Res.string.settings_music_lyrics_lrcmux), resolve(Res.string.settings_music_lyrics_lrcmux_description), resolve(Res.string.settings_music_section_lyrics)),
+            PlaybackSearchRow("music-lyrics-lyricsplus", resolve(Res.string.settings_music_lyrics_lyricsplus), resolve(Res.string.settings_music_lyrics_lyricsplus_description), resolve(Res.string.settings_music_section_lyrics)),
             PlaybackSearchRow("music-keep-audio-alive", resolve(Res.string.settings_music_keep_audio_alive), resolve(Res.string.settings_music_keep_audio_alive_description), resolve(Res.string.settings_music_section_playback)),
             PlaybackSearchRow("music-skip-non-music", resolve(Res.string.settings_music_skip_non_music), resolve(Res.string.settings_music_skip_non_music_description), resolve(Res.string.settings_music_section_playback)),
         ).forEach { row ->
