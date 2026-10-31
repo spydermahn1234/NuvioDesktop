@@ -71,6 +71,10 @@ internal fun posterTiltDegrees(lineIndex: Int, wordIndex: Int): Float {
 
 private const val MAX_TILT = 4.5f
 
+/** How much larger (0.3 = 30%) a word is at the instant it is thrown in, and how far above its place. Kept small so it never covers the word beside it. */
+private const val POSTER_LAND_SCALE = 0.3f
+private const val POSTER_LAND_DROP_DP = 22f
+
 /** Longer lines are set smaller so the line stays at most about three rows. */
 internal fun posterFontSizeSp(characters: Int): Int = when {
     characters <= 24 -> 64
@@ -177,15 +181,20 @@ private fun PosterWord(
             val a = arrival()
             if (reduced) {
                 alpha = if (a > 0f) 1f else 0.22f
+            } else if (a <= 0f) {
+                // Not sung yet: a quiet ghost at rest. It must not be scaled or thrown about, because a graphics
+                // layer does not move its neighbours, so an enlarged ghost drew over the words beside it.
+                alpha = 0.22f
+                rotationZ = tilt
             } else {
                 val e = backOut(a)
                 val away = 1f - e
                 alpha = 0.22f + 0.78f * (a * 4f).coerceAtMost(1f)
-                val s = 1f + 0.7f * away
+                val s = 1f + POSTER_LAND_SCALE * away
                 scaleX = s
                 scaleY = s
-                translationY = -34.dp.toPx() * away
-                rotationZ = tilt * (1f + 2f * away)
+                translationY = -POSTER_LAND_DROP_DP.dp.toPx() * away
+                rotationZ = tilt * (1f + 1f * away)
             }
         },
     ) {
