@@ -392,3 +392,7 @@ Turn it on in Settings > Random Play > Tonight picker > "Open on Tonight".
 - [ ] With it on and The Map open, the panel's footer counts titles "placed with the AI's reading of their tone" and some tiles shift sideways; a dark comedy moves right of a family comedy
 - [ ] With it off, nothing is sent to the AI (no "Tonight map" lines in the log)
 
+
+## Film player (from upstream, Nov 11)
+
+- [ ] Subtitles carry over to the next episode: play an episode with your preferred subtitle on, let it go to the next one (or start the next from the list), and the same subtitle comes on by itself
