@@ -413,14 +413,14 @@ Turn it on in Settings > Random Play > Tonight picker > "Open on Tonight".
 
 ## AIOStreams and AIOMetadata inside Nuvio (Nov 11)
 
-- [ ] Settings > Addons shows "AIOStreams and AIOMetadata on this PC" with the switch off; the Nightly includes the servers (the switch is not greyed out with "This build does not include the servers")
-- [ ] Turning the switch on: within about a minute AIOStreams, AIOMetadata and Cache (Redis) all say "Running at http://127.0.0.1:…"
-- [ ] Windows Firewall does not ask about node.exe or redis-server.exe
-- [ ] "Open configure page" on AIOStreams opens its configure page in the browser; add TorBox there, save, and copy the manifest address it gives
-- [ ] Paste that address into "Install an addon address" and press Install: it says "Installed …" and the addon is in the Addons list; a film's sources come from it
-- [ ] Enter a TMDB key (and TVDB if you have one) and press "Save and restart": both servers restart and come back Running
-  - [ ] TMDB key: the AIOStreams configure page said "Failed to validate TMDB API Key/Access Token ... 401" on Create (2026-11-11). Nuvio now tells the 32-character API key from the long Read Access Token (starts eyJ) and passes each where it works; with the API key in Nuvio and nothing in the configure page's Metadata TMDB fields, Create succeeds
-- [ ] "Open configure page" on AIOMetadata opens its page; set up catalogues, save, install its address the same way; Home shows its catalogues and details pages fill
+- [x] Settings > Addons shows "AIOStreams and AIOMetadata on this PC" with the switch off; the Nightly includes the servers (the switch is not greyed out with "This build does not include the servers") (2026-11-11)
+- [x] Turning the switch on: within about a minute AIOStreams, AIOMetadata and Cache (Redis) all say "Running at http://127.0.0.1:…" (2026-11-11)
+- [x] Windows Firewall does not ask about node.exe or redis-server.exe (2026-11-11)
+- [x] "Open configure page" on AIOStreams opens its configure page in the browser; add TorBox there, save, and copy the manifest address it gives (2026-11-11)
+- [x] Paste that address into "Install an addon address" and press Install: it says "Installed …" and the addon is in the Addons list; a film's sources come from it (2026-11-11)
+- [x] Enter a TMDB key (and TVDB if you have one) and press "Save and restart": both servers restart and come back Running (2026-11-11) (TMDB; the TVDB key was rejected as invalid, left for now)
+  - [x] TMDB key: the AIOStreams configure page said "Failed to validate TMDB API Key/Access Token ... 401" on Create (2026-11-11). Nuvio now tells the 32-character API key from the long Read Access Token (starts eyJ) and passes each where it works; with the API key in Nuvio and nothing in the configure page's Metadata TMDB fields, Create succeeds (2026-11-11)
+- [x] "Open configure page" on AIOMetadata opens its page; set up catalogues, save, install its address the same way; Home shows its catalogues and details pages fill (2026-11-11)
 - [ ] Close Nuvio: Task Manager shows no node.exe or redis-server.exe left running; start Nuvio again and the servers come back on their own, with the same addresses (installed addons still work)
 - [ ] Memory: with both running for an evening, Task Manager's node.exe processes stay around 1.3 GB in total, and Nuvio stays smooth
 - [ ] An in-app update while the servers are on installs cleanly (no "file in use" error)
