@@ -444,6 +444,7 @@ Settings > Live TV > Live scores (off by default). Best tried while Man Utd or a
 - [x] "Open configure page" on AIOMetadata opens its page; set up catalogues, save, install its address the same way; Home shows its catalogues and details pages fill (2026-11-11)
 - [ ] Close Nuvio: Task Manager shows no node.exe or redis-server.exe left running; start Nuvio again and the servers come back on their own, with the same addresses (installed addons still work)
   - [ ] **BROKEN** (2026-11-11): on start the two local addons showed "Unavailable, Failed to connect to /127.0.0.1:4734x" until refreshed by hand, because Nuvio loads its addons before the servers answer. Re-check: start Nuvio and leave Settings > Addons alone; within about half a minute both show as loaded and Home has their rows (nuvio.log has "Server on port … is ready: loading its addon again")
+    - [~] (2026-11-11): AIOStreams came back by itself; AIOMetadata's reload got "Request failed with HTTP 503" (it answered /health/live while still initialising) and needed a manual refresh. Re-check: after a start both load without touching them
 - [ ] Memory: with both running for an evening, Task Manager's node.exe processes stay around 1.3 GB in total, and Nuvio stays smooth
 - [ ] An in-app update while the servers are on installs cleanly (no "file in use" error)
 - [ ] Turning the switch off stops all three (no node.exe or redis-server.exe left)

@@ -19,7 +19,10 @@ enum class LocalAddonServer(
     val configurePath: String?,
 ) {
     Redis("Cache (Redis)", 47342, null, null),
-    AioMetadata("AIOMetadata", 47341, "/health/live", "/configure"),
+    // /health/ready, not /health/live: AIOMetadata opens its port while still initialising and answers
+    // /health/live then, but every other request gets 503 for a few seconds (seen Nov 11: an addon
+    // reloaded in that gap stayed Unavailable). See [localAddonHealthIsReady].
+    AioMetadata("AIOMetadata", 47341, "/health/ready", "/configure"),
     AioStreams("AIOStreams", 47340, "/api/v1/status", "/stremio/configure"),
     ;
 
@@ -229,6 +232,19 @@ fun localAddonsToRetry(
     .filter { localAddonPortOf(it.manifestUrl) in readyPorts }
     .map { it.manifestUrl }
     .distinct()
+
+/**
+ * Whether a server's health answer means it will now serve requests. AIOMetadata's /health/ready is
+ * 200 once start-up has finished and its Redis and database answer; after start-up it can turn 503
+ * ("degraded") when Redis is slow, while still serving, so a body saying `"ready":true` counts too.
+ * During start-up it is 503 with `"ready":false`.
+ */
+fun localAddonHealthIsReady(server: LocalAddonServer, status: Int, body: String): Boolean = when {
+    status in 200..299 -> true
+    server == LocalAddonServer.AioMetadata && status == 503 ->
+        Regex(""""ready"\s*:\s*true""").containsMatchIn(body)
+    else -> false
+}
 
 /** Files AIOMetadata reads from its working folder; the runner copies them there when the bundle changes. */
 val aioMetadataWorkingCopy: List<String> = listOf("package.json", "dist/client", "public")

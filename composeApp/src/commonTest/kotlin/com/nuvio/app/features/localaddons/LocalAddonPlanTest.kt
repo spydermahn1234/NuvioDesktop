@@ -116,6 +116,18 @@ class LocalAddonPlanTest {
     }
 
     @Test
+    fun aioMetadataIsReadyOnlyAfterItsStartUpFinishes() {
+        assertEquals("/health/ready", LocalAddonServer.AioMetadata.healthPath)
+        val starting = """{"status":"starting","ready":false,"components":{}}"""
+        val degraded = """{"status":"degraded","ready":true,"dependencies":{"redis":{"state":"slow"}}}"""
+        assertFalse(localAddonHealthIsReady(LocalAddonServer.AioMetadata, 503, starting))
+        assertTrue(localAddonHealthIsReady(LocalAddonServer.AioMetadata, 503, degraded))
+        assertTrue(localAddonHealthIsReady(LocalAddonServer.AioMetadata, 200, """{"status":"ready","ready":true}"""))
+        assertFalse(localAddonHealthIsReady(LocalAddonServer.AioStreams, 503, degraded), "only AIOMetadata's 503 can mean ready")
+        assertTrue(localAddonHealthIsReady(LocalAddonServer.AioStreams, 200, ""))
+    }
+
+    @Test
     fun linuxBundlePathsUseForwardSlashes() {
         val linux = LocalAddonBundle("/opt/nuvio/local-addons", windows = false)
         assertEquals("/opt/nuvio/local-addons/node/node", linux.node)

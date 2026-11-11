@@ -311,7 +311,8 @@ internal actual object LocalAddonHost {
         return runCatching {
             val request = HttpRequest.newBuilder(URI.create(localAddonBaseUrl(port) + path))
                 .timeout(Duration.ofSeconds(3)).GET().build()
-            http.send(request, HttpResponse.BodyHandlers.discarding()).statusCode() in 200..299
+            val response = http.send(request, HttpResponse.BodyHandlers.ofString())
+            localAddonHealthIsReady(server, response.statusCode(), response.body().orEmpty().take(4_000))
         }.getOrDefault(false)
     }
 
