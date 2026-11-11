@@ -123,6 +123,7 @@ import android.text.format.DateFormat
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import java.util.Date
 
 private enum class Tab(val label: String) { Remote("Remote"), Watch("Watch"), Music("Music") }
@@ -484,10 +485,10 @@ private fun FilmClockSlot(playing: NowPlaying, viewModel: RemoteViewModel, modif
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                     Box(Modifier.height(20.dp), contentAlignment = Alignment.CenterStart) { GlassLabel(label, color = labelColor) }
-                    ClockTime(timeText, timeHeight, Modifier.height(timeHeight))
+                    ClockTime(timeText, timeHeight, Modifier.fillMaxWidth().height(timeHeight).padding(end = 12.dp), alignment = Alignment.CenterStart)
                 }
                 Column(
-                    Modifier.width(164.dp).fillMaxHeight(),
+                    Modifier.width(156.dp).fillMaxHeight(),
                     verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
                     horizontalAlignment = Alignment.End,
                 ) {
@@ -503,16 +504,26 @@ private fun FilmClockSlot(playing: NowPlaying, viewModel: RemoteViewModel, modif
     }
 }
 
-/** The big serif "Ends at" time, sized to [height]. */
+/**
+ * The big serif "Ends at" time, as tall as [height] allows and never wider than its space: it is measured first and
+ * shrunk to fit the width, so "00:16" is never cut to "00:1" when the card lays out sideways.
+ */
 @Composable
-private fun ClockTime(text: String, height: Dp, modifier: Modifier = Modifier) {
-    val size = with(LocalDensity.current) { (height / 1.12f).toSp() }
-    Box(modifier, contentAlignment = Alignment.Center) {
+private fun ClockTime(text: String, height: Dp, modifier: Modifier = Modifier, alignment: Alignment = Alignment.Center) {
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints(modifier, contentAlignment = alignment) {
+        val base = with(density) { (height / 1.12f).toSp() }
+        val style = TextStyle(fontFamily = DisplaySerif, fontWeight = FontWeight.Bold, fontSize = base, lineHeight = base * 1.1f)
+        val natural = remember(text, base) { measurer.measure(text, style, softWrap = false, maxLines = 1).size.width }
+        val room = constraints.maxWidth
+        val fitted = if (natural > room && room > 0) base * (room.toFloat() / natural * 0.97f) else base
         Text(
             text,
-            style = TextStyle(fontFamily = DisplaySerif, fontWeight = FontWeight.Bold, fontSize = size, lineHeight = size * 1.1f),
+            style = style.copy(fontSize = fitted, lineHeight = fitted * 1.1f),
             color = LocalGlass.current.text,
             maxLines = 1,
+            softWrap = false,
         )
     }
 }
