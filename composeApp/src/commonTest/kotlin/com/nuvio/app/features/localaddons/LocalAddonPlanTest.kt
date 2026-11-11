@@ -84,6 +84,38 @@ class LocalAddonPlanTest {
     }
 
     @Test
+    fun localAddonPorts() {
+        assertEquals(47340, localAddonPortOf("http://127.0.0.1:47340/stremio/abc/def/manifest.json"))
+        assertEquals(47341, localAddonPortOf(" http://LOCALHOST:47341/x/manifest.json"))
+        assertNull(localAddonPortOf("https://aiostreams.elfhosted.com/stremio/manifest.json"))
+        assertNull(localAddonPortOf("http://127.0.0.1.evil.example:47340/manifest.json"))
+        assertNull(localAddonPortOf("http://192.168.1.5:47340/manifest.json"))
+    }
+
+    @Test
+    fun unavailableLocalAddonsAreRetriedOnceWhenTheirServerIsReady() {
+        val streams = "http://127.0.0.1:47340/stremio/u/p/manifest.json"
+        val meta = "http://127.0.0.1:47341/stremio/c/manifest.json"
+        val remote = "https://torrentsdb.com/x/manifest.json"
+        val addons = listOf(
+            InstalledAddonState(streams, loaded = false, refreshing = false, enabled = true),
+            InstalledAddonState(meta, loaded = false, refreshing = false, enabled = true),
+            InstalledAddonState(remote, loaded = false, refreshing = false, enabled = true),
+        )
+        // Only AIOMetadata is up yet: only its addon is fetched again; a remote addon never is.
+        assertEquals(listOf(meta), localAddonsToRetry(addons, readyPorts = setOf(47341), alreadyRetried = emptySet()))
+        // Both up, AIOMetadata's already retried this run: only AIOStreams' now.
+        assertEquals(listOf(streams), localAddonsToRetry(addons, setOf(47340, 47341), alreadyRetried = setOf(meta)))
+        // Loaded, mid-fetch or switched off: left alone.
+        val settled = listOf(
+            InstalledAddonState(streams, loaded = true, refreshing = false, enabled = true),
+            InstalledAddonState(meta, loaded = false, refreshing = true, enabled = true),
+            InstalledAddonState("http://127.0.0.1:47340/other/manifest.json", loaded = false, refreshing = false, enabled = false),
+        )
+        assertEquals(emptyList(), localAddonsToRetry(settled, setOf(47340, 47341), emptySet()))
+    }
+
+    @Test
     fun linuxBundlePathsUseForwardSlashes() {
         val linux = LocalAddonBundle("/opt/nuvio/local-addons", windows = false)
         assertEquals("/opt/nuvio/local-addons/node/node", linux.node)

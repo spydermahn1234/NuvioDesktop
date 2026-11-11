@@ -200,6 +200,36 @@ fun tmdbCredentialKind(value: String): TmdbCredential {
     }
 }
 
+/**
+ * The port of an installed addon that lives on this PC (`http://127.0.0.1:<port>/...` or
+ * `http://localhost:<port>/...`), else null.
+ */
+fun localAddonPortOf(manifestUrl: String): Int? {
+    val match = Regex("""^http://(127\.0\.0\.1|localhost):(\d{1,5})(/|$)""", RegexOption.IGNORE_CASE)
+        .find(manifestUrl.trim()) ?: return null
+    return match.groupValues[2].toIntOrNull()?.takeIf { it in 1..65535 }
+}
+
+/** What the retry rule needs to know about one installed addon. */
+data class InstalledAddonState(val manifestUrl: String, val loaded: Boolean, val refreshing: Boolean, val enabled: Boolean)
+
+/**
+ * Nuvio loads its addons as soon as it opens, before the servers answer (AIOStreams takes 4 to 20
+ * seconds), so those addons come up Unavailable. Once a server is ready, its addons that did not load
+ * are fetched again: enabled, not loaded, not mid-fetch, on a ready server's port, and not already
+ * retried during this run of that server ([alreadyRetried]), so a config the server rejects is
+ * tried once, not in a loop.
+ */
+fun localAddonsToRetry(
+    addons: List<InstalledAddonState>,
+    readyPorts: Set<Int>,
+    alreadyRetried: Set<String>,
+): List<String> = addons
+    .filter { it.enabled && !it.loaded && !it.refreshing && it.manifestUrl !in alreadyRetried }
+    .filter { localAddonPortOf(it.manifestUrl) in readyPorts }
+    .map { it.manifestUrl }
+    .distinct()
+
 /** Files AIOMetadata reads from its working folder; the runner copies them there when the bundle changes. */
 val aioMetadataWorkingCopy: List<String> = listOf("package.json", "dist/client", "public")
 

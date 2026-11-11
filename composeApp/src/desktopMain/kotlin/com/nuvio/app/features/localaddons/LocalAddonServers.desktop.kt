@@ -2,6 +2,7 @@ package com.nuvio.app.features.localaddons
 
 import co.touchlab.kermit.Logger
 import com.nuvio.app.core.storage.DesktopStorage
+import com.nuvio.app.features.addons.AddonRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -10,6 +11,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -70,6 +72,7 @@ internal actual object LocalAddonHost {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val lock = Mutex()
     private val jobs = mutableMapOf<LocalAddonServer, Job>()
+    private var retryJob: Job? = null
     private val processes = java.util.concurrent.ConcurrentHashMap<LocalAddonServer, Process>()
     @Volatile private var hookInstalled = false
 
@@ -121,7 +124,35 @@ internal actual object LocalAddonHost {
             if (waited == null) log.w { "Redis is not up; starting AIOMetadata anyway (it will retry)" }
             superviseServer(LocalAddonServer.AioMetadata, bundle)
         }
+        retryJob = scope.launch { retryUnavailableAddons() }
         log.i { "Started: ports ${LocalAddonServer.entries.joinToString { "${it.label} ${settings.portOf(it)}" }}" }
+    }
+
+    /**
+     * Nuvio fetches its addons as it opens, before these servers answer, so their addons come up
+     * Unavailable until refreshed by hand. Each time a server becomes ready, its addons that did not
+     * load are fetched again, once per run of that server (see [localAddonsToRetry]); Home rebuilds
+     * its rows by itself when the manifests arrive.
+     */
+    private suspend fun retryUnavailableAddons() {
+        val retried = mutableMapOf<Int, MutableSet<String>>()
+        combine(statuses, AddonRepository.uiState) { status, addons -> status to addons.addons }.collect { (status, addons) ->
+            val settings = LocalAddonSettingsRepository.state.value
+            val readyPorts = status.filterValues { it is LocalAddonStatus.Running }.keys.map(settings::portOf).toSet()
+            // A server that stopped or is restarting gets a fresh chance once it is ready again.
+            retried.keys.retainAll(readyPorts)
+            val urls = localAddonsToRetry(
+                addons = addons.map { InstalledAddonState(it.manifestUrl, it.manifest != null, it.isRefreshing, it.enabled) },
+                readyPorts = readyPorts,
+                alreadyRetried = retried.values.flatten().toSet(),
+            )
+            urls.forEach { url ->
+                val port = localAddonPortOf(url) ?: return@forEach
+                retried.getOrPut(port) { mutableSetOf() } += url
+                log.i { "Server on port $port is ready: loading its addon again" }
+                AddonRepository.refreshAddon(url)
+            }
+        }
     }
 
     /** Saves a port for each server and AIOStreams' secret the first time, so addresses never change. */
@@ -229,6 +260,8 @@ internal actual object LocalAddonHost {
     }
 
     private fun stopAll() {
+        retryJob?.cancel()
+        retryJob = null
         if (processes.isEmpty() && jobs.isEmpty()) return
         setAll(LocalAddonStatus.Off)
         jobs.values.forEach { it.cancel() }
