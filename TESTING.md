@@ -447,4 +447,5 @@ Settings > Live TV > Live scores (off by default). Best tried while Man Utd or a
 - [ ] Memory: with both running for an evening, Task Manager's node.exe processes stay around 1.3 GB in total, and Nuvio stays smooth
 - [ ] An in-app update while the servers are on installs cleanly (no "file in use" error)
 - [ ] Turning the switch off stops all three (no node.exe or redis-server.exe left)
+- [ ] PC build (D:\NuvioBuild\build.cmd, Nov 11): after a build the setting no longer says "This build does not include the servers"; the first build after a bundle change also builds the bundle (10 to 20 minutes, "Local addons: bundle ready" in build.log), later ones say "Local addons: bundle up to date" and keep the servers
 

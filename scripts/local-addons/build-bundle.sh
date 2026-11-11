@@ -6,7 +6,8 @@
 #   scripts/local-addons/build-bundle.sh <out-dir> [work-dir]
 #
 # Needs node 24 + npm on PATH (the native modules are built for the machine that runs this), git,
-# curl and unzip. NUVIO_LOCAL_ADDONS_PLATFORM=linux builds a Linux bundle for testing (no Node or
+# curl and unzip (or PowerShell). On Windows run it with `bash -o igncr` if the checkout has CRLF endings.
+# NUVIO_LOCAL_ADDONS_PLATFORM=linux builds a Linux bundle for testing (no Node or
 # Redis download: it copies the node on PATH and skips Redis).
 #
 # Bumping a version: change a pin, push; CI rebuilds the bundle (its cache key is this file's hash)
@@ -32,6 +33,16 @@ WORK=$(cd "$WORK" && pwd)
 log() { echo "[local-addons] $*"; }
 
 retry() { local n=0; until "$@"; do n=$((n + 1)); [ $n -ge 4 ] && return 1; log "retry $n: $*"; sleep $((n * 5)); done; }
+
+# unzip, or PowerShell's Expand-Archive where unzip is missing (a plain MSYS2 install, used by D:\NuvioBuild\build.cmd).
+extract_zip() { # zip dir
+    if command -v unzip >/dev/null 2>&1; then
+        unzip -q "$1" -d "$2"
+    else
+        mkdir -p "$2"
+        powershell.exe -NoProfile -Command "Expand-Archive -LiteralPath '$(cygpath -w "$1")' -DestinationPath '$(cygpath -w "$2")' -Force"
+    fi
+}
 
 clone_at() { # repo commit dir
     rm -rf "$3"
@@ -61,7 +72,7 @@ if [ "$PLATFORM" = windows ]; then
     want=$(grep " node-v$NODE_VERSION-win-x64.zip\$" "$WORK/SHASUMS256.txt" | cut -d' ' -f1)
     got=$(sha256sum "$WORK/node.zip" | cut -d' ' -f1)
     [ "$want" = "$got" ] || { echo "node zip checksum mismatch" >&2; exit 1; }
-    rm -rf "$WORK/node-x"; unzip -q "$WORK/node.zip" -d "$WORK/node-x"
+    rm -rf "$WORK/node-x"; extract_zip "$WORK/node.zip" "$WORK/node-x"
     mkdir -p "$OUT/node"
     cp "$WORK/node-x/node-v$NODE_VERSION-win-x64/node.exe" "$OUT/node/"
     cp "$WORK/node-x/node-v$NODE_VERSION-win-x64/LICENSE" "$OUT/licenses/node-LICENSE.txt"
@@ -76,7 +87,7 @@ if [ "$PLATFORM" = windows ]; then
     retry curl -fsSL -o "$WORK/redis.zip" \
         "https://github.com/redis-windows/redis-windows/releases/download/$REDIS_VERSION/Redis-$REDIS_VERSION-Windows-x64-msys2.zip"
     [ "$(sha256sum "$WORK/redis.zip" | cut -d' ' -f1)" = "$REDIS_SHA256" ] || { echo "redis zip checksum mismatch" >&2; exit 1; }
-    rm -rf "$WORK/redis-x"; unzip -q "$WORK/redis.zip" -d "$WORK/redis-x"
+    rm -rf "$WORK/redis-x"; extract_zip "$WORK/redis.zip" "$WORK/redis-x"
     src="$WORK/redis-x/Redis-$REDIS_VERSION-Windows-x64-msys2"
     mkdir -p "$OUT/redis"
     cp "$src"/redis-server.exe "$src"/redis-cli.exe "$src"/msys-*.dll "$OUT/redis/"
