@@ -119,6 +119,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlin.math.abs
+import android.text.format.DateFormat
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import java.util.Date
 
 private enum class Tab(val label: String) { Remote("Remote"), Watch("Watch"), Music("Music") }
 
@@ -375,22 +382,16 @@ private fun FilmBody(
     onAudio: () -> Unit,
 ) {
     // What is playing and its controls, with the keys pinned at the bottom. The pad is a tap away (the tag in the
-    // header): on a phone there was no room left for a usable one under all of this.
+    // header): on a phone there was no room left for a usable one under all of this. The space left between the
+    // volume and the keys is one fixed slot: the "Ends at" clock, with Skip and Next episode in a row of their own
+    // inside it, so nothing moves when they come and go.
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
-            NowPlayingPanel(playing, cover, viewModel, Modifier.padding(top = 4.dp), compact = true)
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Tap: the next one. Hold: the list of every subtitle the file and the add-ons have.
-                StatTile("Subtitles", playing.subtitleTrack ?: "Tap for next · hold for list", Modifier.weight(1f), onLongClick = onSubtitles) {
-                    viewModel.press(RemoteKey.Subtitles)
-                }
-                StatTile("Audio", playing.audioTrack ?: "Tap for next · hold for list", Modifier.weight(1f), onLongClick = onAudio) {
-                    viewModel.press(RemoteKey.Audio)
-                }
-            }
-            Transport(playing, viewModel, Modifier.padding(top = 18.dp))
-            FilmExtras(playing, viewModel, Modifier.padding(top = 12.dp, bottom = 4.dp))
-        }
+        FillRest(
+            minRest = 168.dp,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            top = { FilmTop(playing, cover, viewModel, onSubtitles, onAudio) },
+            rest = { FilmClockSlot(playing, viewModel, Modifier.fillMaxSize().padding(top = 14.dp, bottom = 10.dp)) },
+        )
         BottomKeys {
             GlassKey(Icons.AutoMirrored.Rounded.Undo, "Back", size = 56.dp) { viewModel.press(RemoteKey.Back) }
             GlassKey(Icons.AutoMirrored.Rounded.List, "Sources", size = 56.dp) {
@@ -399,6 +400,117 @@ private fun FilmBody(
             }
             GlassKey(Icons.Rounded.DarkMode, "Dark", size = 56.dp) { viewModel.setDark(true) }
             GlassKey(Icons.Rounded.MoreHoriz, "More", size = 56.dp, onPress = onMore)
+        }
+    }
+}
+
+/** The film screen above the clock slot: now playing, the track tiles, the transport and the volume. */
+@Composable
+private fun FilmTop(
+    playing: NowPlaying,
+    cover: Bitmap?,
+    viewModel: RemoteViewModel,
+    onSubtitles: () -> Unit,
+    onAudio: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        NowPlayingPanel(playing, cover, viewModel, Modifier.padding(top = 4.dp), compact = true)
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Tap: the next one. Hold: the list of every subtitle the file and the add-ons have.
+            StatTile("Subtitles", playing.subtitleTrack ?: "Tap for next · hold for list", Modifier.weight(1f), onLongClick = onSubtitles) {
+                viewModel.press(RemoteKey.Subtitles)
+            }
+            StatTile("Audio", playing.audioTrack ?: "Tap for next · hold for list", Modifier.weight(1f), onLongClick = onAudio) {
+                viewModel.press(RemoteKey.Audio)
+            }
+        }
+        Transport(playing, viewModel, Modifier.padding(top = 18.dp))
+        FilmVolume(playing, viewModel, Modifier.padding(top = 12.dp))
+    }
+}
+
+/**
+ * [top] at its natural height, then [rest] filling whatever height is left (at least [minRest]); when the screen is
+ * too short for both, the two scroll together. Used so the film screen's clock slot takes the gap above the keys.
+ */
+@Composable
+private fun FillRest(minRest: Dp, modifier: Modifier = Modifier, top: @Composable () -> Unit, rest: @Composable () -> Unit) {
+    BoxWithConstraints(modifier) {
+        val available = constraints.maxHeight
+        Layout(
+            contents = listOf(top, rest),
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+        ) { (topParts, restParts), outer ->
+            val width = outer.maxWidth
+            val topPlaced = topParts.map { it.measure(Constraints(minWidth = width, maxWidth = width)) }
+            val topHeight = topPlaced.sumOf { it.height }
+            val restHeight = maxOf(minRest.roundToPx(), available - topHeight)
+            val restPlaced = restParts.map { it.measure(Constraints.fixed(width, restHeight)) }
+            layout(width, topHeight + restHeight) {
+                var y = 0
+                topPlaced.forEach { it.placeRelative(0, y); y += it.height }
+                restPlaced.forEach { it.placeRelative(0, topHeight) }
+            }
+        }
+    }
+}
+
+/**
+ * The film screen's fixed slot: "Ends at 21:44" in big type (the end moves with the clock while paused, and follows
+ * the speed), and under it one row of fixed height that holds Skip intro / recap / credits and Next episode when
+ * the PC says they apply, otherwise a quiet line (paused, the sleep timer, the speed, the running time).
+ */
+@Composable
+private fun FilmClockSlot(playing: NowPlaying, viewModel: RemoteViewModel, modifier: Modifier = Modifier) {
+    val g = LocalGlass.current
+    val context = LocalContext.current
+    var tick by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(playing) {
+        // The minute only changes once a minute, but a seek or a speed change should show at once: tick each second
+        // while playing, every 15 s while paused (the end slides on with the clock).
+        while (true) {
+            tick = SystemClock.elapsedRealtime()
+            delay(if (playing.isPlaying) 1_000L else 15_000L)
+        }
+    }
+    val endsAt = remember(playing, tick) {
+        filmEndsAt(playing.positionAt(SystemClock.elapsedRealtime()), playing.durationMs, playing.speedPercent, System.currentTimeMillis())
+    }
+    val timeText = endsAt?.let { DateFormat.getTimeFormat(context).format(Date(it)) } ?: "–:––"
+    val quiet = buildList {
+        if (!playing.isPlaying) add("Paused")
+        if (playing.sleepMinutes > 0) add("Sleep in ${playing.sleepMinutes} min")
+        playing.speedPercent?.takeIf { it != 100 }?.let { add(speedLabel(it)) }
+        if (playing.hasTimeline) add("Runs ${runtimeWords(playing.durationMs)}")
+    }.joinToString(" · ")
+    Column(
+        modifier.glass(RoundedCornerShape(24.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        GlassLabel(if (playing.isPlaying) "Ends at" else "Ends at · if you play now", color = if (playing.isPlaying) null else g.textMuted)
+        Text(
+            timeText,
+            style = TextStyle(fontFamily = DisplaySerif, fontWeight = FontWeight.Bold, fontSize = 52.sp, lineHeight = 58.sp),
+            color = g.text,
+            maxLines = 1,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+        Box(Modifier.fillMaxWidth().height(52.dp), contentAlignment = Alignment.Center) {
+            if (playing.skipLabel != null || playing.canNextEpisode) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    playing.skipLabel?.let { label ->
+                        ActionPill(label, Icons.Rounded.SkipNext, accent = true, modifier = Modifier.weight(1f)) { viewModel.control("SKIP_INTRO") }
+                    }
+                    if (playing.canNextEpisode) {
+                        ActionPill("Next episode", Icons.Rounded.SkipNext, accent = playing.skipLabel == null, modifier = Modifier.weight(1f)) {
+                            viewModel.control("NEXT_EPISODE")
+                        }
+                    }
+                }
+            } else {
+                Text(quiet, color = g.textSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }
@@ -882,26 +994,11 @@ private fun Seek(playing: NowPlaying, viewModel: RemoteViewModel, modifier: Modi
     }
 }
 
-/**
- * Under the film's transport: a Skip button while an intro, recap or credits part plays, Next episode when there is
- * one, and the TV's volume as a slim slider. Each part only shows what the PC says it can do.
- */
+/** Under the film's transport: the TV's volume as a slim slider, when the PC says it has one. */
 @Composable
-private fun FilmExtras(playing: NowPlaying, viewModel: RemoteViewModel, modifier: Modifier = Modifier) {
+private fun FilmVolume(playing: NowPlaying, viewModel: RemoteViewModel, modifier: Modifier = Modifier) {
     val g = LocalGlass.current
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (playing.skipLabel != null || playing.canNextEpisode) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                playing.skipLabel?.let { label ->
-                    ActionPill(label, Icons.Rounded.SkipNext, accent = true, modifier = Modifier.weight(1f)) { viewModel.control("SKIP_INTRO") }
-                }
-                if (playing.canNextEpisode) {
-                    ActionPill("Next episode", Icons.Rounded.SkipNext, accent = playing.skipLabel == null, modifier = Modifier.weight(1f)) {
-                        viewModel.control("NEXT_EPISODE")
-                    }
-                }
-            }
-        }
+    Column(modifier.fillMaxWidth()) {
         playing.volume?.let { level ->
             val max = playing.volumeMax.coerceAtLeast(1)
             var dragging by remember { mutableStateOf<Int?>(null) }

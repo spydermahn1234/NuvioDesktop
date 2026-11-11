@@ -210,6 +210,17 @@ Needs this Nuvio and the new NuvioRemote app together. Hold anything for about h
 - [ ] Not interested on a poster: the title no longer appears in Discover on the TV
 - [ ] Demo TV: holding a poster, card, episode or season opens the sheet; marking an episode watched ticks it; the playlist picker and the pretend recap appear
 
+### Phone remote: the "Ends at" clock on the film screen (Nov 11)
+
+Needs the new NuvioRemote app (no change on the PC).
+
+- [ ] Playing a film: the gap between the volume slider and Back / Sources / Dark / More is now a glass card with "ENDS AT" and the finishing time in big type (in your phone's 12 or 24 hour format), and the film's length ("Runs 1h 50m") under it
+- [ ] The time is right: it matches the clock plus the time left on the seek bar, and jumps at once when you seek or skip 10 s
+- [ ] Pause: the label reads "Ends at · if you play now", "Paused" shows on the line under it, and the time creeps forward with the clock
+- [ ] Speed 1.5x (More sheet): the finishing time comes forward and "1.5x" shows on the line under it; the sleep timer shows "Sleep in N min" there too
+- [ ] On a show, Next episode sits in the card's bottom row; during an intro, recap or credits Skip appears beside it. The big time does not move when they come and go
+- [ ] Nothing on the film screen scrolls on your phone; the card fills the gap with no blank space under it
+
 ## Music playback
 
 - [x] Gapless: songs in an album run straight into each other (2026-11-08)
