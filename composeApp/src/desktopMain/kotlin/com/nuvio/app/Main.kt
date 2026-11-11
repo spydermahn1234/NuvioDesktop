@@ -892,6 +892,8 @@ fun main(args: Array<String>) {
                 // fork:phone-remote - the phone sends the same keystrokes a pad does, so it shares
                 // the pad's lifetime. Off the UI thread: listing network adapters can be slow on Windows.
                 kotlin.concurrent.thread(isDaemon = true, name = "phone-remote-start") { PhoneRemote.start() }
+                // fork:live-scores - polls only while Settings > Live TV > Live scores is on.
+                com.nuvio.app.features.livescores.LiveScoreEngine.start()
                 // fork:local-addons - AIOStreams and AIOMetadata in the background, only when switched on.
                 kotlin.concurrent.thread(isDaemon = true, name = "local-addons-start") {
                     com.nuvio.app.features.localaddons.LocalAddonHost.startIfEnabled()

@@ -466,6 +466,7 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
                         }
                     }
                     is ServerLine.Opening -> notify("Opening ${line.what} on the TV")
+                    is ServerLine.Score -> ScoreNotifications.show(getApplication(), line)
                     is ServerLine.Menu -> _state.update { state ->
                         val open = state.menu
                         if (open == null || open.target != line.target) state else state.copy(menu = open.copy(loaded = line))

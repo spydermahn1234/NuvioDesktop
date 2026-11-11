@@ -7228,6 +7228,96 @@ const renderPlaybackInfoPanel = () => {
   playbackInfoHideTimer = window.setTimeout(hidePlaybackInfoPanel, PLAYBACK_INFO_HOLD_MS);
 };
 
+// fork:live-scores - a followed match's goal, card or whistle (LiveScoreEngine). The app draws the same card in
+// Compose, but the video surface covers that layer, so over the player it is drawn here. Three looks: a corner card,
+// a ticker across the top, and a big flash (favourites only; the rest get the corner card). Every box has a fixed
+// size so nothing moves with the text. Never on a hero trailer. null hides it.
+let scoreCardEl = null;
+let scoreCardTimer = null;
+window.nuvioShowScoreCard = card => {
+  if (isHeroTrailerSurface) return;
+  window.clearTimeout(scoreCardTimer);
+  if (scoreCardEl) {
+    scoreCardEl.remove();
+    scoreCardEl = null;
+  }
+  if (!card || typeof card !== "object") return;
+  const look = card.look === "BigFlash" && card.favourite ? "flash" : (card.look === "Ticker" ? "ticker" : "corner");
+  const accent = card.group === "Cards" ? "#e5484d" : (card.group === "PenaltiesVar" ? "#f5a524" : "#3dd68c");
+  const el = document.createElement("div");
+  const base = [
+    "position:fixed", "z-index:2147483001", "pointer-events:none", "color:#fff", "box-sizing:border-box",
+    "background:rgba(14,14,20,0.78)", "border:1px solid rgba(255,255,255,0.14)",
+    "backdrop-filter:blur(18px)", "-webkit-backdrop-filter:blur(18px)",
+    "font-family:var(--nuvio-ui-font,system-ui,sans-serif)", "overflow:hidden",
+    "transition:opacity 260ms ease, transform 260ms ease", "opacity:0",
+  ];
+  const place = {
+    corner: ["right:32px", "bottom:32px", "width:420px", "height:112px", "border-radius:16px", "transform:translateY(16px)"],
+    ticker: ["left:0", "right:0", "top:0", "height:56px", "border-radius:0", "border-width:0 0 1px 0", "transform:translateY(-56px)"],
+    flash: ["left:50%", "top:50%", "width:640px", "height:260px", "margin:-130px 0 0 -320px", "border-radius:24px", "transform:scale(0.92)"],
+  }[look];
+  el.style.cssText = base.concat(place).join(";");
+  const text = (tag, value, css) => {
+    const node = document.createElement(tag);
+    node.textContent = value == null ? "" : String(value);
+    node.style.cssText = css + ";white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+    return node;
+  };
+  const scored = side => card.side === side ? `color:${accent}` : "color:#fff";
+  const hasScore = card.homeScore != null && card.awayScore != null;
+  const scoreText = hasScore ? `${card.homeScore} – ${card.awayScore}` : "v";
+  const meta = [card.clock, card.competition].filter(Boolean).join(" · ");
+  if (look === "ticker") {
+    el.style.display = "flex";
+    el.style.alignItems = "center";
+    el.style.gap = "16px";
+    el.style.padding = "0 24px";
+    el.appendChild(text("span", card.kind, `flex:none;width:150px;font-weight:800;font-size:15px;letter-spacing:.08em;color:${accent}`));
+    el.appendChild(text("span", card.away ? `${card.home}  ${scoreText}  ${card.away}` : card.home, "flex:1;font-weight:700;font-size:18px"));
+    el.appendChild(text("span", card.detail, "flex:none;width:260px;font-size:14px;color:#c8c8d0;text-align:right"));
+    el.appendChild(text("span", meta, "flex:none;width:200px;font-size:13px;color:#9a9aa6;text-align:right"));
+  } else {
+    const big = look === "flash";
+    el.style.padding = big ? "28px 36px" : "14px 18px";
+    el.style.borderLeft = `${big ? 6 : 4}px solid ${accent}`;
+    const top = document.createElement("div");
+    top.style.cssText = "display:flex;justify-content:space-between;gap:12px";
+    top.appendChild(text("span", card.kind, `font-weight:800;letter-spacing:.08em;color:${accent};font-size:${big ? 40 : 14}px`));
+    top.appendChild(text("span", meta, `color:#9a9aa6;font-size:${big ? 16 : 12}px;align-self:center;max-width:60%`));
+    el.appendChild(top);
+    const row = document.createElement("div");
+    row.style.cssText = `display:flex;align-items:center;gap:${big ? 18 : 10}px;margin-top:${big ? 26 : 8}px`;
+    const size = big ? 30 : 18;
+    if (card.away) {
+      row.appendChild(text("span", card.home, `flex:1;text-align:right;font-weight:700;font-size:${size}px;${scored("home")}`));
+      row.appendChild(text("span", scoreText, `flex:none;width:${big ? 130 : 70}px;text-align:center;font-weight:800;font-size:${size + (big ? 10 : 2)}px`));
+      row.appendChild(text("span", card.away, `flex:1;font-weight:700;font-size:${size}px;${scored("away")}`));
+    } else {
+      row.appendChild(text("span", card.home, `flex:1;font-weight:700;font-size:${size}px`));
+    }
+    el.appendChild(row);
+    el.appendChild(text("div", card.detail, `margin-top:${big ? 18 : 6}px;color:#c8c8d0;font-size:${big ? 18 : 13}px;text-align:${card.away ? "center" : "left"}`));
+  }
+  document.body.appendChild(el);
+  scoreCardEl = el;
+  window.requestAnimationFrame(() => {
+    el.style.opacity = "1";
+    el.style.transform = look === "flash" ? "scale(1)" : "translateY(0)";
+  });
+  const hold = Number.isFinite(card.durationMs) && card.durationMs > 0 ? card.durationMs : 8000;
+  scoreCardTimer = window.setTimeout(() => {
+    if (scoreCardEl !== el) return;
+    el.style.opacity = "0";
+    window.setTimeout(() => {
+      if (scoreCardEl === el) {
+        el.remove();
+        scoreCardEl = null;
+      }
+    }, 300);
+  }, hold);
+};
+
 window.nuvioSetPlaybackInfo = payload => {
   const next = payload || {};
   playbackInfo = {

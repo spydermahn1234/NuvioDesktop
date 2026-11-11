@@ -76,6 +76,7 @@ internal object PhoneRemote {
     private var themeWatch: Job? = null
     private var sourcesWatch: Job? = null
     private var tonightWatch: Job? = null // fork:phone-remote tonight
+    private var scoreWatch: Job? = null // fork:live-scores
 
     @Synchronized
     fun ensureLoaded() {
@@ -140,6 +141,7 @@ internal object PhoneRemote {
         watchTheme(created)
         watchSources(created)
         watchTonight(created)
+        watchScores(created)
         _state.update { it.copy(listening = created.port != null, port = created.port, addresses = localAddresses()) }
     }
 
@@ -152,6 +154,8 @@ internal object PhoneRemote {
         sourcesWatch = null
         tonightWatch?.cancel()
         tonightWatch = null
+        scoreWatch?.cancel()
+        scoreWatch = null
         server?.stop()
         server = null
         _state.update { it.copy(listening = false, port = null, connectedDevices = emptyList()) }
@@ -371,6 +375,18 @@ internal object PhoneRemote {
                     background = palette.background.toArgb(),
                 )
             }.distinctUntilChanged().collect(target::publishTheme)
+        }
+    }
+
+    /** fork:live-scores - a favourite team's goal, card or whistle as a notification on the phone. */
+    private fun watchScores(target: PhoneRemoteServer) {
+        scoreWatch?.cancel()
+        scoreWatch = CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+            com.nuvio.app.features.livescores.LiveScoreEngine.events.collect { event ->
+                val settings = com.nuvio.app.features.livescores.LiveScoreSettingsRepository.state.value
+                if (!settings.enabled || !settings.phoneNotifications || !event.favourite) return@collect
+                target.publishScore(com.nuvio.app.features.livescores.phoneScoreLine(event))
+            }
         }
     }
 

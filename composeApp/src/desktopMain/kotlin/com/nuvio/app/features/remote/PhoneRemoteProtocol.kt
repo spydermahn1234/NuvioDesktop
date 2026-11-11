@@ -47,6 +47,8 @@ import java.nio.charset.StandardCharsets
  * pc:    MENU ... <heading> <detail> <actions>   the sheet to show (PhoneRemoteLibraryLines.menuLine)
  * phone: DO <kind> <type> <id> <ref> <code> [<arg>...]   a row of it chosen
  * pc:    DONE <ok> <message> <refresh> | PLAYLISTS ... | RECAP <state> <heading> <text>
+ * pc:    SCORE <sport> <kind> <title> <text>   a favourite team's live-score event, as a phone notification
+ *              (fork:live-scores; scoreLine, only while Settings > Live TV > Live scores > Notify the phone is on)
  * phone: OPEN <url>                     a link from the phone's share menu
  * pc:    OPENING <what> | CANT_OPEN     (only for OPEN)
  * ```
@@ -65,6 +67,13 @@ internal object PhoneRemoteProtocol {
     const val PIN_LENGTH = 6
 
     fun encode(text: String): String = URLEncoder.encode(text, StandardCharsets.UTF_8).replace("+", "%20")
+
+    /**
+     * fork:live-scores - `SCORE <sport> <kind> <title> <text>`: [title] is "GOAL · Man United 2 – 1 Liverpool",
+     * [text] the scorer, minute and competition. Mirrored by the app's `ServerLine.Score`.
+     */
+    fun scoreLine(sport: String, kind: String, title: String, text: String): String =
+        "SCORE ${encode(sport)} ${encode(kind)} ${encode(title)} ${encode(text.ifBlank { "-" })}"
     fun decode(text: String): String = try {
         URLDecoder.decode(text, StandardCharsets.UTF_8)
     } catch (_: IllegalArgumentException) {

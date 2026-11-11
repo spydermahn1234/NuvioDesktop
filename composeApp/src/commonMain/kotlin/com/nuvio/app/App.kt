@@ -5075,6 +5075,10 @@ private fun MainAppContent(
                 com.nuvio.app.features.voice.VoiceControlOverlay()
             }
 
+            // fork:live-scores - goal and match-event pop-ups (Settings > Live TV > Live scores). Takes no input; over a
+            // playing video the HUD draws the same card, since the video surface covers this layer.
+            com.nuvio.app.features.livescores.LiveScoreOverlay()
+
             // Settings > Advanced > Memory overlay. Draws nothing when off; over the player the HUD
             // shows it instead, since the video surface covers this layer.
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopEnd) {

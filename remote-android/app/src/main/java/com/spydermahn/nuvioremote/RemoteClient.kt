@@ -141,6 +141,9 @@ sealed interface ServerLine {
 
     /** An AI recap: [state] 0 while it is written, 1 ready, 2 failed ([text] then says why). */
     data class Recap(val state: Int, val heading: String, val text: String?) : ServerLine
+
+    /** fork:live-scores - a favourite team's match event, shown as a notification (ScoreNotifications). */
+    data class Score(val sport: String, val kind: String, val title: String, val text: String) : ServerLine
     data object Other : ServerLine
 
     companion object {
@@ -172,6 +175,16 @@ sealed interface ServerLine {
                     broadcasts = parts.getOrNull(2)?.takeUnless { it == "-" }?.split(',')?.filter { it.isNotBlank() }.orEmpty(),
                 )
                 "THEME" -> RemoteTheme.parse(parts)?.let(::Theme) ?: Other
+                "SCORE" -> if (parts.size >= 4) {
+                    Score(
+                        sport = RemoteProtocol.decode(parts[1]),
+                        kind = RemoteProtocol.decode(parts[2]),
+                        title = RemoteProtocol.decode(parts[3]),
+                        text = parts.getOrNull(4)?.takeUnless { it == "-" }?.let(RemoteProtocol::decode).orEmpty(),
+                    )
+                } else {
+                    Other
+                }
                 else -> Other
             }
         }

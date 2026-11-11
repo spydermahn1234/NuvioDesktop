@@ -180,6 +180,11 @@ internal class PhoneRemoteServer(
         clients.forEach { session -> if (session.subscribed) session.trySend(line) }
     }
 
+    /** fork:live-scores - a favourite's match event (PhoneRemoteProtocol.scoreLine) for every subscribed phone; not replayed. */
+    fun publishScore(line: String) {
+        clients.forEach { session -> if (session.subscribed) session.trySend(line) }
+    }
+
     fun publishState(line: String) {
         lastState = line
         clients.forEach { session -> if (session.subscribed) session.trySend(line) }

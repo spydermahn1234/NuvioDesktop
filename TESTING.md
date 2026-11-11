@@ -411,6 +411,27 @@ Turn it on in Settings > Random Play > Tonight picker > "Open on Tonight".
 
 - [ ] Subtitles carry over to the next episode: play an episode with your preferred subtitle on, let it go to the next one (or start the next from the list), and the same subtitle comes on by itself
 
+## Live scores (Nov 11)
+
+Settings > Live TV > Live scores (off by default). Best tried while Man Utd or a followed competition is playing.
+
+- [ ] Settings > Live TV has a "Live scores" section with "Live score pop-ups" off; Settings search finds it by typing "live score"
+- [ ] Turn it on, type "Man Utd" under "Add a favourite team": Manchester United is offered; Add puts it in the list with Remove
+- [ ] "Follow: Football / Rugby / Fight nights" start empty; ticking Premier League and Six Nations keeps them after closing and reopening Nuvio
+- [ ] "Show a sample" shows the card for the chosen look, with the chime (favourites only by default)
+- [ ] Look: Corner card sits bottom right, Top ticker runs across the top, Big flash fills the centre for a favourite; none of them changes size with long names
+- [ ] A Man Utd match: kick-off, each goal (with the scorer; "pen" or "own goal" when it is one), half-time and full-time pop up within about 20 seconds of the TV coverage, and nothing pops for what had already happened when Nuvio was opened mid-match
+- [ ] A red card, a missed penalty and a VAR decision ("Goal ruled out") in a Man Utd match pop up
+- [ ] A followed competition's match that is not a favourite pops up too, as the corner card (no big flash, no chime by default)
+- [ ] Over a playing film, an episode and a Live TV channel the card shows over the video (not hidden behind it), then fades away; the remote still controls the player while it is up
+- [ ] On the music stage and in menus the card shows and does not move anything on screen
+- [ ] Rugby: a followed match's tries, penalty goals and yellow or red cards pop up; conversions do not pop on their own
+- [ ] Fight nights (UFC, boxing): a card when the night starts and one with the main event's result
+- [ ] "Pop up for": unticking a group (for example Red cards) stops those cards
+- [ ] Phone remote: with "Notify the phone remote" on and the app connected, a Man Utd goal arrives as a notification ("GOAL · Man United 1 – 0 …"); the next event replaces it rather than stacking. On Android 13+ the app asked to allow notifications on first start
+- [ ] The Status row says what is being watched ("Watching 1 live match", "No followed matches today")
+- [ ] Optional: with an API-Football key saved, nothing changes while ESPN works (nuvio.log tag LiveScores shows no api-sports calls)
+
 ## AIOStreams and AIOMetadata inside Nuvio (Nov 11)
 
 - [x] Settings > Addons shows "AIOStreams and AIOMetadata on this PC" with the switch off; the Nightly includes the servers (the switch is not greyed out with "This build does not include the servers") (2026-11-11)

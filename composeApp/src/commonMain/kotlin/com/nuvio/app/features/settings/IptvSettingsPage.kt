@@ -234,6 +234,8 @@ internal fun LazyListScope.iptvSettingsContent(
     item {
         IptvProxySection(isTablet = isTablet, proxy = rememberIptvSettings().proxy)
     }
+
+    liveScoresSettingsContent(isTablet) // fork:live-scores
 }
 
 /**
