@@ -17,6 +17,8 @@ import com.nuvio.app.features.localaddons.LocalAddonKeys
 import com.nuvio.app.features.localaddons.LocalAddonServer
 import com.nuvio.app.features.localaddons.LocalAddonSettingsRepository
 import com.nuvio.app.features.localaddons.LocalAddonStatus
+import com.nuvio.app.features.localaddons.TmdbCredential
+import com.nuvio.app.features.localaddons.tmdbCredentialKind
 import com.nuvio.app.features.localaddons.localAddonBaseUrl
 import com.nuvio.app.features.localaddons.localAddonConfigureUrl
 import kotlinx.coroutines.launch
@@ -109,7 +111,16 @@ private fun KeysGroup(isTablet: Boolean) {
     SettingsGroup(isTablet = isTablet) {
         SettingsTextRow(
             title = "TMDB API key",
-            description = "Needed by AIOMetadata for most catalogues; AIOStreams uses it for exact title matching.",
+            description = when (tmdbCredentialKind(tmdb)) {
+                TmdbCredential.ReadAccessToken ->
+                    "That is TMDB's Read Access Token: AIOStreams can use it, but AIOMetadata needs the API key " +
+                        "(32 characters, just above it on TMDB's API settings page). Paste that instead to cover both."
+                TmdbCredential.Unknown ->
+                    "This does not look like a TMDB API key (32 letters and digits) or Read Access Token (starts eyJ). " +
+                        "Copy the API key from TMDB's API settings page."
+                else -> "The API key (32 characters) from TMDB's API settings page. Needed by AIOMetadata for most " +
+                    "catalogues; AIOStreams uses it for exact title matching."
+            },
             value = tmdb, secret = true, isTablet = isTablet, onValueChange = { tmdb = it },
         )
         SettingsGroupDivider(isTablet = isTablet)

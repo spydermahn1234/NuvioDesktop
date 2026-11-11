@@ -148,7 +148,8 @@ fun localAddonLaunch(
                 put("UV_THREADPOOL_SIZE", "16")
                 put("DATABASE_URI", "sqlite://" + forwardSlashes(joinPath(dataDir, "addon", "data", "db.sqlite")))
                 put("REDIS_URL", "redis://127.0.0.1:${settings.portOf(LocalAddonServer.Redis)}")
-                putKey("BUILT_IN_TMDB_API_KEY", keys.tmdb)
+                // AIOMetadata sends TMDB's key as ?api_key=, which only takes the short API key.
+                if (tmdbCredentialKind(keys.tmdb) != TmdbCredential.ReadAccessToken) putKey("BUILT_IN_TMDB_API_KEY", keys.tmdb)
                 putKey("BUILT_IN_TVDB_API_KEY", keys.tvdb)
                 putKey("BUILT_IN_FANART_API_KEY", keys.fanart)
                 putKey("BUILT_IN_MDBLIST_API_KEY", keys.mdblist)
@@ -170,10 +171,32 @@ fun localAddonLaunch(
                 put("NODE_ENV", "production")
                 put("SECRET_KEY", settings.aioStreamsSecret)
                 put("DATABASE_URI", "sqlite://./db.sqlite")
-                putKey("TMDB_API_KEY", keys.tmdb)
+                // AIOStreams takes either; it tries TMDB_API_KEY first, so a Read Access Token must go in its own variable.
+                when (tmdbCredentialKind(keys.tmdb)) {
+                    TmdbCredential.ReadAccessToken -> putKey("TMDB_ACCESS_TOKEN", keys.tmdb)
+                    TmdbCredential.ApiKey, TmdbCredential.Unknown -> putKey("TMDB_API_KEY", keys.tmdb)
+                    TmdbCredential.Empty -> Unit
+                }
                 putKey("TVDB_API_KEY", keys.tvdb)
             },
         )
+    }
+}
+
+/**
+ * TMDB's API settings page shows two credentials: the **API key** (v3, 32 hex characters) and the much
+ * longer **API Read Access Token** (v4, a JWT starting "eyJ"). Either can be pasted into Nuvio's one
+ * field, so the kind decides where it goes (see [localAddonLaunch]).
+ */
+enum class TmdbCredential { Empty, ApiKey, ReadAccessToken, Unknown }
+
+fun tmdbCredentialKind(value: String): TmdbCredential {
+    val v = value.trim()
+    return when {
+        v.isEmpty() -> TmdbCredential.Empty
+        v.startsWith("eyJ") && v.count { it == '.' } == 2 -> TmdbCredential.ReadAccessToken
+        v.length == 32 && v.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' } -> TmdbCredential.ApiKey
+        else -> TmdbCredential.Unknown
     }
 }
 

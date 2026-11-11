@@ -419,6 +419,7 @@ Turn it on in Settings > Random Play > Tonight picker > "Open on Tonight".
 - [ ] "Open configure page" on AIOStreams opens its configure page in the browser; add TorBox there, save, and copy the manifest address it gives
 - [ ] Paste that address into "Install an addon address" and press Install: it says "Installed …" and the addon is in the Addons list; a film's sources come from it
 - [ ] Enter a TMDB key (and TVDB if you have one) and press "Save and restart": both servers restart and come back Running
+  - [ ] TMDB key: the AIOStreams configure page said "Failed to validate TMDB API Key/Access Token ... 401" on Create (2026-11-11). Nuvio now tells the 32-character API key from the long Read Access Token (starts eyJ) and passes each where it works; with the API key in Nuvio and nothing in the configure page's Metadata TMDB fields, Create succeeds
 - [ ] "Open configure page" on AIOMetadata opens its page; set up catalogues, save, install its address the same way; Home shows its catalogues and details pages fill
 - [ ] Close Nuvio: Task Manager shows no node.exe or redis-server.exe left running; start Nuvio again and the servers come back on their own, with the same addresses (installed addons still work)
 - [ ] Memory: with both running for an evening, Task Manager's node.exe processes stay around 1.3 GB in total, and Nuvio stays smooth

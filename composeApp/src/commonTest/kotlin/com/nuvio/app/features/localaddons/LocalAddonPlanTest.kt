@@ -62,6 +62,28 @@ class LocalAddonPlanTest {
     }
 
     @Test
+    fun aReadAccessTokenGoesToAioStreamsAsATokenAndNotToAioMetadata() {
+        val token = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJ4In0.c2lnbmF0dXJl"
+        val withToken = settings.copy(keys = LocalAddonKeys(tmdb = token))
+        val streams = localAddonLaunch(LocalAddonServer.AioStreams, bundle, data, withToken).env
+        assertEquals(token, streams["TMDB_ACCESS_TOKEN"])
+        assertFalse("TMDB_API_KEY" in streams, "AIOStreams tries TMDB_API_KEY first, so a token there gets 401")
+        val meta = localAddonLaunch(LocalAddonServer.AioMetadata, bundle, data, withToken).env
+        assertFalse("BUILT_IN_TMDB_API_KEY" in meta, "AIOMetadata sends ?api_key=, which a token cannot pass")
+    }
+
+    @Test
+    fun tmdbCredentialKinds() {
+        assertEquals(TmdbCredential.Empty, tmdbCredentialKind("  "))
+        assertEquals(TmdbCredential.ApiKey, tmdbCredentialKind(" 0123456789abcdef0123456789ABCDEF "))
+        assertEquals(TmdbCredential.ReadAccessToken, tmdbCredentialKind("eyJa.eyJb.sig"))
+        assertEquals(TmdbCredential.Unknown, tmdbCredentialKind("tmdb-key"))
+        val apiKey = settings.copy(keys = LocalAddonKeys(tmdb = "0123456789abcdef0123456789abcdef"))
+        assertEquals("0123456789abcdef0123456789abcdef", localAddonLaunch(LocalAddonServer.AioStreams, bundle, data, apiKey).env["TMDB_API_KEY"])
+        assertEquals("0123456789abcdef0123456789abcdef", localAddonLaunch(LocalAddonServer.AioMetadata, bundle, data, apiKey).env["BUILT_IN_TMDB_API_KEY"])
+    }
+
+    @Test
     fun linuxBundlePathsUseForwardSlashes() {
         val linux = LocalAddonBundle("/opt/nuvio/local-addons", windows = false)
         assertEquals("/opt/nuvio/local-addons/node/node", linux.node)
