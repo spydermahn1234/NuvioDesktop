@@ -58,11 +58,20 @@ data class ResumeItem(
 }
 
 /** One of the three cards on the TV's Tonight picker (`TONIGHT` line). [number] is what `TONIGHT_DO play` sends back. */
-data class TonightCardInfo(val number: Int, val slot: String, val name: String, val why: String, val meta: String, val poster: String?)
+data class TonightCardInfo(
+    val number: Int,
+    val slot: String,
+    val name: String,
+    val why: String,
+    val meta: String,
+    val poster: String?,
+    /** On the launcher, whether the mode is built; in Ends By, whether it ends before bed (Nov 11). */
+    val flag: Boolean = false,
+)
 
 /**
- * The TV's Tonight picker as the phone mirrors it (`TONIGHT` line): [view] is "launcher", "question", "cards" or
- * "other" (a mode the phone leaves to the TV; [mode] names it).
+ * The TV's Tonight picker as the phone mirrors it (`TONIGHT` line): [view] is "launcher", "question", "cards", one of
+ * the modes ("knockout", "cointoss", "flick", "endsby", "pile", "map"; Nov 11) or "other" ([mode] names it).
  */
 data class TonightScreenInfo(
     val view: String,
@@ -80,6 +89,14 @@ data class TonightScreenInfo(
     val rightDetail: String?,
     val answers: List<String>,
     val cards: List<TonightCardInfo>,
+    /** A line under the title (Coin Toss's lean, Channel Flick's note, The Map's reading, Ends By's bedtime). */
+    val extra: String? = null,
+    /** A countdown (Coin Toss, Knockout's winner); -1 when none runs. */
+    val seconds: Int = -1,
+    val secondsTotal: Int = 0,
+    val paused: Boolean = false,
+    /** The row the TV has selected (Ends By, The Pile), from 1; 0 for none. */
+    val selected: Int = 0,
 )
 
 /** One row of the source list on the TV (`SOURCES` line), in the order the TV draws them. */
@@ -273,7 +290,7 @@ object LibraryLines {
         fun f(i: Int) = parts[i].takeUnless { it == "-" || it.isEmpty() }?.let(RemoteProtocol::decode)
         val cards = records(parts[16]).mapIndexedNotNull { index, r ->
             if (r.size < 5) return@mapIndexedNotNull null
-            TonightCardInfo(index + 1, r[0] ?: "", r[1] ?: return@mapIndexedNotNull null, r[2] ?: "", r[3] ?: "", r[4])
+            TonightCardInfo(index + 1, r[0] ?: "", r[1] ?: return@mapIndexedNotNull null, r[2] ?: "", r[3] ?: "", r[4], r.getOrNull(5) == "1")
         }
         return ServerLine.Tonight(
             TonightScreenInfo(
@@ -292,6 +309,12 @@ object LibraryLines {
                 rightDetail = f(14),
                 answers = records(parts[15]).mapNotNull { it.firstOrNull() },
                 cards = cards,
+                // Added Nov 11; a PC from before sends sixteen fields.
+                extra = parts.getOrNull(17)?.let { if (it == "-" || it.isEmpty()) null else RemoteProtocol.decode(it) },
+                seconds = parts.getOrNull(18)?.toIntOrNull() ?: -1,
+                secondsTotal = parts.getOrNull(19)?.toIntOrNull() ?: 0,
+                paused = parts.getOrNull(20) == "1",
+                selected = parts.getOrNull(21)?.toIntOrNull() ?: 0,
             ),
         )
     }

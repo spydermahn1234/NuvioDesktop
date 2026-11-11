@@ -1066,11 +1066,18 @@ private fun NavPanel(padMode: PadMode, viewModel: RemoteViewModel, modifier: Mod
  * thumb, so a long swipe walks along a row and a short flick moves one tile.
  */
 @Composable
-private fun Touchpad(onKey: (RemoteKey) -> Unit, compact: Boolean, modifier: Modifier = Modifier) {
+internal fun Touchpad(
+    onKey: (RemoteKey) -> Unit,
+    compact: Boolean,
+    modifier: Modifier = Modifier,
+    step: androidx.compose.ui.unit.Dp = STEP,
+    title: String = "Swipe to move",
+    hint: String? = null,
+) {
     val g = LocalGlass.current
     val haptics = LocalHapticFeedback.current
     val send by rememberUpdatedState(onKey)
-    val stepPx = with(LocalDensity.current) { STEP.toPx() }
+    val stepPx = with(LocalDensity.current) { step.toPx() }
     Box(
         modifier
             .pointerInput(Unit) {
@@ -1110,8 +1117,8 @@ private fun Touchpad(onKey: (RemoteKey) -> Unit, compact: Boolean, modifier: Mod
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (!compact) Icon(Icons.Rounded.OpenWith, contentDescription = null, tint = Color.White.copy(alpha = 0.28f), modifier = Modifier.size(48.dp))
-            Text("Swipe to move", color = Color(0xFFC9CDD2), fontSize = if (compact) 14.sp else 16.sp, fontWeight = FontWeight.SemiBold)
-            Text(if (compact) "For the player's menus · tap for OK" else "Tap for OK", color = g.textMuted, fontSize = 12.sp)
+            Text(title, color = Color(0xFFC9CDD2), fontSize = if (compact) 14.sp else 16.sp, fontWeight = FontWeight.SemiBold)
+            Text(hint ?: if (compact) "For the player's menus · tap for OK" else "Tap for OK", color = g.textMuted, fontSize = 12.sp)
         }
     }
 }

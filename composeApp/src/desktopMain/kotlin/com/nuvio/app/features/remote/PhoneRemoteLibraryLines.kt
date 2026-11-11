@@ -273,8 +273,10 @@ internal object PhoneRemoteLibraryLines {
     /**
      * fork:phone-remote tonight - `TONIGHT 0` while the Tonight picker is not on screen, else
      * `TONIGHT 1 <view> <mode> <loading> <number> <total> <countFrom> <countLeft> <reshuffleLeft> <prompt> <leftLabel>
-     * <leftDetail> <rightLabel> <rightDetail> <answers> <cards>`: always sixteen fields, `-` for an empty one. Answers
-     * are records of one field; each card is slot, name, why, meta, poster. The phone answers with
+     * <leftDetail> <rightLabel> <rightDetail> <answers> <cards> <extra> <seconds> <secondsTotal> <paused> <selected>`:
+     * always twenty-one fields, `-` for an empty one (the last five came with every mode on the phone, Nov 11; older
+     * apps read the first sixteen and ignore them). Answers are records of one field; each card is slot, name, why,
+     * meta, poster, flag (older apps read the first five). The phone answers with
      * `TONIGHT_DO <action> [n]` (see RemoteTonightAction). Mirrored by `parseTonight` in the app's LibraryLines.kt.
      */
     fun tonightLine(screen: com.nuvio.app.features.remote.RemoteTonightScreen?): String {
@@ -286,7 +288,12 @@ internal object PhoneRemoteLibraryLines {
             flag(screen.reshuffleLeft),
             text(screen.prompt), text(screen.leftLabel), text(screen.leftDetail), text(screen.rightLabel), text(screen.rightDetail),
             records(screen.answers) { listOf(text(it)) },
-            records(screen.cards) { c -> listOf(text(c.slot), text(c.name), text(c.why), text(c.meta), url(c.poster)) },
+            records(screen.cards) { c -> listOf(text(c.slot), text(c.name), text(c.why), text(c.meta), url(c.poster), flag(c.flag)) },
+            text(screen.extra),
+            screen.seconds.toString(),
+            screen.secondsTotal.toString(),
+            flag(screen.paused),
+            screen.selected.toString(),
         ).joinToString(" ")
     }
 

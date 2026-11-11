@@ -191,15 +191,42 @@ fun TonightHost(
         deal(pool, reshuffle = false)
     }
 
+    fun openMode(mode: TonightMode) {
+        when (mode) {
+            TonightMode.ThreeQuestions -> startQuestions()
+            TonightMode.ThreeCards -> openThreeCards()
+            else -> {
+                val next = when (mode) {
+                    TonightMode.CoinToss -> TonightView.CoinToss
+                    TonightMode.Knockout -> TonightView.Knockout
+                    TonightMode.ChannelFlick -> TonightView.Flick
+                    TonightMode.TheMap -> TonightView.Map
+                    TonightMode.EndsBy -> TonightView.EndsBy
+                    TonightMode.ThePile -> TonightView.Pile
+                    else -> null
+                } ?: return
+                TonightSettingsRepository.setLastMode(mode)
+                view = next
+            }
+        }
+    }
+
     // A pad's B and the phone remote's Back arrive as the app's GoBack, not as a key: while a mode is open, Tonight
     // takes them (the screen showing runs its own Back); on the launcher they go on to the app as before.
     com.nuvio.app.core.ui.TabBackHandler(enabled = true) { TonightBackBus.press() }
 
     // fork:phone-remote tonight - the phone mirrors the launcher, Three Questions and Three Cards; its taps run here.
+    // The other modes publish their own screens (MirrorOnPhone), so the host publishes nothing while one is open.
     val remoteOwner = remember { Any() }
     val loadingTitles = poolState.loading && poolState.titles.isEmpty()
     val remoteScreen = when (view) {
-        TonightView.Launcher -> RemoteTonightScreen(RemoteTonightScreen.LAUNCHER, mode = settings.lastMode.name, loading = loadingTitles)
+        TonightView.Launcher -> RemoteTonightScreen(
+            RemoteTonightScreen.LAUNCHER,
+            mode = settings.lastMode.name,
+            loading = loadingTitles,
+            // Every tile, in the TV's order: slot is the mode's name, flag says it is built (all are, Nov 11).
+            cards = Tiles.map { RemoteTonightCard(slot = it.mode.name, name = it.title, why = it.line, meta = "", poster = null, flag = true) },
+        )
         TonightView.Questions -> RemoteTonightScreen(
             view = RemoteTonightScreen.QUESTION,
             loading = loadingTitles || question == null,
@@ -229,7 +256,7 @@ fun TonightHost(
                 )
             },
         )
-        else -> RemoteTonightScreen(RemoteTonightScreen.OTHER, mode = view.name)
+        else -> null
     }
     val remoteHandler by rememberUpdatedState { action: RemoteTonightAction, number: Int ->
         when (action) {
@@ -245,10 +272,16 @@ fun TonightHost(
             RemoteTonightAction.Play -> if (view == TonightView.Cards) hand.getOrNull(number - 1)?.let { onPlay(it.title.type, it.title.id) }
             RemoteTonightAction.Details -> if (view == TonightView.Cards) hand.getOrNull(number - 1)?.let { onOpenDetails(it.title.type, it.title.id) }
             RemoteTonightAction.Reshuffle -> if (view == TonightView.Cards) reshuffle()
+            RemoteTonightAction.Mode -> Tiles.getOrNull(number - 1)?.let { openMode(it.mode) }
+            // Older phone apps only send the above; the TV's keys belong to the modes (MirrorOnPhone).
+            RemoteTonightAction.Up, RemoteTonightAction.Down, RemoteTonightAction.Ok, RemoteTonightAction.LetGo -> Unit
         }
         Unit
     }
-    LaunchedEffect(remoteScreen) { RemoteTonight.publish(remoteOwner, remoteScreen) { a, n -> remoteHandler(a, n) } }
+    LaunchedEffect(remoteScreen) {
+        if (remoteScreen != null) RemoteTonight.publish(remoteOwner, remoteScreen) { a, n -> remoteHandler(a, n) }
+        else RemoteTonight.clear(remoteOwner)
+    }
     DisposableEffect(Unit) { onDispose { RemoteTonight.clear(remoteOwner) } }
     // Out of questions (three asked, or nothing left to split): deal from what is left.
     LaunchedEffect(view, question, poolState.loading) {
@@ -272,37 +305,7 @@ fun TonightHost(
                 clock = clock,
                 settings = settings,
                 bedtimeFilters = bedtimeFilters,
-                onOpen = { mode ->
-                    when (mode) {
-                        TonightMode.ThreeQuestions -> startQuestions()
-                        TonightMode.ThreeCards -> openThreeCards()
-                        TonightMode.CoinToss -> {
-                            TonightSettingsRepository.setLastMode(TonightMode.CoinToss)
-                            view = TonightView.CoinToss
-                        }
-                        TonightMode.Knockout -> {
-                            TonightSettingsRepository.setLastMode(TonightMode.Knockout)
-                            view = TonightView.Knockout
-                        }
-                        TonightMode.ChannelFlick -> {
-                            TonightSettingsRepository.setLastMode(TonightMode.ChannelFlick)
-                            view = TonightView.Flick
-                        }
-                        TonightMode.TheMap -> {
-                            TonightSettingsRepository.setLastMode(TonightMode.TheMap)
-                            view = TonightView.Map
-                        }
-                        TonightMode.EndsBy -> {
-                            TonightSettingsRepository.setLastMode(TonightMode.EndsBy)
-                            view = TonightView.EndsBy
-                        }
-                        TonightMode.ThePile -> {
-                            TonightSettingsRepository.setLastMode(TonightMode.ThePile)
-                            view = TonightView.Pile
-                        }
-                        else -> Unit
-                    }
-                },
+                onOpen = ::openMode,
                 onBrowseAll = onClose,
             )
             TonightView.Questions -> TonightQuestions(
@@ -395,6 +398,10 @@ fun TonightHost(
     }
 }
 
+/** A title as the phone remote shows it (fork:phone-remote tonight). */
+internal fun TonightTitle.remoteCard(slot: String, why: String, clock: TonightClock, minutesUntilBed: Int, flag: Boolean = false): RemoteTonightCard =
+    RemoteTonightCard(slot = slot, name = name, why = why, meta = tonightMetaLine(clock, minutesUntilBed), poster = poster ?: backdrop, flag = flag)
+
 // ---- Keys --------------------------------------------------------------------------------------
 
 internal enum class TonightKey { Left, Right, Up, Down, Ok, Back }
@@ -405,17 +412,47 @@ internal enum class TonightKey { Left, Right, Up, Down, Ok, Back }
  * forwards here, to whichever Tonight screen is showing.
  */
 internal object TonightBackBus {
-    private val _presses = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 4)
-    val presses: kotlinx.coroutines.flow.SharedFlow<Unit> = _presses
-    fun press() {
-        _presses.tryEmit(Unit)
+    private val _presses = kotlinx.coroutines.flow.MutableSharedFlow<TonightKey>(extraBufferCapacity = 8)
+    val presses: kotlinx.coroutines.flow.SharedFlow<TonightKey> = _presses
+
+    /** Nov 11: the phone remote's mode buttons arrive here too, as the TV's own keys. */
+    fun press(key: TonightKey = TonightKey.Back) {
+        _presses.tryEmit(key)
     }
+}
+
+/**
+ * fork:phone-remote tonight - a mode screen mirrored on the phone (user, Nov 11: "all picker modes"). [screen] is what
+ * the phone shows; its taps go to [onAction] first (numbered rows, letting go), and anything it leaves (returns false
+ * for) becomes the TV's own key, so the phone does exactly what the remote's arrows, OK and Back would.
+ */
+@Composable
+internal fun MirrorOnPhone(screen: RemoteTonightScreen, onAction: (RemoteTonightAction, Int) -> Boolean = { _, _ -> false }) {
+    val owner = remember { Any() }
+    val latest by rememberUpdatedState(onAction)
+    LaunchedEffect(screen) {
+        RemoteTonight.publish(owner, screen) { action, number ->
+            if (!latest(action, number)) {
+                val key = when (action) {
+                    RemoteTonightAction.Left -> TonightKey.Left
+                    RemoteTonightAction.Right -> TonightKey.Right
+                    RemoteTonightAction.Up -> TonightKey.Up
+                    RemoteTonightAction.Down -> TonightKey.Down
+                    RemoteTonightAction.Ok, RemoteTonightAction.Play -> TonightKey.Ok
+                    RemoteTonightAction.Back -> TonightKey.Back
+                    else -> null
+                }
+                if (key != null) TonightBackBus.press(key)
+            }
+        }
+    }
+    DisposableEffect(Unit) { onDispose { RemoteTonight.clear(owner) } }
 }
 
 @Composable
 internal fun Modifier.tonightKeys(passBack: Boolean = false, handle: (TonightKey) -> Boolean): Modifier {
     val latest by rememberUpdatedState(handle)
-    LaunchedEffect(Unit) { TonightBackBus.presses.collect { latest(TonightKey.Back) } }
+    LaunchedEffect(Unit) { TonightBackBus.presses.collect { latest(it) } }
     return onPreviewKeyEvent { event ->
         // Back acts when the key comes up: on the HTPC Esc's key-down never reached these screens (Nov 10), while
         // the rest of the app goes back on its key-up. Its key-down is still taken so nothing else acts on it too.

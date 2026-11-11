@@ -174,9 +174,23 @@ Needs this Nuvio and the new NuvioRemote app together.
 - [ ] Tapping an answer answers it on the TV; "Either is fine" and "Back a question" do what Down and Back do on the TV; the buttons never move between questions
 - [ ] After the questions, the three cards show on the phone with their posters, SAFE / NEW TO YOU / WILDCARD, the reason and "ends 23:06"; tapping a card plays it on the TV, Details opens its page
 - [ ] Reshuffle on the phone deals three new cards once, then says "No reshuffles left"
-- [ ] Opening Knockout, Coin Toss or another mode on the TV makes the phone say it is on the TV, with Back to the start; the header tag swaps to the pad and back
+- [ ] The header tag swaps the Tonight mirror for the pad and back (Nov 11: the modes are mirrored too, see below)
 - [ ] Choosing something with the TV remote while the phone is open keeps the phone in step
 - [ ] Once a title starts playing, the phone switches to the film screen as usual
+
+### Phone remote: every Tonight mode on the phone (Nov 11)
+
+Needs this Nuvio and the new NuvioRemote app together.
+
+- [ ] The phone's Tonight launcher lists all eight ways to choose in the TV's order (the one used last marked LAST TIME); tapping any of them opens it on the TV and on the phone
+- [ ] Coin Toss: the phone shows the picked title and "Plays by itself in 7 s" counting down; Not this tosses again on the TV, Play now plays, Hold stops the clock (and Start the clock restarts it), Its page opens the page; the last three noes and the lean show under the buttons
+- [ ] Knockout: the phone shows "Round 1 of 3" and the two titles; tapping one keeps it on the TV; Undo undoes the last pick (and on the first match goes back to the launcher); "A 20 second taste of each" plays the tastes on the TV and the phone says which; the winner shows with its countdown and Play now
+- [ ] Channel Flick: the phone shows the channel playing, "CH 3 of 40", and the next three; Never show me this, Play it, Save for later and Next channel do what Left, OK, Up and Right do on the TV; the note ("… saved for later") shows on the phone too
+- [ ] Ends By: the phone shows "Bed at 23:30" with −15 and +15 (they move bedtime on the TV too) and the list, the ones past bed faded; tapping a title plays it
+- [ ] The Pile: tapping a title plays it; Let go asks "Let go for good?" and a second tap takes it off the pile on the TV
+- [ ] The Map: dragging on the phone's touchpad moves the lens on the TV; the title under the lens (and what is nearby) shows above the pad, a small square shows where the lens is, a tap plays the title under the lens
+- [ ] Back on the phone does what Back does on the TV in every mode, and the buttons never move as titles change
+- [ ] With an older phone app, the modes still show "… is on the TV" and the two-button launcher still works
 
 ### Phone remote: long-press menus on the Watch tab (Nov 11)
 

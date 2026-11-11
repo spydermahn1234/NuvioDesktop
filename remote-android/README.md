@@ -61,8 +61,10 @@ queue, and can "sleep" to try Wake. A strip shows what it was sent. This is for 
 **Other**
 - **Tonight:** while the TV shows the Tonight picker (Movies & TV's "How shall we choose tonight?"), the Remote tab
   mirrors it: start Three Questions or Three Cards, answer each question with a big tap (Left, Right, Either is fine,
-  Back), and tap a card to play it on the TV (Details opens its page; Reshuffle once a night). The other modes stay on the
-  TV; the header tag swaps to the pad for them. Needs a Nuvio from Nov 10, 2026 or later.
+  Back), and tap a card to play it on the TV (Details opens its page; Reshuffle once a night). Since Nov 11 every mode is
+  on the phone too: the launcher lists all eight; Coin Toss, Knockout and Channel Flick have big buttons for the TV's
+  keys, Ends By and The Pile are lists (tap to play, Let go asks first), and The Map is a touchpad that moves the TV's
+  lens. The header tag still swaps to the pad. Needs a Nuvio from Nov 11, 2026 or later for the modes.
 - **Send to Nuvio:** share a YouTube or YouTube Music link from any app and it plays on the TV.
 - **Wake:** when the PC is asleep or off, the app offers to wake it with Wake-on-LAN. The PC sends its network card and
   broadcast addresses while connected. Wake-on-LAN must be on in the PC's BIOS and network adapter settings.
