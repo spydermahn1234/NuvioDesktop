@@ -185,6 +185,8 @@ Needs this Nuvio and the new NuvioRemote app together.
 - [ ] The phone's Tonight launcher lists all eight ways to choose in the TV's order (the one used last marked LAST TIME); tapping any of them opens it on the TV and on the phone
 - [ ] Coin Toss: the phone shows the picked title and "Plays by itself in 7 s" counting down; Not this tosses again on the TV, Play now plays, Hold stops the clock (and Start the clock restarts it), Its page opens the page; the last three noes and the lean show under the buttons
 - [ ] Knockout: the phone shows "Round 1 of 3" and the two titles; tapping one keeps it on the TV; Undo undoes the last pick (and on the first match goes back to the launcher); "A 20 second taste of each" plays the tastes on the TV and the phone says which; the winner shows with its countdown and Play now
+  - [ ] **BROKEN** (2026-11-11): after a pick the names changed but the posters stayed the old ones
+  - [ ] Re-check: after each pick both posters on the phone change with the names (and the same for Three Cards' reshuffle and Coin Toss' next title)
 - [ ] Channel Flick: the phone shows the channel playing, "CH 3 of 40", and the next three; Never show me this, Play it, Save for later and Next channel do what Left, OK, Up and Right do on the TV; the note ("… saved for later") shows on the phone too
 - [ ] Ends By: the phone shows "Bed at 23:30" with −15 and +15 (they move bedtime on the TV too) and the list, the ones past bed faded; tapping a title plays it
 - [ ] The Pile: tapping a title plays it; Let go asks "Let go for good?" and a second tap takes it off the pile on the TV
@@ -384,6 +386,8 @@ Turn it on in Settings > Random Play > Tonight picker > "Open on Tonight".
 - [ ] Back undoes the last pick (Back with nothing picked goes to the launcher)
 - [ ] The winner shows with a five-second ring and then plays; OK plays at once, Back reopens the final
 - [ ] Clicking a poster with the mouse keeps it in Knockout
+- [ ] **BROKEN** (2026-11-11): the winner (The White Lotus) opened "Failed to load: could not load details from any addon", though it opens fine from Home
+  - [ ] Re-check: a trending winner (one not in your library) plays; the same for Three Cards, Coin Toss, Channel Flick, Ends By and The Map, and for Down = details
 
 ### Tonight picker: Channel Flick and trailer tastes (phase 3, Nov 10)
 

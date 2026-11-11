@@ -63,6 +63,8 @@ import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 /*
  * fork:tonight - phase 1 of design-notes/tonight-picker.md: the launcher, Three Questions and
@@ -107,6 +109,11 @@ fun TonightHost(
     modifier: Modifier = Modifier,
 ) {
     remember { TonightSettingsRepository.ensureLoaded() }
+    // Trending titles carry TMDB's own id ("tmdb:111803"), which most metadata addons cannot open, so the details
+    // page said "Failed to load" (Knockout's White Lotus). Swap it for the IMDb id first, as Discover's posters do.
+    val openScope = rememberCoroutineScope()
+    val play: (String, String) -> Unit = { type, id -> openScope.launch { val (t, i) = tonightOpenableId(type, id); onPlay(t, i) } }
+    val openDetails: (String, String) -> Unit = { type, id -> openScope.launch { val (t, i) = tonightOpenableId(type, id); onOpenDetails(t, i) } }
     val settings by TonightSettingsRepository.state.collectAsStateWithLifecycle()
     val poolState by TonightPool.state.collectAsStateWithLifecycle()
     val library by LibraryRepository.uiState.collectAsStateWithLifecycle()
@@ -269,8 +276,8 @@ fun TonightHost(
             RemoteTonightAction.Back -> {
                 if (view == TonightView.Questions) questionBack() else view = TonightView.Launcher
             }
-            RemoteTonightAction.Play -> if (view == TonightView.Cards) hand.getOrNull(number - 1)?.let { onPlay(it.title.type, it.title.id) }
-            RemoteTonightAction.Details -> if (view == TonightView.Cards) hand.getOrNull(number - 1)?.let { onOpenDetails(it.title.type, it.title.id) }
+            RemoteTonightAction.Play -> if (view == TonightView.Cards) hand.getOrNull(number - 1)?.let { play(it.title.type, it.title.id) }
+            RemoteTonightAction.Details -> if (view == TonightView.Cards) hand.getOrNull(number - 1)?.let { openDetails(it.title.type, it.title.id) }
             RemoteTonightAction.Reshuffle -> if (view == TonightView.Cards) reshuffle()
             RemoteTonightAction.Mode -> Tiles.getOrNull(number - 1)?.let { openMode(it.mode) }
             // Older phone apps only send the above; the TV's keys belong to the modes (MirrorOnPhone).
@@ -324,8 +331,8 @@ fun TonightHost(
                 clock = clock,
                 minutesUntilBed = minutesUntilBed,
                 loading = poolState.loading && poolState.titles.isEmpty(),
-                onPlay = { onPlay(it.type, it.id) },
-                onDetails = { onOpenDetails(it.type, it.id) },
+                onPlay = { play(it.type, it.id) },
+                onDetails = { openDetails(it.type, it.id) },
                 onBack = { view = TonightView.Launcher },
             )
             // Ends By and The Pile show everything (Ends By fades what runs past bedtime).
@@ -336,7 +343,7 @@ fun TonightHost(
                 settings = settings,
                 minutesUntilBed = minutesUntilBed,
                 loading = poolState.loading && poolState.titles.isEmpty(),
-                onPlay = { onPlay(it.type, it.id) },
+                onPlay = { play(it.type, it.id) },
                 onBack = { view = TonightView.Launcher },
             )
             TonightView.Pile -> TonightPileView(
@@ -344,7 +351,7 @@ fun TonightHost(
                 clock = clock,
                 minutesUntilBed = minutesUntilBed,
                 loading = poolState.loading && poolState.titles.isEmpty(),
-                onPlay = { onPlay(it.type, it.id) },
+                onPlay = { play(it.type, it.id) },
                 onBack = { view = TonightView.Launcher },
             )
             TonightView.Map -> TonightMapView(
@@ -354,7 +361,7 @@ fun TonightHost(
                 minutesUntilBed = minutesUntilBed,
                 bedtimeFilters = bedtimeFilters,
                 loading = poolState.loading && poolState.titles.isEmpty(),
-                onPlay = { onPlay(it.type, it.id) },
+                onPlay = { play(it.type, it.id) },
                 onBack = { view = TonightView.Launcher },
             )
             TonightView.Flick -> TonightFlickView(
@@ -363,7 +370,7 @@ fun TonightHost(
                 clock = clock,
                 minutesUntilBed = minutesUntilBed,
                 loading = poolState.loading && poolState.titles.isEmpty(),
-                onPlay = { onPlay(it.type, it.id) },
+                onPlay = { play(it.type, it.id) },
                 onBack = { view = TonightView.Launcher },
             )
             TonightView.Knockout -> TonightKnockoutView(
@@ -372,7 +379,7 @@ fun TonightHost(
                 clock = clock,
                 minutesUntilBed = minutesUntilBed,
                 loading = poolState.loading && poolState.titles.isEmpty(),
-                onPlay = { onPlay(it.type, it.id) },
+                onPlay = { play(it.type, it.id) },
                 onBack = { view = TonightView.Launcher },
             )
             TonightView.Cards -> TonightCards(
@@ -383,8 +390,8 @@ fun TonightHost(
                 loading = poolState.loading && poolState.titles.isEmpty(),
                 reshuffleLeft = reshuffleLeft,
                 onReshuffle = ::reshuffle,
-                onPlay = { card -> onPlay(card.title.type, card.title.id) },
-                onDetails = { card -> onOpenDetails(card.title.type, card.title.id) },
+                onPlay = { card -> play(card.title.type, card.title.id) },
+                onDetails = { card -> openDetails(card.title.type, card.title.id) },
                 onBack = { view = TonightView.Launcher },
             )
         }
@@ -1125,4 +1132,14 @@ private fun TonightCloseButton(onClose: () -> Unit, modifier: Modifier = Modifie
     ) {
         Text("✕", color = Color.White, fontSize = 18.sp)
     }
+}
+
+/** A title's id as the details page and the addons expect it: a `tmdb:` id becomes its IMDb id when TMDB knows one. */
+internal suspend fun tonightOpenableId(type: String, id: String): Pair<String, String> {
+    val tmdbId = id.takeIf { it.startsWith("tmdb:") }?.removePrefix("tmdb:")?.substringBefore(':')?.toIntOrNull()
+        ?: return type to id
+    val imdb = runCatching {
+        com.nuvio.app.features.tmdb.TmdbService.tmdbToImdb(tmdbId, if (type == "series") "tv" else "movie")
+    }.getOrNull()
+    return type to (imdb ?: id)
 }
