@@ -1263,8 +1263,8 @@ private fun MobileSettingsScreen(
                     isTablet = false,
                     onNavigateToEditor = onOpenCollectionEditor,
                 )
-                SettingsPage.Addons -> addonsSettingsContent()
-                SettingsPage.Plugins -> if (AppFeaturePolicy.pluginsEnabled) pluginsSettingsContent() else addonsSettingsContent()
+                SettingsPage.Addons -> addonsSettingsContent(isTablet = false)
+                SettingsPage.Plugins -> if (AppFeaturePolicy.pluginsEnabled) pluginsSettingsContent() else addonsSettingsContent(isTablet = false)
                 SettingsPage.Homescreen -> homescreenSettingsContent(
                     isTablet = false,
                     heroEnabled = homescreenHeroEnabled,

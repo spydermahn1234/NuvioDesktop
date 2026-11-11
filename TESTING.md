@@ -410,3 +410,18 @@ Turn it on in Settings > Random Play > Tonight picker > "Open on Tonight".
 ## Film player (from upstream, Nov 11)
 
 - [ ] Subtitles carry over to the next episode: play an episode with your preferred subtitle on, let it go to the next one (or start the next from the list), and the same subtitle comes on by itself
+
+## AIOStreams and AIOMetadata inside Nuvio (Nov 11)
+
+- [ ] Settings > Addons shows "AIOStreams and AIOMetadata on this PC" with the switch off; the Nightly includes the servers (the switch is not greyed out with "This build does not include the servers")
+- [ ] Turning the switch on: within about a minute AIOStreams, AIOMetadata and Cache (Redis) all say "Running at http://127.0.0.1:…"
+- [ ] Windows Firewall does not ask about node.exe or redis-server.exe
+- [ ] "Open configure page" on AIOStreams opens its configure page in the browser; add TorBox there, save, and copy the manifest address it gives
+- [ ] Paste that address into "Install an addon address" and press Install: it says "Installed …" and the addon is in the Addons list; a film's sources come from it
+- [ ] Enter a TMDB key (and TVDB if you have one) and press "Save and restart": both servers restart and come back Running
+- [ ] "Open configure page" on AIOMetadata opens its page; set up catalogues, save, install its address the same way; Home shows its catalogues and details pages fill
+- [ ] Close Nuvio: Task Manager shows no node.exe or redis-server.exe left running; start Nuvio again and the servers come back on their own, with the same addresses (installed addons still work)
+- [ ] Memory: with both running for an evening, Task Manager's node.exe processes stay around 1.3 GB in total, and Nuvio stays smooth
+- [ ] An in-app update while the servers are on installs cleanly (no "file in use" error)
+- [ ] Turning the switch off stops all three (no node.exe or redis-server.exe left)
+

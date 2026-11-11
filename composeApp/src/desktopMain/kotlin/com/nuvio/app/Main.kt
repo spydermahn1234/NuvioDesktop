@@ -892,6 +892,10 @@ fun main(args: Array<String>) {
                 // fork:phone-remote - the phone sends the same keystrokes a pad does, so it shares
                 // the pad's lifetime. Off the UI thread: listing network adapters can be slow on Windows.
                 kotlin.concurrent.thread(isDaemon = true, name = "phone-remote-start") { PhoneRemote.start() }
+                // fork:local-addons - AIOStreams and AIOMetadata in the background, only when switched on.
+                kotlin.concurrent.thread(isDaemon = true, name = "local-addons-start") {
+                    com.nuvio.app.features.localaddons.LocalAddonHost.startIfEnabled()
+                }
                 // Same reasoning: idle is idle wherever the user is in the app, and the shade has
                 // to cover the native player as much as the browsing screens.
                 val uninstallScreensaver = com.nuvio.app.features.screensaver.DesktopScreensaver.install(
@@ -913,6 +917,7 @@ fun main(args: Array<String>) {
                     uninstallScreensaver()
                     GamepadInput.stop()
                     PhoneRemote.stop()
+                    com.nuvio.app.features.localaddons.LocalAddonHost.shutdown()
                     DesktopNavigationGestureBridge.setHorizontalScrollModifierActive(false)
                     uninstallFullscreenWatchdog()
                     uninstallDisplayMetricsTracking()
