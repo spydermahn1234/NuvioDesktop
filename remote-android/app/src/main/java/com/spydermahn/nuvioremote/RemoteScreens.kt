@@ -459,10 +459,11 @@ private fun FilmClockSlot(playing: NowPlaying, viewModel: RemoteViewModel, modif
     val labelColor = if (playing.isPlaying) null else g.textMuted
     val hasActions = playing.skipLabel != null || playing.canNextEpisode
     BoxWithConstraints(modifier.glass(RoundedCornerShape(24.dp)).padding(horizontal = 18.dp, vertical = 10.dp)) {
-        if (maxHeight >= 132.dp) {
+        val room = maxHeight
+        if (room >= 132.dp) {
             // Tall (most films): label, the big time sized to the room, then a fixed 52 dp row for the buttons or
             // the quiet line.
-            val timeHeight = minOf(60.dp, maxHeight - 52.dp - 20.dp - 4.dp)
+            val timeHeight = minOf(60.dp, room - 52.dp - 20.dp - 4.dp)
             Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Box(Modifier.height(20.dp), contentAlignment = Alignment.Center) { GlassLabel(label, color = labelColor) }
                 ClockTime(timeText, timeHeight, Modifier.height(timeHeight))
@@ -479,7 +480,7 @@ private fun FilmClockSlot(playing: NowPlaying, viewModel: RemoteViewModel, modif
         } else {
             // Short (a show's taller top panel): the clock on the left, a fixed column on the right holding Skip and
             // Next episode stacked (or the quiet line), so the time keeps its size and place.
-            val timeHeight = minOf(52.dp, maxHeight - 20.dp)
+            val timeHeight = minOf(52.dp, room - 20.dp)
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                     Box(Modifier.height(20.dp), contentAlignment = Alignment.CenterStart) { GlassLabel(label, color = labelColor) }
@@ -491,7 +492,7 @@ private fun FilmClockSlot(playing: NowPlaying, viewModel: RemoteViewModel, modif
                     horizontalAlignment = Alignment.End,
                 ) {
                     if (hasActions) {
-                        val pill = if (playing.skipLabel != null && playing.canNextEpisode) minOf(44.dp, (maxHeight - 6.dp) / 2) else minOf(52.dp, maxHeight)
+                        val pill = if (playing.skipLabel != null && playing.canNextEpisode) minOf(44.dp, (room - 6.dp) / 2) else minOf(52.dp, room)
                         FilmActions(playing, viewModel, Modifier.fillMaxWidth(), height = pill)
                     } else {
                         Text(quiet, color = g.textSecondary, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
