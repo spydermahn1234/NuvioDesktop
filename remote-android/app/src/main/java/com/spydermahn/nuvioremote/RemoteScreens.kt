@@ -120,7 +120,6 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import android.text.format.DateFormat
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -430,8 +429,8 @@ private fun FilmTop(
  * The film screen's fixed slot: "Ends at 21:44" in big type (the end moves with the clock while paused, and follows
  * the speed), and under it one row of fixed height that holds Skip intro / recap / credits and Next episode when
  * the PC says they apply, otherwise a quiet line (paused, the sleep timer, the speed, the running time). The card
- * is whatever height is left on the screen: the big time is sized to fit it, and on a very short screen the label and
- * then the time step aside so the bottom row always shows.
+ * is whatever height is left on the screen: tall enough, it stacks the clock over the row; on a show (a line taller
+ * top panel) it lays the clock on the left and the buttons on the right, so the time never shrinks to a sliver.
  */
 @Composable
 private fun FilmClockSlot(playing: NowPlaying, viewModel: RemoteViewModel, modifier: Modifier = Modifier) {
@@ -456,50 +455,76 @@ private fun FilmClockSlot(playing: NowPlaying, viewModel: RemoteViewModel, modif
         playing.speedPercent?.takeIf { it != 100 }?.let { add(speedLabel(it)) }
         if (playing.hasTimeline) add("Runs ${runtimeWords(playing.durationMs)}")
     }.joinToString(" · ")
-    BoxWithConstraints(modifier.glass(RoundedCornerShape(24.dp)).padding(horizontal = 16.dp, vertical = 10.dp)) {
-        val rowHeight = 52.dp
-        val labelHeight = 20.dp
-        val showLabel = maxHeight - rowHeight - labelHeight >= 30.dp
-        val timeRoom = maxHeight - rowHeight - (if (showLabel) labelHeight else 0.dp) - 4.dp
-        val timeHeight = minOf(60.dp, timeRoom)
-        val showTime = timeHeight >= 26.dp
-        val timeSize = with(LocalDensity.current) { (timeHeight / 1.12f).toSp() }
-        Column(
-            Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            if (showLabel) {
-                Box(Modifier.height(labelHeight), contentAlignment = Alignment.Center) {
-                    GlassLabel(if (playing.isPlaying) "Ends at" else "Ends at · if you play now", color = if (playing.isPlaying) null else g.textMuted)
-                }
-            }
-            if (showTime) {
-                Box(Modifier.height(timeHeight), contentAlignment = Alignment.Center) {
-                    Text(
-                        timeText,
-                        style = TextStyle(fontFamily = DisplaySerif, fontWeight = FontWeight.Bold, fontSize = timeSize, lineHeight = timeSize * 1.1f),
-                        color = g.text,
-                        maxLines = 1,
-                    )
-                }
-            }
-            Box(Modifier.fillMaxWidth().height(rowHeight), contentAlignment = Alignment.Center) {
-                if (playing.skipLabel != null || playing.canNextEpisode) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        playing.skipLabel?.let { label ->
-                            ActionPill(label, Icons.Rounded.SkipNext, accent = true, modifier = Modifier.weight(1f)) { viewModel.control("SKIP_INTRO") }
+    val label = if (playing.isPlaying) "Ends at" else "Ends at · paused"
+    val labelColor = if (playing.isPlaying) null else g.textMuted
+    val hasActions = playing.skipLabel != null || playing.canNextEpisode
+    BoxWithConstraints(modifier.glass(RoundedCornerShape(24.dp)).padding(horizontal = 18.dp, vertical = 10.dp)) {
+        if (maxHeight >= 132.dp) {
+            // Tall (most films): label, the big time sized to the room, then a fixed 52 dp row for the buttons or
+            // the quiet line.
+            val timeHeight = minOf(60.dp, maxHeight - 52.dp - 20.dp - 4.dp)
+            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Box(Modifier.height(20.dp), contentAlignment = Alignment.Center) { GlassLabel(label, color = labelColor) }
+                ClockTime(timeText, timeHeight, Modifier.height(timeHeight))
+                Box(Modifier.fillMaxWidth().height(52.dp), contentAlignment = Alignment.Center) {
+                    if (hasActions) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            FilmActions(playing, viewModel, Modifier.weight(1f), height = 52.dp)
                         }
-                        if (playing.canNextEpisode) {
-                            ActionPill("Next episode", Icons.Rounded.SkipNext, accent = playing.skipLabel == null, modifier = Modifier.weight(1f)) {
-                                viewModel.control("NEXT_EPISODE")
-                            }
-                        }
+                    } else {
+                        Text(quiet, color = g.textSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                } else {
-                    Text(quiet, color = g.textSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
+        } else {
+            // Short (a show's taller top panel): the clock on the left, a fixed column on the right holding Skip and
+            // Next episode stacked (or the quiet line), so the time keeps its size and place.
+            val timeHeight = minOf(52.dp, maxHeight - 20.dp)
+            Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+                    Box(Modifier.height(20.dp), contentAlignment = Alignment.CenterStart) { GlassLabel(label, color = labelColor) }
+                    ClockTime(timeText, timeHeight, Modifier.height(timeHeight))
+                }
+                Column(
+                    Modifier.width(164.dp).fillMaxHeight(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    if (hasActions) {
+                        val pill = if (playing.skipLabel != null && playing.canNextEpisode) minOf(44.dp, (maxHeight - 6.dp) / 2) else minOf(52.dp, maxHeight)
+                        FilmActions(playing, viewModel, Modifier.fillMaxWidth(), height = pill)
+                    } else {
+                        Text(quiet, color = g.textSecondary, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The big serif "Ends at" time, sized to [height]. */
+@Composable
+private fun ClockTime(text: String, height: Dp, modifier: Modifier = Modifier) {
+    val size = with(LocalDensity.current) { (height / 1.12f).toSp() }
+    Box(modifier, contentAlignment = Alignment.Center) {
+        Text(
+            text,
+            style = TextStyle(fontFamily = DisplaySerif, fontWeight = FontWeight.Bold, fontSize = size, lineHeight = size * 1.1f),
+            color = LocalGlass.current.text,
+            maxLines = 1,
+        )
+    }
+}
+
+/** Skip intro / recap / credits and Next episode, each only when the PC says it applies. */
+@Composable
+private fun FilmActions(playing: NowPlaying, viewModel: RemoteViewModel, each: Modifier, height: Dp) {
+    playing.skipLabel?.let { label ->
+        ActionPill(label, Icons.Rounded.SkipNext, accent = true, modifier = each, height = height) { viewModel.control("SKIP_INTRO") }
+    }
+    if (playing.canNextEpisode) {
+        ActionPill("Next episode", Icons.Rounded.SkipNext, accent = playing.skipLabel == null, modifier = each, height = height) {
+            viewModel.control("NEXT_EPISODE")
         }
     }
 }
@@ -1051,12 +1076,12 @@ private fun SleepChips(playing: NowPlaying, viewModel: RemoteViewModel) {
 
 /** A wide button for one action ("Skip intro", "Next episode"). */
 @Composable
-private fun ActionPill(text: String, icon: ImageVector, accent: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun ActionPill(text: String, icon: ImageVector, accent: Boolean, modifier: Modifier = Modifier, height: Dp = 52.dp, onClick: () -> Unit) {
     val g = LocalGlass.current
     val shape = RoundedCornerShape(16.dp)
     Row(
         modifier
-            .height(52.dp)
+            .height(height)
             .then(if (accent) Modifier.glass(shape, fill = g.tint, edge = g.tintEdge) else Modifier.glass(shape))
             .pressable(onPress = onClick)
             .padding(horizontal = 14.dp),
