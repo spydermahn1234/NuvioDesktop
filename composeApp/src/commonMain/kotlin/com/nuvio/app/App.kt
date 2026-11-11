@@ -2854,11 +2854,36 @@ private fun MainAppContent(
                         PlayerHandoff.activeRoutes.first { it == 0 }
                     }
                 }
-                onPlay(
-                    play.type, play.videoId, play.parentMetaId, play.parentMetaType, play.title, play.logo, play.poster,
-                    play.background, play.seasonNumber, play.episodeNumber, play.episodeTitle, play.episodeThumbnail,
-                    play.pauseDescription, play.resumePositionMs,
-                )
+                if (play.mode == com.nuvio.app.features.remote.RemotePlayMode.Normal) {
+                    onPlay(
+                        play.type, play.videoId, play.parentMetaId, play.parentMetaType, play.title, play.logo, play.poster,
+                        play.background, play.seasonNumber, play.episodeNumber, play.episodeTitle, play.episodeThumbnail,
+                        play.pauseDescription, play.resumePositionMs,
+                    )
+                } else {
+                    // fork:phone-remote menus - the long-press menu's Start from beginning / Choose a source.
+                    val fromStart = play.mode == com.nuvio.app.features.remote.RemotePlayMode.FromStart
+                    launchPlaybackWithDownloadPreference(
+                        type = play.type,
+                        videoId = play.videoId,
+                        parentMetaId = play.parentMetaId,
+                        parentMetaType = play.parentMetaType,
+                        title = play.title,
+                        logo = play.logo,
+                        poster = play.poster,
+                        background = play.background,
+                        seasonNumber = play.seasonNumber,
+                        episodeNumber = play.episodeNumber,
+                        episodeTitle = play.episodeTitle,
+                        episodeThumbnail = play.episodeThumbnail,
+                        pauseDescription = play.pauseDescription,
+                        resumePositionMs = if (fromStart) null else play.resumePositionMs,
+                        resumeProgressFraction = null,
+                        useAlternateBehavior = false,
+                        startFromBeginning = fromStart,
+                        forceManualSelection = !fromStart,
+                    )
+                }
             }
         }
 
@@ -3279,7 +3304,8 @@ private fun MainAppContent(
         // fork:phone-remote continue watching - Resume on the TV from the phone: the same source again, from where it
         // stopped, as the card's last-link shortcut plays it. A player already open is closed first.
         LaunchedEffect(navController) {
-            com.nuvio.app.features.remote.RemotePlayerHub.resumes.collectLatest { item ->
+            com.nuvio.app.features.remote.RemotePlayerHub.resumes.collectLatest { request ->
+                val item = request.item
                 if (navController.currentDestination?.hasRoute<PlayerRoute>() == true) {
                     PlayerHandoff.holdShield()
                     ResumePromptRepository.markPlayerExitedNormally()
@@ -3288,7 +3314,14 @@ private fun MainAppContent(
                         PlayerHandoff.activeRoutes.first { it == 0 }
                     }
                 }
-                openContinueWatching(item, useAlternateBehavior = false, startFromBeginning = false, forceReuseLastLink = true)
+                when (request.mode) {
+                    com.nuvio.app.features.remote.RemotePlayMode.Normal ->
+                        openContinueWatching(item, useAlternateBehavior = false, startFromBeginning = false, forceReuseLastLink = true)
+                    com.nuvio.app.features.remote.RemotePlayMode.FromStart ->
+                        openContinueWatching(item, useAlternateBehavior = false, startFromBeginning = true)
+                    com.nuvio.app.features.remote.RemotePlayMode.ChooseSource ->
+                        openContinueWatching(item, useAlternateBehavior = false, startFromBeginning = false, forceManualSelection = true)
+                }
             }
         }
 

@@ -21,6 +21,9 @@ data class LibraryTitle(
     val watched: Boolean,
 ) {
     val key: String get() = "$type:$id"
+
+    /** A show (its season list opens on the phone) rather than a film. */
+    val isShow: Boolean get() = type == "series" || type == "anime" || type == "tv"
 }
 
 /** A Continue Watching title on the PC (`CONTINUE` line): a film, or the episode of a show it stopped in. */
@@ -136,9 +139,67 @@ data class LibraryAlbum(
     val starred: Boolean,
 )
 
+/**
+ * What a long press points at (a library poster, a Continue Watching card, an episode row, a season header) and how
+ * the PC names it on the wire: MENU and DO carry `<kind> <type> <id> <ref>`. Mirrors `RemoteMenuTarget` in the PC's
+ * PhoneRemoteLibraryLines.kt.
+ */
+data class MenuTarget(val kind: String, val type: String, val id: String, val ref: String?) {
+    fun wire(): String = "$kind ${RemoteProtocol.encode(type)} ${RemoteProtocol.encode(id)} ${ref?.let(RemoteProtocol::encode) ?: "-"}"
+
+    companion object {
+        const val TITLE = "title"
+        const val RESUME = "resume"
+        const val EPISODE = "episode"
+        const val SEASON = "season"
+
+        fun title(title: LibraryTitle) = MenuTarget(TITLE, title.type, title.id, null)
+        fun resume(item: ResumeItem) = MenuTarget(RESUME, item.type, item.parentId, item.videoId)
+        fun episode(show: LibraryTitle, episode: EpisodeInfo) = MenuTarget(EPISODE, show.type, show.id, episode.videoId)
+        fun season(show: LibraryTitle, season: Int) = MenuTarget(SEASON, show.type, show.id, season.toString())
+    }
+}
+
+/** A row of the long-press sheet: [code] goes back in DO, [label] is what the row says (the PC words it). */
+data class MenuAction(val code: String, val label: String)
+
+/** The action codes the phone knows by sight (for icons and follow-ups); the PC's RemoteMenuCode. */
+object MenuCode {
+    const val WATCHED = "watched"
+    const val PREVIOUS_WATCHED = "previous_watched"
+    const val SEASON_WATCHED = "season_watched"
+    const val EARLIER_SEASONS_WATCHED = "earlier_seasons_watched"
+    const val LIBRARY = "library"
+    const val ALL_LIBRARIES = "all_libraries"
+    const val REWATCH = "rewatch"
+    const val RESUME = "resume"
+    const val FROM_START = "from_start"
+    const val CHOOSE_SOURCE = "choose_source"
+    const val RECAP = "recap"
+    const val PLAYLIST = "playlist"
+    const val PLAYLIST_SEASON = "playlist_season"
+    const val ADD_TO_PLAYLIST = "add_to_playlist"
+    const val NOT_INTERESTED = "not_interested"
+    const val REMOVE = "remove"
+    const val DETAILS = "details"
+
+    /** Rows that start something on the TV: the phone goes back to the Remote tab after them. */
+    val OPENS_ON_TV = setOf(RESUME, FROM_START, CHOOSE_SOURCE, DETAILS)
+
+    /** A new playlist, named after what is added. */
+    const val NEW_PLAYLIST = "+"
+}
+
+data class PlaylistOption(val id: String, val name: String, val count: Int)
+
 object LibraryLines {
     const val VIDEO = "video"
     const val MUSIC = "music"
+
+    /** What a DONE line can ask the phone to load again; the PC's PhoneRemoteLibraryLines.REFRESH_*. */
+    const val REFRESH_LIBRARY = "library"
+    const val REFRESH_CONTINUE = "continue"
+    const val REFRESH_EPISODES = "episodes"
 
     /** Null for anything that is not a LIBRARY line. */
     fun parse(line: String): ServerLine? {
@@ -376,6 +437,60 @@ object LibraryLines {
             title = parts[2].takeUnless { it == "-" }?.let(RemoteProtocol::decode),
             lines = if (parts[1] == "none") emptyList() else lines,
         )
+    }
+
+    // ---------------------------------------------------------------- The long-press sheet
+
+    /** The `<kind> <type> <id> <ref>` that MENU and PLAYLISTS start with (from index 1). */
+    private fun menuTarget(parts: List<String>): MenuTarget? {
+        if (parts.size < 5) return null
+        val kind = parts[1].takeIf { it in setOf(MenuTarget.TITLE, MenuTarget.RESUME, MenuTarget.EPISODE, MenuTarget.SEASON) } ?: return null
+        return MenuTarget(
+            kind = kind,
+            type = RemoteProtocol.decode(parts[2]),
+            id = RemoteProtocol.decode(parts[3]),
+            ref = parts[4].takeUnless { it == "-" || it.isBlank() }?.let(RemoteProtocol::decode),
+        )
+    }
+
+    private fun field(value: String?): String? = value?.takeUnless { it == "-" || it.isBlank() }?.let(RemoteProtocol::decode)
+
+    /** `MENU <kind> <type> <id> <ref> <heading> <detail> <actions>`; mirrors `menuLine` in the PC's PhoneRemoteLibraryLines.kt. */
+    fun parseMenu(line: String): ServerLine? {
+        val parts = line.trim().split(' ')
+        if (parts.size < 7 || parts[0] != "MENU") return null
+        val target = menuTarget(parts) ?: return null
+        val actions = records(parts.getOrNull(7)).mapNotNull { f ->
+            MenuAction(code = f.getOrNull(0) ?: return@mapNotNull null, label = f.getOrNull(1) ?: return@mapNotNull null)
+        }
+        return ServerLine.Menu(target, field(parts[5]).orEmpty(), field(parts[6]), actions)
+    }
+
+    /** `DONE <ok> <message> <refresh>`; mirrors `doneLine`. */
+    fun parseDone(line: String): ServerLine? {
+        val parts = line.trim().split(' ')
+        if (parts.size < 3 || parts[0] != "DONE") return null
+        val refresh = parts.getOrNull(3)?.takeUnless { it == "-" }?.split(',')?.filter { it.isNotBlank() }?.toSet().orEmpty()
+        return ServerLine.Done(ok = parts[1] == "1", message = field(parts[2]).orEmpty(), refresh = refresh)
+    }
+
+    /** `PLAYLISTS <kind> <type> <id> <ref> <scope> <label> <seasons> <playlists>`; mirrors `playlistsLine`. */
+    fun parsePlaylists(line: String): ServerLine? {
+        val parts = line.trim().split(' ')
+        if (parts.size < 7 || parts[0] != "PLAYLISTS") return null
+        val target = menuTarget(parts) ?: return null
+        val seasons = records(parts.getOrNull(7)).mapNotNull { it.getOrNull(0)?.toIntOrNull() }
+        val playlists = records(parts.getOrNull(8)).mapNotNull { f ->
+            PlaylistOption(id = f.getOrNull(0) ?: return@mapNotNull null, name = f.getOrNull(1) ?: return@mapNotNull null, count = f.getOrNull(2)?.toIntOrNull() ?: 0)
+        }
+        return ServerLine.Playlists(target, scope = parts[5], label = field(parts[6]).orEmpty(), seasons = seasons, playlists = playlists)
+    }
+
+    /** `RECAP <state 0 writing|1 ready|2 failed> <heading> <text>`; mirrors `recapLine`. */
+    fun parseRecap(line: String): ServerLine? {
+        val parts = line.trim().split(' ')
+        if (parts.size < 3 || parts[0] != "RECAP") return null
+        return ServerLine.Recap(state = parts[1].toIntOrNull() ?: 2, heading = field(parts[2]).orEmpty(), text = field(parts.getOrNull(3)))
     }
 
     /** Each record's fields, decoded; `-` becomes null. */

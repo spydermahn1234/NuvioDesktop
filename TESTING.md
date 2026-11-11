@@ -178,6 +178,24 @@ Needs this Nuvio and the new NuvioRemote app together.
 - [ ] Choosing something with the TV remote while the phone is open keeps the phone in step
 - [ ] Once a title starts playing, the phone switches to the film screen as usual
 
+### Phone remote: long-press menus on the Watch tab (Nov 11)
+
+Needs this Nuvio and the new NuvioRemote app together. Hold anything for about half a second.
+
+- [ ] Holding a library poster buzzes and opens a glass sheet with its poster and name straight away; the rows fill in a moment later without anything jumping
+- [ ] A film's sheet: Mark as watched / unwatched, Add to or Remove from library, Choose a source on the TV, Add to a playlist, Not interested, Details on the TV (plus Start from the beginning when it is half-watched, Add to all libraries with Trakt or another library connected, and Start a rewatch with Simkl rewatches on and the film watched)
+- [ ] Mark as watched on a poster: the phone says so, the green tick appears on the poster, and the TV's Library shows it watched (and Trakt/Simkl get it as they do from the TV)
+- [ ] Mark as watched on a show's poster marks every released episode (the TV's toast says how many); Mark as unwatched clears them
+- [ ] Remove from library takes the poster off the phone's list and the TV's Library; Add to library on a search result adds it
+- [ ] Holding a Continue watching card: Resume, Start from the beginning, Choose a source, Mark episode (or film) as watched, Add to a playlist, Details, Remove from Continue watching; Remove takes the card off the phone and the TV
+- [ ] Start from the beginning plays it from 0:00 on the TV; Choose a source opens the TV's source list (and the phone's Sources cards)
+- [ ] In a show's season list, holding an episode: Mark as watched, Mark earlier episodes as watched, Mark Season N as watched, Choose a source, Recap the story so far (with AI recaps on), Add episode / Add Season N to a playlist; the episode list ticks over without closing the show sheet
+- [ ] Holding a season tag (shows with more than one season): Mark Season N as watched, Mark earlier seasons as watched, Recap before Season N, Add Season N to a playlist, Details
+- [ ] Add to a playlist opens a picker on the phone with the TV's playlists and New playlist; adding says "Added ... to <playlist>" and the TV's playlist has it. A whole show from its poster offers Every season or one season first
+- [ ] Recap shows "Writing the recap…" then the recap text on the phone (scrolls if long); with recaps off it says so
+- [ ] Not interested on a poster: the title no longer appears in Discover on the TV
+- [ ] Demo TV: holding a poster, card, episode or season opens the sheet; marking an episode watched ticks it; the playlist picker and the pretend recap appear
+
 ## Music playback
 
 - [x] Gapless: songs in an album run straight into each other (2026-11-08)

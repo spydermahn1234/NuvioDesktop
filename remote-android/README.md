@@ -45,6 +45,12 @@ queue, and can "sleep" to try Wake. A strip shows what it was sent. This is for 
   place.
 - The library as posters, with the same sections as Nuvio's Library tab. Tapping a film opens it on the TV. Tapping a
   show lists its seasons and episodes on the phone, with progress; tapping an episode plays it.
+- **Hold** a poster, a Continue watching card, an episode or a season tag for the TV's long-press menu as a glass
+  sheet: mark watched or unwatched (an episode, the earlier episodes, a season, earlier seasons, or a whole film or show),
+  add to or remove from the library (or all libraries), start from the beginning, choose a source on the TV, start a
+  Simkl rewatch, add to a playlist (a picker on the phone, with a season choice for a whole show, or a new playlist),
+  an AI recap of the story so far, Not interested, Remove from Continue watching, and Details on the TV. The TV words
+  the rows, so they match what it would offer.
 - **Search** covers your library first. Once typing pauses, it also covers everything Nuvio's Search tab finds in every
   addon. The mic searches by voice.
 
@@ -78,6 +84,7 @@ source lines are built in `PhoneRemoteLibraryLines.kt` and answered in `PhoneRem
 | Music | `PLAY_ALBUM`, `ALBUM_TRACKS`, `PLAY_TRACK`, `ARTIST`, `QUEUE`, `QUEUE_PLAY`, `QUEUE_NEXT`, `QUEUE_REMOVE` | `ALBUM_TRACKS`, `QUEUE` |
 | Sources | `PICK_SOURCE` | `SOURCES` |
 | Tonight | `TONIGHT_DO` | `TONIGHT` (after `SUBSCRIBE`, whenever it changes) |
+| Long-press menus | `MENU`, `DO` | `MENU`, `DONE`, `PLAYLISTS`, `RECAP` |
 | Links | `OPEN` | `OPENING`, `CANT_OPEN` |
 
 The QR code holds `nuvioremote://pair?n=<name>&p=<port>&c=<code>&a=<addresses>`. The app tries each address until one
