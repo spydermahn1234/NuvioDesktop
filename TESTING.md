@@ -220,6 +220,8 @@ Needs the new NuvioRemote app (no change on the PC).
 - [ ] Speed 1.5x (More sheet): the finishing time comes forward and "1.5x" shows on the line under it; the sleep timer shows "Sleep in N min" there too
 - [ ] On a show, Next episode sits in the card's bottom row; during an intro, recap or credits Skip appears beside it. The big time does not move when they come and go
 - [ ] Nothing on the film screen scrolls on your phone; the card fills the gap with no blank space under it
+- [ ] **BROKEN** (2026-11-11): on a show the screen scrolled and the card was cut off under the keys
+  - [ ] Re-check: on a show (taller top panel) nothing scrolls; the card shrinks to fit and its big time gets smaller, with Next episode fully visible inside it
 
 ## Music playback
 

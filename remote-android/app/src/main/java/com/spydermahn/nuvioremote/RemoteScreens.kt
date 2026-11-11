@@ -120,7 +120,6 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import android.text.format.DateFormat
-import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.LocalContext
@@ -386,12 +385,10 @@ private fun FilmBody(
     // volume and the keys is one fixed slot: the "Ends at" clock, with Skip and Next episode in a row of their own
     // inside it, so nothing moves when they come and go.
     Column(Modifier.fillMaxSize()) {
-        FillRest(
-            minRest = 168.dp,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            top = { FilmTop(playing, cover, viewModel, onSubtitles, onAudio) },
-            rest = { FilmClockSlot(playing, viewModel, Modifier.fillMaxSize().padding(top = 14.dp, bottom = 10.dp)) },
-        )
+        FilmTop(playing, cover, viewModel, onSubtitles, onAudio)
+        // Never scrolls: the card takes exactly what is left and its clock shrinks to fit (a show's top panel is a
+        // line taller than a film's).
+        FilmClockSlot(playing, viewModel, Modifier.weight(1f).fillMaxWidth().padding(top = 14.dp, bottom = 10.dp))
         BottomKeys {
             GlassKey(Icons.AutoMirrored.Rounded.Undo, "Back", size = 56.dp) { viewModel.press(RemoteKey.Back) }
             GlassKey(Icons.AutoMirrored.Rounded.List, "Sources", size = 56.dp) {
@@ -430,35 +427,11 @@ private fun FilmTop(
 }
 
 /**
- * [top] at its natural height, then [rest] filling whatever height is left (at least [minRest]); when the screen is
- * too short for both, the two scroll together. Used so the film screen's clock slot takes the gap above the keys.
- */
-@Composable
-private fun FillRest(minRest: Dp, modifier: Modifier = Modifier, top: @Composable () -> Unit, rest: @Composable () -> Unit) {
-    BoxWithConstraints(modifier) {
-        val available = constraints.maxHeight
-        Layout(
-            contents = listOf(top, rest),
-            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-        ) { (topParts, restParts), outer ->
-            val width = outer.maxWidth
-            val topPlaced = topParts.map { it.measure(Constraints(minWidth = width, maxWidth = width)) }
-            val topHeight = topPlaced.sumOf { it.height }
-            val restHeight = maxOf(minRest.roundToPx(), available - topHeight)
-            val restPlaced = restParts.map { it.measure(Constraints.fixed(width, restHeight)) }
-            layout(width, topHeight + restHeight) {
-                var y = 0
-                topPlaced.forEach { it.placeRelative(0, y); y += it.height }
-                restPlaced.forEach { it.placeRelative(0, topHeight) }
-            }
-        }
-    }
-}
-
-/**
  * The film screen's fixed slot: "Ends at 21:44" in big type (the end moves with the clock while paused, and follows
  * the speed), and under it one row of fixed height that holds Skip intro / recap / credits and Next episode when
- * the PC says they apply, otherwise a quiet line (paused, the sleep timer, the speed, the running time).
+ * the PC says they apply, otherwise a quiet line (paused, the sleep timer, the speed, the running time). The card
+ * is whatever height is left on the screen: the big time is sized to fit it, and on a very short screen the label and
+ * then the time step aside so the bottom row always shows.
  */
 @Composable
 private fun FilmClockSlot(playing: NowPlaying, viewModel: RemoteViewModel, modifier: Modifier = Modifier) {
@@ -483,33 +456,49 @@ private fun FilmClockSlot(playing: NowPlaying, viewModel: RemoteViewModel, modif
         playing.speedPercent?.takeIf { it != 100 }?.let { add(speedLabel(it)) }
         if (playing.hasTimeline) add("Runs ${runtimeWords(playing.durationMs)}")
     }.joinToString(" · ")
-    Column(
-        modifier.glass(RoundedCornerShape(24.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        GlassLabel(if (playing.isPlaying) "Ends at" else "Ends at · if you play now", color = if (playing.isPlaying) null else g.textMuted)
-        Text(
-            timeText,
-            style = TextStyle(fontFamily = DisplaySerif, fontWeight = FontWeight.Bold, fontSize = 52.sp, lineHeight = 58.sp),
-            color = g.text,
-            maxLines = 1,
-            modifier = Modifier.padding(top = 2.dp),
-        )
-        Box(Modifier.fillMaxWidth().height(52.dp), contentAlignment = Alignment.Center) {
-            if (playing.skipLabel != null || playing.canNextEpisode) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    playing.skipLabel?.let { label ->
-                        ActionPill(label, Icons.Rounded.SkipNext, accent = true, modifier = Modifier.weight(1f)) { viewModel.control("SKIP_INTRO") }
-                    }
-                    if (playing.canNextEpisode) {
-                        ActionPill("Next episode", Icons.Rounded.SkipNext, accent = playing.skipLabel == null, modifier = Modifier.weight(1f)) {
-                            viewModel.control("NEXT_EPISODE")
+    BoxWithConstraints(modifier.glass(RoundedCornerShape(24.dp)).padding(horizontal = 16.dp, vertical = 10.dp)) {
+        val rowHeight = 52.dp
+        val labelHeight = 20.dp
+        val showLabel = maxHeight - rowHeight - labelHeight >= 30.dp
+        val timeRoom = maxHeight - rowHeight - (if (showLabel) labelHeight else 0.dp) - 4.dp
+        val timeHeight = minOf(60.dp, timeRoom)
+        val showTime = timeHeight >= 26.dp
+        val timeSize = with(LocalDensity.current) { (timeHeight / 1.12f).toSp() }
+        Column(
+            Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            if (showLabel) {
+                Box(Modifier.height(labelHeight), contentAlignment = Alignment.Center) {
+                    GlassLabel(if (playing.isPlaying) "Ends at" else "Ends at · if you play now", color = if (playing.isPlaying) null else g.textMuted)
+                }
+            }
+            if (showTime) {
+                Box(Modifier.height(timeHeight), contentAlignment = Alignment.Center) {
+                    Text(
+                        timeText,
+                        style = TextStyle(fontFamily = DisplaySerif, fontWeight = FontWeight.Bold, fontSize = timeSize, lineHeight = timeSize * 1.1f),
+                        color = g.text,
+                        maxLines = 1,
+                    )
+                }
+            }
+            Box(Modifier.fillMaxWidth().height(rowHeight), contentAlignment = Alignment.Center) {
+                if (playing.skipLabel != null || playing.canNextEpisode) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        playing.skipLabel?.let { label ->
+                            ActionPill(label, Icons.Rounded.SkipNext, accent = true, modifier = Modifier.weight(1f)) { viewModel.control("SKIP_INTRO") }
+                        }
+                        if (playing.canNextEpisode) {
+                            ActionPill("Next episode", Icons.Rounded.SkipNext, accent = playing.skipLabel == null, modifier = Modifier.weight(1f)) {
+                                viewModel.control("NEXT_EPISODE")
+                            }
                         }
                     }
+                } else {
+                    Text(quiet, color = g.textSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-            } else {
-                Text(quiet, color = g.textSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
