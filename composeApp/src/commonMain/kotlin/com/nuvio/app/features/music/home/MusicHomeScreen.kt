@@ -130,6 +130,7 @@ import com.nuvio.app.features.music.MusicPlaylistSummary
 import com.nuvio.app.features.music.MusicTrack
 import com.nuvio.app.features.music.library.GenreArtist
 import com.nuvio.app.features.music.library.GenreQuery
+import com.nuvio.app.features.music.library.LadderArtwork
 import com.nuvio.app.features.music.library.LadderRequest
 import com.nuvio.app.features.music.library.LibraryArtist
 import com.nuvio.app.features.music.library.MusicBrainzClient
@@ -1291,8 +1292,11 @@ private fun androidx.compose.foundation.lazy.LazyListScope.genreCard(
     if (others.isNotEmpty()) {
         item(key = "genre-top-label") { SectionLabel("TOP ARTISTS · ${genre.label.uppercase()}") }
         items(others.take(GENRE_ARTISTS_SHOWN), key = { "genre-top:" + it.name }) { a ->
+            // fork:music-home - a tag-ranked artist is a name only, so its photo is Deezer's (exact name, kept for the
+            // session) as on the ladder; the note placeholder shows until it arrives or when Deezer has none.
+            val picture by produceState<String?>(null, a.name) { value = runCatching { LadderArtwork.picture(a.name) }.getOrNull() }
             ResultRow(
-                art = null, circle = true, artSize = 44.dp, title = a.name, subtitle = null, trailing = null, videoMark = false,
+                art = picture, circle = true, artSize = 44.dp, title = a.name, subtitle = null, trailing = null, videoMark = false,
                 modifier = Modifier, hold = hold, onClick = { onSearch(a.name) },
             )
         }
