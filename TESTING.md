@@ -395,6 +395,9 @@ Turn it on in Settings > Random Play > Tonight picker > "Open on Tonight".
 - [ ] The Channel Flick tile opens trailers one after another in a large frame, with sound at the hero trailers' volume; music pauses while they play
 - [ ] Under the frame: where the title comes from (FROM YOUR LIBRARY, TRENDING THIS WEEK, YOU'RE ON S2 E4), its name and "ends 23:06"; the frame and the lines under it never move
 - [ ] When a trailer ends the next channel starts by itself; a title with no trailer says so briefly and is skipped
+  - [ ] **BROKEN** (2026-11-12): every channel stuck on "Finding the trailer…"; YouTube answered every trailer lookup "Sign in to confirm you're not a bot"
+  - [ ] Re-check after the fix (signed-in fallback, ed0e022): Channel Flick plays trailers again while YouTube is asking for a sign-in; `nuvio.log` shows `TrailerSignedIn … trailer opened signed in` for the ones it rescued
+  - [ ] The same while YouTube is asking for a sign-in: a new Home hero trailer, a details page trailer and the pre-show trailers play
 - [ ] Right flicks to the next channel; the three UP NEXT pictures in the top corner match what comes next
 - [ ] Left says "won't come up again" and the title is gone from Tonight and from Discover's rows (it is in Not interested)
 - [ ] Up saves the title to your library ("saved for later") and moves on; OK plays the title
