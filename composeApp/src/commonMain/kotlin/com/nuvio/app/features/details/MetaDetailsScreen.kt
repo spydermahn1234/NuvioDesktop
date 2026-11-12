@@ -945,7 +945,7 @@ fun MetaDetailsScreen(
                     }
                     val resolvedSource = runCatching {
                         kotlinx.coroutines.withContext(com.nuvio.app.features.music.YouTubeCaller("hero trailer")) {
-                            TrailerPlaybackResolver.resolveFromYouTubeUrl(heroTrailerCandidate.youtubePlaybackUrl())
+                            TrailerPlaybackResolver.resolveTrailerFromYouTubeUrl(heroTrailerCandidate.youtubePlaybackUrl()) // fork:trailer-signed-in
                         }
                     }.getOrNull()?.sourceOrNull()
                     if (resolvedSource == null) {
@@ -1004,7 +1004,7 @@ fun MetaDetailsScreen(
                     trailerScope.launch {
                         val resolution = runCatching {
                             kotlinx.coroutines.withContext(com.nuvio.app.features.music.YouTubeCaller("hero trailer", urgent = true)) {
-                                TrailerPlaybackResolver.resolveFromYouTubeUrl(youtubeUrl)
+                                TrailerPlaybackResolver.resolveTrailerFromYouTubeUrl(youtubeUrl) // fork:trailer-signed-in
                             }
                         }.getOrNull()
                         if (currentRequestToken != trailerRequestToken) {
@@ -1045,7 +1045,7 @@ fun MetaDetailsScreen(
                             trailerScope.launch {
                                 val resolution = runCatching {
                                     kotlinx.coroutines.withContext(com.nuvio.app.features.music.YouTubeCaller("hero trailer", urgent = true)) {
-                                        TrailerPlaybackResolver.resolveFromYouTubeUrl(youtubeUrl)
+                                        TrailerPlaybackResolver.resolveTrailerFromYouTubeUrl(youtubeUrl) // fork:trailer-signed-in
                                     }
                                 }.getOrNull()
                                 if (currentRequestToken != trailerRequestToken) {
@@ -2294,6 +2294,7 @@ fun MetaDetailsScreen(
                                         onHeightChanged = { heroHeightPx = it },
                                         heroTrailerSourceUrl = heroTrailerSourceUrl,
                                         heroTrailerSourceAudioUrl = heroTrailerSourceAudioUrl,
+                                        heroTrailerSourceHeaders = heroTrailerPlaybackSource?.headers.orEmpty(), // fork:trailer-signed-in
                                         heroTrailerReady = heroTrailerReady && heroTrailerPlayWhenReady,
                                         heroTrailerPlayWhenReady = heroTrailerPlayWhenReady,
                                         heroTrailerMuted = heroTrailerMuted,

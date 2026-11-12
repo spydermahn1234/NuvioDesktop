@@ -170,6 +170,7 @@ internal fun HomeBasicTrailerOverlay(
         HomeHeroTrailerSurface(
             sourceUrl = activeSource.videoUrl,
             sourceAudioUrl = activeSource.audioUrl,
+            sourceHeaders = activeSource.headers, // fork:trailer-signed-in
             playWhenReady = playing,
             muted = muted,
             volume = volume,

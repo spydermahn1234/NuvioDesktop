@@ -1707,6 +1707,7 @@ private fun DesktopHomeHeroFrame(
                 HomeHeroTrailerSurface(
                     sourceUrl = source.videoUrl,
                     sourceAudioUrl = source.audioUrl,
+                    sourceHeaders = source.headers, // fork:trailer-signed-in
                     playWhenReady = heroTrailerPlaybackRequested,
                     muted = heroTrailerMuted,
                     volume = heroTrailerVolume,
