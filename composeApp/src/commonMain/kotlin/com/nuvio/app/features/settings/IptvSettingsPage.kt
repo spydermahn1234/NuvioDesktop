@@ -158,6 +158,28 @@ internal fun LazyListScope.iptvSettingsContent(
                     modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-on-now")),
                     onCheckedChange = IptvRepository::setOnNow,
                 )
+                // fork:live-tv-lineup
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSwitchRow(
+                    title = "Your 40",
+                    description = "Live TV opens on a numbered lineup of about forty channels, like a television: what you " +
+                        "watch most, then what the triage kept. The numbers stay where they are until you move a channel " +
+                        "(the ... beside its star); typed numbers in the player and channel up and down follow the lineup. " +
+                        "\"Never again\" in the same menu hides a channel from the lineup and the lists for good.",
+                    checked = settings.lineupOn,
+                    isTablet = isTablet,
+                    modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-lineup")),
+                    onCheckedChange = IptvRepository::setLineupOn,
+                )
+                if (settings.never.values.any { it.isNotEmpty() }) {
+                    SettingsGroupDivider(isTablet = isTablet)
+                    SettingsNavigationRow(
+                        title = "Bring back channels thrown out",
+                        description = "Shows every channel you chose Never again for. They are not added to Your 40 again.",
+                        isTablet = isTablet,
+                        onClick = IptvRepository::bringBackAll,
+                    )
+                }
             }
         }
     }

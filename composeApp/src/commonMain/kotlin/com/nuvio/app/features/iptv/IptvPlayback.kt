@@ -197,6 +197,13 @@ object IptvPlaybackSession {
     fun byNumber(number: Int): IptvChannel? {
         val current = _active.value ?: return null
         val all = IptvRepository.contentState(current.playlist.id).value.content?.channels ?: current.zapList
+        // fork:live-tv-lineup - with Your 40 on, a typed number is the lineup's place.
+        val settings = IptvRepository.settings.value
+        val keys = settings.lineup[current.playlist.id]
+        if (settings.lineupOn && !keys.isNullOrEmpty()) {
+            val key = keys.getOrNull(number - 1) ?: return null
+            return all.firstOrNull { it.key == key }
+        }
         return all.firstOrNull { it.num == number }
     }
 

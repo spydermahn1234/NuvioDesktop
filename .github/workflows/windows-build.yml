@@ -106,6 +106,7 @@ jobs:
           --tests "com.nuvio.app.features.iptv.IptvChannelMergeTest"
           --tests "com.nuvio.app.features.iptv.IptvMergedPlaybackTest"
           --tests "com.nuvio.app.features.iptv.IptvTriageTest"
+          --tests "com.nuvio.app.features.iptv.IptvLineupTest"
           "-Pnuvio.innertubex=true"
           "-Pnuvio.webview2.dir=C:/libs/webview2"
           "-Pnuvio.windows.libmpv.runtimeDir=C:/msys64/ucrt64/bin"

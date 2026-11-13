@@ -52,6 +52,12 @@ data class IptvSettings(
     val plays: List<IptvPlay> = emptyList(),
     /** fork:live-tv-triage - by playlist id: the countries and kinds its triage kept. No entry = everything shows. */
     val triage: Map<String, IptvTriage> = emptyMap(),
+    /** fork:live-tv-lineup - Settings > Live TV > Your 40. The tab opens on a numbered lineup of about forty channels. */
+    val lineupOn: Boolean = false,
+    /** fork:live-tv-lineup - by playlist id: the lineup's channel keys in order (the position is the number). No entry = not built yet. */
+    val lineup: Map<String, List<String>> = emptyMap(),
+    /** fork:live-tv-lineup - by playlist id: the keys of every copy of the channels thrown out with "Never again". */
+    val never: Map<String, Set<String>> = emptyMap(),
 ) {
     /** Whether the Live TV entry belongs in the navigation. */
     val tabShown: Boolean
@@ -203,6 +209,8 @@ object IptvRepository {
                 recents = s.recents.filterNot { it.startsWith(prefix) },
                 plays = s.plays.filterNot { it.ref.startsWith(prefix) },
                 triage = s.triage - id,
+                lineup = s.lineup - id,
+                never = s.never - id,
             )
         }
         contentStates.remove(id)
@@ -262,6 +270,38 @@ object IptvRepository {
     fun setTriage(playlistId: String, triage: IptvTriage?) {
         ensureLoaded()
         mutate { s -> s.copy(triage = if (triage == null) s.triage - playlistId else s.triage + (playlistId to triage)) }
+    }
+
+    /** fork:live-tv-lineup */
+    fun setLineupOn(enabled: Boolean) {
+        ensureLoaded()
+        mutate { it.copy(lineupOn = enabled) }
+    }
+
+    /** fork:live-tv-lineup - stores [playlistId]'s lineup (channel keys in order). */
+    fun setLineup(playlistId: String, keys: List<String>) {
+        ensureLoaded()
+        mutate { it.copy(lineup = it.lineup + (playlistId to keys)) }
+    }
+
+    /** fork:live-tv-lineup - throws [channel] out for good: out of the lineup, the favourites and the lists. */
+    fun neverAgain(playlistId: String, channel: IptvMergedChannel) {
+        ensureLoaded()
+        val keys = IptvLineupRules.neverKeys(channel)
+        val refs = keys.map { channelRef(playlistId, it) }.toSet()
+        mutate { s ->
+            s.copy(
+                never = s.never + (playlistId to (s.never[playlistId].orEmpty() + keys)),
+                lineup = s.lineup[playlistId]?.let { s.lineup + (playlistId to IptvLineupRules.remove(it, channel)) } ?: s.lineup,
+                favourites = s.favourites - refs,
+            )
+        }
+    }
+
+    /** fork:live-tv-lineup - brings back every channel thrown out (all playlists). */
+    fun bringBackAll() {
+        ensureLoaded()
+        mutate { it.copy(never = emptyMap()) }
     }
 
     /** fork:live-tv-on-now */

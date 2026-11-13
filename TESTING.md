@@ -309,6 +309,23 @@ Needs the new NuvioRemote app (no change on the PC).
 
 - [x] Stalker portals log in, load channels and play (2026-11-08)
 
+## Live TV: Your 40 (Nov 13)
+
+Settings > Live TV > Your 40 (off by default). Turn it on, open Live TV.
+
+- [ ] Live TV opens on "Your 40", a numbered list: the channels you watch most and starred first, then channels from what the triage kept; the numbers run 1, 2, 3 from the top
+- [ ] Leave and come back (or restart Nuvio): the lineup and its numbers are exactly as they were, nothing reshuffles itself
+- [ ] Right from a channel's star reaches a "..." button; OK opens a card with Move up / Move down / Take out of Your 40 / Never again (no Move up on number 1, no Move down on the last)
+- [ ] Move up and Move down swap the channel's number and the highlight stays on it
+- [ ] "Take out of Your 40" removes it from the lineup only: it is still in All channels and its category
+- [ ] On a channel in All channels or a category, the "..." offers "Add to Your 40" (not when the lineup is full at 40), and the channel gets the next number at the end
+- [ ] "Never again" removes the channel from the lineup, the favourites, the On Now wall and every list; typing its name in the search box still finds it
+- [ ] Settings > Live TV > "Bring back channels thrown out" shows them again; they are not back in the lineup
+- [ ] In the player, typing 1, 2, 3 on the remote or keyboard switches to lineup channels 1, 2, 3 (not the provider's numbers); channel up/down from the lineup steps through it in order
+- [ ] A channel with several copies (FHD, HD, SD) is one row in the lineup and plays the next copy when one fails
+- [ ] Back and Escape close the "..." card; the mouse works too (click the "...", click an action)
+- [ ] With Your 40 off, Live TV looks and numbers channels as before
+
 ## Live TV: Triage (Nov 13)
 
 The sliders button in the Live TV header, beside Refresh.

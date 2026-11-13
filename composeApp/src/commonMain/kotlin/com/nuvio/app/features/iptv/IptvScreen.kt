@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.CalendarViewWeek
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.LiveTv
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
@@ -184,7 +185,10 @@ fun IptvScreen(
 
     // fork:live-tv-on-now - with On Now on, the tab opens on the wall instead of the channel list.
     val onNow = settings.onNow
-    var section by rememberSaveable(playlist.id, onNow) { mutableStateOf(if (onNow) IptvWall.ON_NOW else IptvSection.ALL) }
+    // fork:live-tv-lineup - with Your 40 on, the tab opens on the numbered lineup.
+    val lineupOn = settings.lineupOn
+    val home = if (lineupOn) IptvLineupRules.SECTION else if (onNow) IptvWall.ON_NOW else IptvSection.ALL
+    var section by rememberSaveable(playlist.id, onNow, lineupOn) { mutableStateOf(home) }
     // fork:navbar-search - shared with the app bar's Search, which on this tab filters the channels.
     var filter by IptvTopBarSearch::text
     LaunchedEffect(playlist.id) { if (IptvTopBarSearch.playlistId != playlist.id) IptvTopBarSearch.text = "" ; IptvTopBarSearch.playlistId = playlist.id }
@@ -214,8 +218,8 @@ fun IptvScreen(
     var triageOpen by rememberSaveable(playlist.id) { mutableStateOf(false) }
 
     // fork:live-tv-on-now - copies of one channel folded into one row; null with the setting off.
-    val merged = remember(content, onNow, categoryRegions) {
-        if (onNow && content != null) IptvChannelMerge.merge(content.channels) { categoryRegions[it.categoryId] } else null
+    val merged = remember(content, onNow, lineupOn, categoryRegions) {
+        if ((onNow || lineupOn) && content != null) IptvChannelMerge.merge(content.channels) { categoryRegions[it.categoryId] } else null
     }
     // Every copy's uid to the merged channel it belongs to.
     val mergedByUid = remember(merged) {
@@ -224,17 +228,45 @@ fun IptvScreen(
     val alternates = remember(merged) { merged?.filter { it.sources.size > 1 }?.associate { it.primary.uid to it.alternates }.orEmpty() }
     val mergedPrimaries = remember(merged) { merged?.map { it.primary }.orEmpty() }
     val wallSection = onNow && section in IptvWall.SECTIONS
-    val wall = if (onNow) rememberIptvWall(playlist, content, merged, settings, now, guideVersion, keptCategories) else null
+    // fork:live-tv-lineup - what was thrown out with "Never again", and the lineup as merged channels.
+    val never = settings.never[playlist.id].orEmpty()
+    val storedLineup = settings.lineup[playlist.id]
+    val keyIndex = remember(merged) { merged?.let(IptvLineupRules::keyIndex).orEmpty() }
+    val lineupChannels = remember(storedLineup, keyIndex, never) {
+        if (!lineupOn || storedLineup == null) emptyList()
+        else IptvLineupRules.resolve(storedLineup, keyIndex).filterNot { IptvLineupRules.isNever(it, never) }
+    }
+    // The first lineup is built once, from what is watched and starred and then from the triage; after that only the viewer changes it.
+    LaunchedEffect(lineupOn, merged, playlist.id, storedLineup == null) {
+        if (lineupOn && merged != null && storedLineup == null) {
+            IptvRepository.setLineup(
+                playlist.id,
+                IptvLineupRules.seed(
+                    merged = merged,
+                    refOf = { IptvRepository.channelRef(playlist.id, it.key) },
+                    plays = settings.plays.map { it.ref },
+                    favourites = settings.favourites,
+                    never = never,
+                    keptCategories = keptCategories,
+                ),
+            )
+        }
+    }
+    val wallMerged = remember(merged, never) { merged?.let { IptvLineupRules.visible(it, never) } }
+    val wall = if (onNow) rememberIptvWall(playlist, content, wallMerged, settings, now, guideVersion, keptCategories) else null
     val wallRows = remember(wall, section, filter, wallSection) { if (wallSection) wall?.rows(section, filter).orEmpty() else emptyList() }
 
     val other = stringResource(Res.string.iptv_category_other)
     val favouritesLabel = stringResource(Res.string.iptv_category_favourites)
     val recentLabel = stringResource(Res.string.iptv_category_recent)
     val allLabel = stringResource(Res.string.iptv_category_all)
-    val sidebarItems = remember(playlists, content, region, categoryRegions, other, favouritesLabel, recentLabel, allLabel, onNow, merged, wall, keptCategories) {
+    val sidebarItems = remember(playlists, content, region, categoryRegions, other, favouritesLabel, recentLabel, allLabel, onNow, lineupOn, lineupChannels, merged, wall, keptCategories) {
         buildList {
             if (playlists.size > 1) {
                 playlists.forEach { add(IptvSidebarItem("playlist:${it.id}", it.name.ifBlank { it.id.take(8) }, playlist = it)) }
+            }
+            if (lineupOn) {
+                add(IptvSidebarItem("section:${IptvLineupRules.SECTION}", "Your 40", count = lineupChannels.size.takeIf { it > 0 }, section = IptvLineupRules.SECTION))
             }
             if (onNow) {
                 add(IptvSidebarItem("section:${IptvWall.ON_NOW}", "On now", section = IptvWall.ON_NOW))
@@ -262,12 +294,19 @@ fun IptvScreen(
         }
     }
     // A category the region filter hid is no longer something to be looking at.
-    if (sidebarItems.none { it.section == section }) section = if (onNow) IptvWall.ON_NOW else IptvSection.ALL
+    if (sidebarItems.none { it.section == section }) section = home
 
-    val channels = remember(content, section, filter, region, categoryRegions, settings.favourites, settings.recents, mergedByUid, wallSection, keptCategories) {
+    val lineupSection = lineupOn && section == IptvLineupRules.SECTION
+    val channels = remember(content, section, filter, region, categoryRegions, settings.favourites, settings.recents, mergedByUid, wallSection, keptCategories, lineupSection, lineupChannels, never) {
+        if (lineupSection) {
+            val needle = filter.trim()
+            return@remember lineupChannels.map { it.primary }.filter { needle.isEmpty() || it.name.contains(needle, ignoreCase = true) }
+        }
         val listed = if (wallSection) emptyList() else content?.let { channelsFor(it, section, filter, settings, region, categoryRegions, keptCategories) }.orEmpty()
         // Each copy stands for its merged channel, listed once.
-        if (mergedByUid.isEmpty()) listed else listed.map { mergedByUid[it.uid]?.primary ?: it }.distinctBy { it.uid }
+        val grouped = if (mergedByUid.isEmpty()) listed else listed.map { mergedByUid[it.uid]?.primary ?: it }.distinctBy { it.uid }
+        // Channels thrown out with "Never again" stay out of the lists (a search still finds them).
+        if (never.isEmpty() || filter.isNotBlank()) grouped else grouped.filterNot { it.key in never }
     }
     // What the arrows can move into right of the sidebar: channels, or the wall's tiles.
     val hasContent = if (wallSection) wallRows.isNotEmpty() else channels.isNotEmpty()
@@ -289,6 +328,10 @@ fun IptvScreen(
     var sidebarIndex by rememberSaveable(playlist.id) { mutableIntStateOf(-1) }
     var channelIndex by rememberSaveable(playlist.id, section) { mutableIntStateOf(0) }
     var starFocused by remember { mutableStateOf(false) }
+    // fork:live-tv-lineup - the "..." beside the star, and the menu it opens.
+    var moreFocused by remember { mutableStateOf(false) }
+    var menuChannel by remember { mutableStateOf<IptvMergedChannel?>(null) }
+    var menuIndex by remember { mutableIntStateOf(0) }
     // fork:live-tv-on-now - the wall's highlight (a row of tiles and a tile in it), and the open programme page.
     var wallRow by rememberSaveable(playlist.id, section) { mutableIntStateOf(0) }
     var wallCol by rememberSaveable(playlist.id, section) { mutableIntStateOf(0) }
@@ -400,6 +443,34 @@ fun IptvScreen(
         }
     }
 
+    fun lineupPosition(channel: IptvMergedChannel): Int = IptvLineupRules.position(storedLineup.orEmpty(), channel)
+    val menuActions = remember(menuChannel, storedLineup) {
+        menuChannel?.let { IptvLineupAction.forChannel(IptvLineupRules.position(storedLineup.orEmpty(), it), storedLineup.orEmpty().size) }.orEmpty()
+    }
+    menuIndex = menuIndex.coerceIn(0, (menuActions.size - 1).coerceAtLeast(0))
+
+    fun openMenu(channel: IptvChannel) {
+        val whole = mergedByUid[channel.uid] ?: IptvMergedChannel(listOf(channel))
+        menuChannel = whole
+        menuIndex = 0
+    }
+
+    fun runMenuAction(action: IptvLineupAction) {
+        val whole = menuChannel ?: return
+        val current = storedLineup.orEmpty()
+        when (action) {
+            IptvLineupAction.MoveUp, IptvLineupAction.MoveDown -> {
+                val moved = IptvLineupRules.move(current, whole, if (action == IptvLineupAction.MoveUp) -1 else 1)
+                IptvRepository.setLineup(playlist.id, moved)
+                IptvLineupRules.position(moved, whole).takeIf { it >= 0 && lineupSection }?.let { channelIndex = it }
+            }
+            IptvLineupAction.Add -> IptvLineupRules.add(current, whole)?.let { IptvRepository.setLineup(playlist.id, it) }
+            IptvLineupAction.Remove -> IptvRepository.setLineup(playlist.id, IptvLineupRules.remove(current, whole))
+            IptvLineupAction.Never -> IptvRepository.neverAgain(playlist.id, whole)
+        }
+        menuChannel = null
+    }
+
     fun closeSearch() {
         filter = ""
         searchOpen = false
@@ -466,6 +537,16 @@ fun IptvScreen(
     }
 
     fun handleKey(navKey: Key): Boolean {
+        if (menuChannel != null) {
+            when (navKey) {
+                Key.DirectionDown -> menuIndex = (menuIndex + 1).coerceAtMost((menuActions.size - 1).coerceAtLeast(0))
+                Key.DirectionUp -> menuIndex = (menuIndex - 1).coerceAtLeast(0)
+                Key.Enter, Key.NumPadEnter -> menuActions.getOrNull(menuIndex)?.let(::runMenuAction)
+                Key.DirectionLeft, Key.DirectionRight, Key.PageUp, Key.PageDown -> Unit
+                else -> return false
+            }
+            return true
+        }
         if (detail != null) {
             // The programme page: its actions are one list; Back (key-up, see below) closes it.
             when (navKey) {
@@ -498,6 +579,7 @@ fun IptvScreen(
                 IptvZone.Sidebar -> return false
                 IptvZone.Channels -> when {
                     wallSection -> if (wallCol > 0) wallCol-- else zone = IptvZone.Sidebar
+                    moreFocused -> { moreFocused = false; starFocused = true }
                     starFocused -> starFocused = false
                     else -> zone = IptvZone.Sidebar
                 }
@@ -510,7 +592,7 @@ fun IptvScreen(
                 IptvZone.Channels -> if (wallSection) {
                     wallCol = (wallCol + 1).coerceAtMost(((wallRows.getOrNull(wallRow)?.items?.size ?: 1) - 1).coerceAtLeast(0))
                 } else if (!guideView) {
-                    starFocused = true
+                    if (starFocused && lineupOn) { starFocused = false; moreFocused = true } else if (!moreFocused) starFocused = true
                 }
             }
             Key.Enter, Key.NumPadEnter -> when (zone) {
@@ -521,13 +603,17 @@ fun IptvScreen(
                     wallRows.getOrNull(wallRow)?.items?.getOrNull(wallCol)?.let(::activateWall)
                 } else {
                     channels.getOrNull(channelIndex)?.let { channel ->
-                        if (starFocused && !guideView) toggleFavourite(channel) else play(channel)
+                        when {
+                            moreFocused && !guideView -> openMenu(channel)
+                            starFocused && !guideView -> toggleFavourite(channel)
+                            else -> play(channel)
+                        }
                     }
                 }
             }
             else -> return false
         }
-        if (zone != IptvZone.Channels) starFocused = false
+        if (zone != IptvZone.Channels) { starFocused = false; moreFocused = false }
         return true
     }
 
@@ -563,9 +649,9 @@ fun IptvScreen(
                 if (searchBounds?.contains(at) != true) screenFocus.requestFocusLogged()
             }
             .onPreviewKeyEvent { event ->
-                if (detail != null && !searchFocused && event.key in IptvBackKeys) {
+                if ((detail != null || menuChannel != null) && !searchFocused && event.key in IptvBackKeys) {
                     // Back acts as the key comes up, as it does across the app; its key-down is taken so nothing else acts on it.
-                    if (event.type == KeyEventType.KeyUp) detail = null
+                    if (event.type == KeyEventType.KeyUp) { if (menuChannel != null) menuChannel = null else detail = null }
                     return@onPreviewKeyEvent true
                 }
                 if (event.type != KeyEventType.KeyDown) {
@@ -667,6 +753,20 @@ fun IptvScreen(
                     onSecondary = onOpenSettings,
                 )
                 content == null -> IptvLoading()
+                menuChannel != null -> IptvLineupMenu(
+                    channelName = menuChannel!!.primary.name,
+                    note = menuChannel!!.let { whole ->
+                        val at = lineupPosition(whole)
+                        if (at >= 0) "Number ${at + 1} in Your 40" else "Not in Your 40"
+                    },
+                    actions = menuActions,
+                    focused = if (keyboardActive) menuIndex else -1,
+                    onAction = { action ->
+                        menuIndex = menuActions.indexOf(action).coerceAtLeast(0)
+                        runMenuAction(action)
+                    },
+                    onBack = { menuChannel = null },
+                )
                 detail != null -> IptvProgrammeDetail(
                     playlist = playlist,
                     detail = detail!!,
@@ -730,6 +830,10 @@ fun IptvScreen(
                     listState = channelState,
                     focusedIndex = if (keyboardActive && zone == IptvZone.Channels) channelIndex else -1,
                     starFocused = starFocused,
+                    moreFocused = moreFocused,
+                    showMore = lineupOn,
+                    numberOf = if (lineupSection) ({ index: Int -> index + 1 }) else null,
+                    onMore = { openMenu(it) },
                     onPlay = { play(it) },
                     onToggleFavourite = { toggleFavourite(it) },
                 )
@@ -1119,6 +1223,11 @@ private fun IptvChannelList(
     listState: LazyListState,
     focusedIndex: Int,
     starFocused: Boolean,
+    moreFocused: Boolean,
+    showMore: Boolean,
+    /** fork:live-tv-lineup - the number shown for the row at an index (the lineup's place); null shows the provider's. */
+    numberOf: ((Int) -> Int)?,
+    onMore: (IptvChannel) -> Unit,
     onPlay: (IptvChannel) -> Unit,
     onToggleFavourite: (IptvChannel) -> Unit,
 ) {
@@ -1139,8 +1248,12 @@ private fun IptvChannelList(
                 now = now,
                 favourite = isFavourite(channel),
                 sourcesLabel = sourcesLabel(channel),
-                keyboardFocused = index == focusedIndex && !starFocused,
+                keyboardFocused = index == focusedIndex && !starFocused && !moreFocused,
                 starKeyboardFocused = index == focusedIndex && starFocused,
+                number = numberOf?.invoke(index) ?: channel.num,
+                showMore = showMore,
+                moreKeyboardFocused = index == focusedIndex && moreFocused,
+                onMore = { onMore(channel) },
                 onPlay = { onPlay(channel) },
                 onToggleFavourite = { onToggleFavourite(channel) },
             )
@@ -1162,6 +1275,10 @@ private fun IptvChannelRow(
     sourcesLabel: String?,
     keyboardFocused: Boolean,
     starKeyboardFocused: Boolean,
+    number: Int,
+    showMore: Boolean,
+    moreKeyboardFocused: Boolean,
+    onMore: () -> Unit,
     onPlay: () -> Unit,
     onToggleFavourite: () -> Unit,
 ) {
@@ -1182,7 +1299,7 @@ private fun IptvChannelRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = channel.num.toString(),
+            text = number.toString(),
             modifier = Modifier.width(48.dp),
             style = MaterialTheme.typography.bodyMedium,
             color = tokens.colors.textMuted,
@@ -1264,6 +1381,16 @@ private fun IptvChannelRow(
             active = favourite,
             onClick = onToggleFavourite,
         )
+        if (showMore) {
+            Spacer(Modifier.width(4.dp))
+            IptvHeaderButton(
+                icon = Icons.Rounded.MoreHoriz,
+                description = "Your 40: move, take out, never again",
+                focused = moreKeyboardFocused,
+                active = false,
+                onClick = onMore,
+            )
+        }
     }
 }
 
