@@ -309,6 +309,22 @@ Needs the new NuvioRemote app (no change on the PC).
 
 - [x] Stalker portals log in, load channels and play (2026-11-08)
 
+## Live TV: Triage (Nov 13)
+
+The sliders button in the Live TV header, beside Refresh.
+
+- [ ] The Triage button opens "Which countries do you watch?": a grid of countries with flags and channel counts, biggest first, "No country marked" last, between two equal side panels (So far, What is left)
+- [ ] Ticking countries moves the big number on the right ("1,280 of 12,014 channels") and the list on the left; Next is dimmed until one is ticked
+- [ ] The second question lists only kinds your countries have, with sensible ones already ticked (not adult, shopping, religious, radio or 24/7 loops), and the count on the right follows
+- [ ] The kinds are right for your playlist: no sport category filed under Entertainment and so on; if any are wrong, say which category names
+- [ ] "Your first ten" offers channels from what is left, the ones you watch most first; ticking stars them (ten at most) and they are in Favourites afterwards
+- [ ] After Done the sidebar has only the kept categories, All channels counts only those, and with On Now on the wall only draws from them
+- [ ] Typing in the search box under All channels still finds a channel the triage left out, and it plays
+- [ ] Favourites and Recently watched still show channels from countries or kinds you left out
+- [ ] The whole thing works with arrows and OK (and the pad): the first press shows the highlight, Down from the last row reaches the buttons, Back goes to the previous question and leaves from the first without saving
+- [ ] The Triage button is lit while a triage is in force; opening it again starts from your answers, and "Show everything" brings every category back
+- [ ] The answers are still there after restarting Nuvio
+
 ## Live TV: On Now (Nov 13)
 
 Settings > Live TV > On Now (off by default). Best tried in the evening with a match you follow under Live scores.
