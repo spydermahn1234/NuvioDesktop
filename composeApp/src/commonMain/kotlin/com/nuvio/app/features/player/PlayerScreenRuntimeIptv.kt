@@ -59,7 +59,18 @@ internal fun PlayerScreenRuntime.BindIptvLiveEffects() {
 
     LaunchedEffect(playbackSnapshot.isEnded, playbackAttemptId) {
         if (!playbackSnapshot.isEnded) return@LaunchedEffect
-        if (!takeIptvReconnectSlot("live stream ended")) return@LaunchedEffect
+        // fork:live-tv-on-now - a recording that ran out has caught up with the present: carry on live.
+        if (IptvPlaybackSession.active.value?.catchup != null) {
+            IptvPlaybackSession.finishCatchup()?.let { live ->
+                IptvPlaybackLog.i { "recording ended; joining the channel live" }
+                reopenIptvSource(live)
+            }
+            return@LaunchedEffect
+        }
+        if (!takeIptvReconnectSlot("live stream ended")) {
+            tryAnotherIptvCopy("live stream kept ending")
+            return@LaunchedEffect
+        }
         delay(1_500L)
         reconnectIptvSource()
     }
@@ -128,7 +139,9 @@ private fun PlayerScreenRuntime.BindIptvStallReconnect() {
         while (true) {
             delay(1_000L)
             val snapshot = playbackSnapshot
-            if (!snapshot.isLoading || !played || snapshot.isEnded || !shouldPlay) {
+            // fork:live-tv-on-now - reopening a recording would start the programme again; leave it to buffer.
+            val recording = IptvPlaybackSession.active.value?.catchup != null
+            if (recording || !snapshot.isLoading || !played || snapshot.isEnded || !shouldPlay) {
                 if (!snapshot.isLoading && snapshot.isPlaying) played = true
                 stallStartMs = 0L
                 stuckStartMs = 0L
@@ -161,7 +174,7 @@ private fun PlayerScreenRuntime.BindIptvStallReconnect() {
                 }
             }
             if (reason != null) {
-                if (takeIptvReconnectSlot(reason)) reconnectIptvSource()
+                if (takeIptvReconnectSlot(reason)) reconnectIptvSource() else tryAnotherIptvCopy(reason)
                 return@LaunchedEffect
             }
         }
@@ -244,6 +257,16 @@ internal fun PlayerScreenRuntime.tryNextIptvFormat(reason: String): Boolean {
     playbackSourceFailureActive = false
     reopenIptvSource(next.url)
     return true
+}
+
+/**
+ * fork:live-tv-on-now - the reconnects are spent: when the channel has another copy in the playlist, play that
+ * (with a fresh allowance) instead of leaving the picture frozen. Does nothing for a channel with one copy.
+ */
+private fun PlayerScreenRuntime.tryAnotherIptvCopy(reason: String) {
+    if (!IptvPlaybackSession.hasAlternates()) return
+    iptvReconnectTimesMs.clear()
+    tryNextIptvFormat(reason)
 }
 
 private fun failedFormat(url: String): String =

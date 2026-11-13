@@ -56,6 +56,10 @@ object LiveScoreEngine {
     /** One line for Settings: what is being watched and when the feed last answered. */
     val status: StateFlow<String> = _status.asStateFlow()
 
+    private val _followed = MutableStateFlow<List<LiveMatch>>(emptyList())
+    /** fork:live-tv-on-now - the followed matches as of the last round (empty while off), for the Live TV wall. */
+    val followed: StateFlow<List<LiveMatch>> = _followed.asStateFlow()
+
     private val queue = Channel<ScoreEvent>(capacity = 8)
 
     private val matches = mutableMapOf<String, LiveMatch>()
@@ -83,10 +87,12 @@ object LiveScoreEngine {
                     val (enabled, favourites, followed) = watch
                     if (!enabled) {
                         _status.value = "Off"
+                        _followed.value = emptyList()
                         return@collectLatest
                     }
                     if (favourites.isEmpty() && followed.isEmpty()) {
                         _status.value = "Pick a favourite team or a competition to follow."
+                        _followed.value = emptyList()
                         return@collectLatest
                     }
                     lastDiscoveryMs = 0L
@@ -182,6 +188,7 @@ object LiveScoreEngine {
         }
 
         prune(now)
+        _followed.value = matches.values.filter(relevant)
         val liveCount = matches.values.count { relevant(it) && (it.phase == MatchPhase.Live || it.phase == MatchPhase.HalfTime) }
         val todayCount = matches.values.count(relevant)
         _status.value = when {

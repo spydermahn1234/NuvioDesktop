@@ -15,6 +15,8 @@ class XmltvParser(
     /** Return false to skip a programme (its title is then not read). */
     private val wantsProgramme: (channelId: String, startMs: Long, endMs: Long) -> Boolean,
     private val onProgramme: (channelId: String, startMs: Long, endMs: Long, title: String) -> Unit,
+    /** Each `<category>` of a wanted programme, before its [onProgramme]. Null = categories are not read. */
+    private val onCategory: ((category: String) -> Unit)? = null,
 ) {
     private var capture: StringBuilder? = null // text of the current display-name or title
 
@@ -40,6 +42,7 @@ class XmltvParser(
                 when (tag.name) {
                     "display-name" -> capture?.let { names += decode(it.toString()).trim() }
                     "title" -> capture?.let { if (title == null) title = decode(it.toString()).trim() }
+                    "category" -> capture?.let { text -> onCategory?.invoke(decode(text.toString()).trim()) }
                     "channel" -> {
                         channelId?.let { onChannel(it, names.filter { n -> n.isNotEmpty() }) }
                         channelId = null
@@ -53,7 +56,7 @@ class XmltvParser(
                         title = null
                     }
                 }
-                if (tag.name == "display-name" || tag.name == "title") capture = null
+                if (tag.name == "display-name" || tag.name == "title" || tag.name == "category") capture = null
                 continue
             }
             when (tag.name) {
@@ -74,6 +77,7 @@ class XmltvParser(
                     progEnd = stop ?: 0L
                 }
                 "title" -> if (progChannel != null && title == null && !tag.selfClosing) capture = StringBuilder()
+                "category" -> if (progChannel != null && onCategory != null && !tag.selfClosing) capture = StringBuilder()
             }
         }
     }
