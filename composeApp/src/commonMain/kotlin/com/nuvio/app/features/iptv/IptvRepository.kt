@@ -43,6 +43,13 @@ data class IptvSettings(
      * while a playlist exists, as it always did, so turning the switch into a setting moves nobody's bar.
      */
     val tabEnabled: Boolean? = null,
+    /**
+     * fork:live-tv-on-now - Settings > Live TV > On Now. The tab opens on what is on (sport with scores, films,
+     * the usual channels), copies of one channel become one row, and a programme can be started over.
+     */
+    val onNow: Boolean = false,
+    /** fork:live-tv-on-now - when each channel was put on, newest last, for "Your channels" ([IptvUsuals]). */
+    val plays: List<IptvPlay> = emptyList(),
 ) {
     /** Whether the Live TV entry belongs in the navigation. */
     val tabShown: Boolean
@@ -239,7 +246,27 @@ object IptvRepository {
     fun recordRecent(playlistId: String, channelKey: String) {
         ensureLoaded()
         val ref = channelRef(playlistId, channelKey)
-        mutate { s -> s.copy(recents = (listOf(ref) + (s.recents - ref)).take(MAX_RECENTS)) }
+        mutate { s ->
+            s.copy(
+                recents = (listOf(ref) + (s.recents - ref)).take(MAX_RECENTS),
+                plays = (s.plays + IptvPlay(ref, System.currentTimeMillis())).takeLast(IptvUsuals.MAX_PLAYS),
+            )
+        }
+    }
+
+    /** fork:live-tv-on-now */
+    fun setOnNow(enabled: Boolean) {
+        ensureLoaded()
+        mutate { it.copy(onNow = enabled) }
+    }
+
+    /** fork:live-tv-on-now - stars or unstars a merged channel: any starred copy counts, and unstarring clears them all. */
+    fun toggleFavourite(playlistId: String, channel: IptvMergedChannel) {
+        ensureLoaded()
+        val refs = channel.sources.map { channelRef(playlistId, it.key) }
+        mutate { s ->
+            if (refs.any { it in s.favourites }) s.copy(favourites = s.favourites - refs.toSet()) else s.copy(favourites = s.favourites + refs.first())
+        }
     }
 
     fun setRefreshHours(hours: Int) {

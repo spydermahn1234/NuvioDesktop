@@ -116,8 +116,9 @@ class IptvPlaylistContent(
     }
 }
 
+/** [kind]: what the guide's categories say the programme is (see [IptvProgrammeKind]); null when they say nothing. */
 @Serializable
-data class IptvEpgEntry(val title: String, val startMs: Long, val endMs: Long) {
+data class IptvEpgEntry(val title: String, val startMs: Long, val endMs: Long, val kind: String? = null) {
     fun progress(now: Long): Float =
         if (endMs <= startMs) 0f else ((now - startMs).toFloat() / (endMs - startMs)).coerceIn(0f, 1f)
 }

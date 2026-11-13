@@ -145,6 +145,19 @@ internal fun LazyListScope.iptvSettingsContent(
                     modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-in-navigation")),
                     onCheckedChange = IptvRepository::setTabEnabled,
                 )
+                // fork:live-tv-on-now
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSwitchRow(
+                    title = "On Now",
+                    description = "Live TV opens on what is on: live sport with the score (from Live scores below), " +
+                        "films with how far in they are, and the channels you usually watch at this hour. Copies of " +
+                        "one channel (FHD, HD, SD, backup) become one row that moves to the next copy when one fails, " +
+                        "and a programme can be started from its beginning where the provider keeps catch-up.",
+                    checked = settings.onNow,
+                    isTablet = isTablet,
+                    modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-on-now")),
+                    onCheckedChange = IptvRepository::setOnNow,
+                )
             }
         }
     }

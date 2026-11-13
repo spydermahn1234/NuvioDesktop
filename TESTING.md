@@ -309,6 +309,30 @@ Needs the new NuvioRemote app (no change on the PC).
 
 - [x] Stalker portals log in, load channels and play (2026-11-08)
 
+## Live TV: On Now (Nov 13)
+
+Settings > Live TV > On Now (off by default). Best tried in the evening with a match you follow under Live scores.
+
+- [ ] Settings > Live TV has an "On Now" switch under "Show in navigation", off; Settings search finds it by typing "on now"; with it off the Live TV tab is exactly as before
+- [ ] With it on, the sidebar starts with On now, Sport and Films, and the tab opens on On now: rows of glass tiles titled Live sport, Films and Your channels (a row with nothing in it is left out)
+- [ ] Arrow keys and the pad move a highlight tile to tile, Left from the first tile goes to the sidebar, Up from the top row reaches the header buttons, and a mouse click on a tile does the same as OK
+- [ ] Films: the tiles are films that are really on now or start within half an hour, each with how far in it is, a progress bar and the channel; with a TMDB key they show posters
+- [ ] OK on a film opens its page (picture, blurb, "Started 18:30 · 71 min in · ends 20:15"); Watch live plays the channel; Back (Esc or the pad's B) returns to the wall, not out of Live TV
+- [ ] Start over: on a channel your provider records, the film page has "Start from the beginning" and it plays the film from its start, not live
+- [ ] Start over: left running to the end, the recording carries on into the live channel instead of stopping or starting again
+- [ ] Start over: the "Earlier on <channel>" lines on the page play that finished programme
+- [ ] Start over: on a channel without catch-up the page says it can only be joined live and has no Start from the beginning
+- [ ] Sport, with Live scores on and a followed match in play: its tile shows both teams, the score and the minute, names the right channel, and OK plays that channel
+- [ ] Sport, a followed match the guide has no channel for says "Not found in the guide" and does nothing on OK
+- [ ] Sport with Live scores off still lists sport programmes from the guide
+- [ ] Your channels after a few days: the row leads with what you usually watch at that time of day
+- [ ] All channels and the categories: a channel your playlist lists several times (FHD / HD / SD / backup) is one row marked like "FHD · 4 sources"; +1 channels and 4K copies are still their own rows
+- [ ] No two different channels have been merged into one row; if any have, say which names
+- [ ] Starring a merged row stars it once (Favourites shows one row); unstarring removes it
+- [ ] A merged channel whose first copy is dead still plays: it moves to the next copy by itself within a few seconds (nuvio.log says "trying")
+- [ ] Channel up/down in the player steps through merged channels (BBC One, then BBC Two), not through the copies of one
+- [ ] The header's search box narrows the wall by a film, team or channel name
+
 ## Saving settings (hardening, Nov 10)
 
 - [ ] Change a setting (e.g. a Music setting), then close Nuvio with the X and reopen it: the change is still there (stores now force their data to disk before the swap)

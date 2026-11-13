@@ -612,6 +612,13 @@ private fun settingsSearchEntries(
             "A Live TV button in the sidebar and top bar.",
             "General",
         ),
+        // fork:live-tv-on-now
+        PlaybackSearchRow(
+            "iptv-on-now",
+            "On Now",
+            "Live TV opens on what is on: sport with scores, films, your usual channels. Merges copies of a channel and adds Start over.",
+            "General",
+        ),
         PlaybackSearchRow("iptv-add-playlist", resolve(Res.string.iptv_settings_add_playlist), resolve(Res.string.iptv_settings_add_playlist_description), resolve(Res.string.iptv_settings_section_playlists)),
         PlaybackSearchRow("iptv-refresh-interval", resolve(Res.string.iptv_settings_refresh_interval), resolve(Res.string.iptv_settings_refresh_interval_description), resolve(Res.string.iptv_settings_section_updates)),
         PlaybackSearchRow("iptv-refresh-now", resolve(Res.string.iptv_settings_refresh_now), resolve(Res.string.iptv_settings_refresh_now_description), resolve(Res.string.iptv_settings_section_updates)),

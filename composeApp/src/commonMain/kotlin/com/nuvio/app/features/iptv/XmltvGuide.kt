@@ -71,6 +71,7 @@ class XmltvGuide(
             val nameIds = HashSet<String>()
             val programmes = HashMap<String, ArrayList<IptvEpgEntry>>()
             val titles = HashMap<String, String>() // titles repeat a lot: one String per title
+            var kind: String? = null // of the programme being read, from its categories
 
             val parser = XmltvParser(
                 onChannel = { id, displayNames ->
@@ -84,11 +85,14 @@ class XmltvGuide(
                     }
                 },
                 wantsProgramme = { ch, start, end ->
+                    kind = null
                     end > fromMs && start < toMs && ch.lowercase().let { it in wantedIds || it in nameIds }
                 },
                 onProgramme = { ch, start, end, title ->
-                    programmes.getOrPut(ch.lowercase()) { ArrayList() } += IptvEpgEntry(titles.getOrPut(title) { title }, start, end)
+                    programmes.getOrPut(ch.lowercase()) { ArrayList() } += IptvEpgEntry(titles.getOrPut(title) { title }, start, end, kind)
+                    kind = null
                 },
+                onCategory = { category -> if (kind == null) kind = IptvProgrammeKind.of(category) },
             )
             parse(parser)
             val cleaned = programmes.mapValues { (_, list) -> list.withoutOverlaps() }
