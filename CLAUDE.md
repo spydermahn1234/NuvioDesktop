@@ -62,6 +62,25 @@ these UI changes are in the merge and that they are fork-only, and let them deci
 - the Nuvio Remote bullet under Home Theatre features in `README.md` (its user guide is `remote-android/README.md`)
 - the matching `CHANGELOG.md` entries and `.github/workflows/windows-build.yml` (fork updater channel)
 
+Upstream merge of Nov 13 2026 (8e2adb00), what was decided so the next merge does the same (Nick approved): upstream
+built on the fork's music pages after merging Spyder on Nov 11 and changed them, removed the music home, the three
+"New ..." switches and the dock's quality pill and beat dot, and brought back the classic Shelf, Constellation and Eras.
+Here the fork's versions were kept whole for `MusicNowPlaying.kt`, `MusicNowPlayingWidgets.kt`, `NowPlayingLinerBox.kt`,
+`StageOptionsMenu.kt` (plus upstream's one `KeyRouteLayer` line), `MusicDockNotch.kt`, `MusicAlbumScreen.kt`,
+`AlbumEssentialsColumn.kt`, `AlbumLenses.kt`, `AlbumLensEdit.kt`, `library/ArtistStage.kt`, `library/ArtistEssentials.kt`,
+`library/ArtistRoom.kt`, `library/MusicLibraryScreens.kt`, `nebula/NebulaBadge.kt`, `home/MusicHomeScreen.kt`,
+`home/HomeActions.kt`, `HomeClock.desktop.kt` and their tests (`AlbumCaseSizeTest`, `ArtistEssentialsTest`,
+`ArtistRoomPreviewTest`). Upstream's versions were taken for `MusicTabScreen.kt` (the tab is the Library, the app bar's
+Search types into `MusicTabState.query`, results are `home/MusicRowsSearch.kt`), with the fork's `musicHome` branch put
+back in front of it (`MusicTabState.homeOwnsSearch()`, and two `fork:music-home` hooks in `App.kt` that send Search to
+the home's line). In `MusicLibrarySettings` the fork differs from upstream on purpose: `musicHome` exists,
+`hiddenLibraryViews` defaults to `FORK_HIDDEN_LIBRARY_VIEWS` (classic Shelf, Constellation, Eras off; the three-panel
+Shelf is upstream's `LibraryView.Crates`), and `albumNotes` defaults to true. `subtitle(withQuality = true)` stays the
+default in `MusicMiniPlayerBar.kt`. `MusicSettingsPage.kt`, `SettingsSearch.kt` and `strings_music.xml` carry the three
+switches upstream removed. The Tonight screens are upstream's (they already hold the phone mirror). The cloud session
+cannot compile (no Maven access), so a merge is checked by pushing it to a `claude/**` branch with the branch-only
+`claude-check.yml` workflow, and only then to Spyder without that file.
+
 Rules for the stage UI on this branch: symmetry is key, and no UI element may move or resize depending on content
 (for example, a missing Liner Notes box must not resize the video or shift the lyrics). Do not re-add code that does.
 When merging upstream INTO this branch, keep the fork's version of the files above if they conflict.
