@@ -309,6 +309,23 @@ Needs the new NuvioRemote app (no change on the PC).
 
 - [x] Stalker portals log in, load channels and play (2026-11-08)
 
+## Live TV: Starting soon (Nov 13)
+
+Settings > Live TV > Starting soon (needs On Now). It needs a playlist with a programme guide.
+
+- [ ] Live TV's sidebar has "Starting soon" under Films, with a count; it opens three titled groups: Within 15 minutes, 15 to 30 minutes, 30 to 60 minutes
+- [ ] Every tile is something that has not started yet, shows "in N min" at the top and its start and end below; nothing already on is there
+- [ ] With Your 40 on, only the lineup's channels appear; with it off, any channel with a guide can
+- [ ] OK on a tile opens its page with "Remind me when it starts" and "Switch to it at HH:MM" above "Go to the channel"
+- [ ] After Remind me, the same page offers "Cancel the reminder" instead; cancelling brings the two choices back
+- [ ] Two minutes before the start a glass card (bottom left, fixed size) says the programme and "BBC One · starts in 2 min" and goes after about 20 seconds
+- [ ] While a channel is playing, the same text shows as a pill on the player instead
+- [ ] "Switch to it" puts the channel on by itself at the start, from the Live TV tab and while something else is playing, and the card says "Switching to ..."
+- [ ] Quit Nuvio with a reminder set and start it again before the time: the reminder still fires
+- [ ] Start Nuvio after a reminder's time has passed by more than ten minutes: nothing fires
+- [ ] A coming-up sport tile inside the hour shows the countdown at the top
+- [ ] With Starting soon off, there is no section, no reminder actions and the sport tiles show clock times as before
+
 ## Live TV: Your 40 (Nov 13)
 
 Settings > Live TV > Your 40 (off by default). Turn it on, open Live TV.

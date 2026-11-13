@@ -58,6 +58,10 @@ data class IptvSettings(
     val lineup: Map<String, List<String>> = emptyMap(),
     /** fork:live-tv-lineup - by playlist id: the keys of every copy of the channels thrown out with "Never again". */
     val never: Map<String, Set<String>> = emptyMap(),
+    /** fork:live-tv-departure - Settings > Live TV > Starting soon. The On Now wall gets a departure board; programmes can have a reminder. */
+    val departure: Boolean = false,
+    /** fork:live-tv-departure - the reminders waiting, earliest first ([IptvReminderRules]). */
+    val reminders: List<IptvReminder> = emptyList(),
 ) {
     /** Whether the Live TV entry belongs in the navigation. */
     val tabShown: Boolean
@@ -211,6 +215,7 @@ object IptvRepository {
                 triage = s.triage - id,
                 lineup = s.lineup - id,
                 never = s.never - id,
+                reminders = s.reminders.filterNot { it.playlistId == id },
             )
         }
         contentStates.remove(id)
@@ -270,6 +275,32 @@ object IptvRepository {
     fun setTriage(playlistId: String, triage: IptvTriage?) {
         ensureLoaded()
         mutate { s -> s.copy(triage = if (triage == null) s.triage - playlistId else s.triage + (playlistId to triage)) }
+    }
+
+    /** fork:live-tv-departure */
+    fun setDeparture(enabled: Boolean) {
+        ensureLoaded()
+        mutate { it.copy(departure = enabled) }
+    }
+
+    /** fork:live-tv-departure - sets [reminder] (one per programme: setting it again replaces it). */
+    fun addReminder(reminder: IptvReminder) {
+        ensureLoaded()
+        mutate { it.copy(reminders = IptvReminderRules.add(it.reminders, reminder)) }
+    }
+
+    fun removeReminder(id: String) {
+        ensureLoaded()
+        mutate { s -> s.copy(reminders = s.reminders.filterNot { it.id == id }) }
+    }
+
+    /** fork:live-tv-departure - takes the reminders that are due at [now] out of the list and returns them; late ones just go. */
+    fun takeDueReminders(now: Long): List<IptvReminder> {
+        ensureLoaded()
+        val due = IptvReminderRules.due(_settings.value.reminders, now)
+        val gone = (due + IptvReminderRules.stale(_settings.value.reminders, now)).mapTo(HashSet()) { it.id }
+        if (gone.isNotEmpty()) mutate { s -> s.copy(reminders = s.reminders.filterNot { it.id in gone }) }
+        return due
     }
 
     /** fork:live-tv-lineup */

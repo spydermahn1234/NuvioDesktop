@@ -5161,6 +5161,9 @@ private fun MainAppContent(
             // playing video the HUD draws the same card, since the video surface covers this layer.
             com.nuvio.app.features.livescores.LiveScoreOverlay()
 
+            // fork:live-tv-departure - the "starting soon" reminder card (Live TV > a programme's page > Remind me).
+            com.nuvio.app.features.iptv.IptvReminderOverlay()
+
             // Settings > Advanced > Memory overlay. Draws nothing when off; over the player the HUD
             // shows it instead, since the video surface covers this layer.
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopEnd) {

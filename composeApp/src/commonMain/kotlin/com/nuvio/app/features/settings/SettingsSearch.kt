@@ -620,6 +620,13 @@ private fun settingsSearchEntries(
             "Live TV opens on what is on: sport with scores, films, your usual channels. Merges copies of a channel and adds Start over.",
             "General",
         ),
+        // fork:live-tv-departure
+        PlaybackSearchRow(
+            "iptv-departure",
+            "Starting soon",
+            "A departure board of programmes about to start, with a countdown, and reminders that tell you or switch for you.",
+            "General",
+        ),
         // fork:live-tv-lineup
         PlaybackSearchRow(
             "iptv-lineup",

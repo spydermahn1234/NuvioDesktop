@@ -303,6 +303,8 @@ class IptvWallModel(
     val usuals: List<IptvWallItem.Channel>,
     /** How many of [sport] are matches with a score. */
     val matchCount: Int,
+    /** fork:live-tv-departure - the departure board's buckets (empty with the switch off). */
+    val soon: List<IptvDepartureBucket> = emptyList(),
 ) {
     private fun matches(item: IptvWallItem, needle: String): Boolean = when (item) {
         is IptvWallItem.Match -> item.match.home.name.contains(needle, true) || item.match.away.name.contains(needle, true) ||
@@ -325,6 +327,9 @@ class IptvWallModel(
         }
         val filmNote = if (films.isEmpty()) null else "${films.size} on now or starting soon"
         return when (section) {
+            IptvWall.SOON -> soon.flatMap { bucket ->
+                rowsOf(bucket.label, null, 3, bucket.programmes.map { IptvWallItem.Programme(it, film = false) }.narrowed())
+            }
             IptvWall.SPORT -> rowsOf("Sport", sportNote, 2, sport.narrowed())
             IptvWall.FILMS -> rowsOf("Films", filmNote, 3, films.narrowed())
             else -> buildList {
@@ -341,7 +346,8 @@ object IptvWall {
     const val ON_NOW = "__onnow__"
     const val SPORT = "__sport__"
     const val FILMS = "__films__"
-    val SECTIONS = setOf(ON_NOW, SPORT, FILMS)
+    const val SOON = "__soon__"
+    val SECTIONS = setOf(ON_NOW, SPORT, FILMS, SOON)
 
     private const val MAX_FILMS = 30
     private const val MAX_SPORT = 24
@@ -350,7 +356,14 @@ object IptvWall {
      * [channels]: every merged channel the guide knows something about. [matches]: the live scores' followed matches
      * (empty with live scores off). [usuals]: the channels for "Your channels", likeliest first.
      */
-    fun build(channels: List<IptvChannelNow>, matches: List<LiveMatch>, usuals: List<IptvMergedChannel>, now: Long): IptvWallModel {
+    fun build(
+        channels: List<IptvChannelNow>,
+        matches: List<LiveMatch>,
+        usuals: List<IptvMergedChannel>,
+        now: Long,
+        /** fork:live-tv-departure */
+        soon: List<IptvDepartureBucket> = emptyList(),
+    ): IptvWallModel {
         val byUid = channels.associateBy { it.channel.primary.uid }
         val sportProgrammes = IptvOnNow.sport(channels, now)
         // Matches are looked for in everything about to be on, not only what was recognised as sport.
@@ -365,6 +378,6 @@ object IptvWall {
         val sport = current + sportProgrammes.filter { it !in taken }.take(MAX_SPORT).map { IptvWallItem.Programme(it, film = false) }
         val films = IptvOnNow.films(channels, now).take(MAX_FILMS).map { IptvWallItem.Programme(it, film = true) }
         val usualItems = usuals.map { IptvWallItem.Channel(it, byUid[it.primary.uid]?.current(now)) }
-        return IptvWallModel(sport, films, usualItems, matchCount = current.size)
+        return IptvWallModel(sport, films, usualItems, matchCount = current.size, soon = soon)
     }
 }

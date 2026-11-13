@@ -158,6 +158,18 @@ internal fun LazyListScope.iptvSettingsContent(
                     modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-on-now")),
                     onCheckedChange = IptvRepository::setOnNow,
                 )
+                // fork:live-tv-departure
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSwitchRow(
+                    title = "Starting soon",
+                    description = "Needs On Now. Adds a departure board to Live TV: only programmes that have not started, " +
+                        "leaving within 15, 30 and 60 minutes, with a countdown (on the channels of Your 40 when that is on). " +
+                        "Open one to be reminded when it starts, or to have Nuvio switch to the channel by itself.",
+                    checked = settings.departure,
+                    isTablet = isTablet,
+                    modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-departure")),
+                    onCheckedChange = IptvRepository::setDeparture,
+                )
                 // fork:live-tv-lineup
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(

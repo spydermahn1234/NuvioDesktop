@@ -94,7 +94,7 @@ unwatched). OK watches; hold OK moves, renumbers or drops.
 
 ### Stop joining things halfway
 
-**3. Departure board.** Only things that have not started, leaving within 15, 30 or 60 minutes, with a countdown.
+**3. Departure board.** (BUILT Nov 13 as the Starting soon sidebar section behind Settings > Live TV > Starting soon: three buckets with a countdown, Remind me and Switch to it on the programme page; the reminder card is informational, no OK yet, and there is no "Tune in at" panel.) Only things that have not started, leaving within 15, 30 or 60 minutes, with a countdown.
 The right panel has "Tune in at 20:00": carry on with what is on and Nuvio switches at the start.
 - Needs: `guideEntries` for lineup channels, filtered to `startMs in now..now+window`. Pure function plus a test.
 - **Tune in at** is the reminder feature: a small scheduler (`IptvReminders`: programme key, channel ref, start) that

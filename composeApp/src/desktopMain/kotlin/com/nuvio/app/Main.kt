@@ -917,6 +917,14 @@ fun main(args: Array<String>) {
                 kotlin.concurrent.thread(isDaemon = true, name = "phone-remote-start") { PhoneRemote.start() }
                 // fork:live-scores - polls only while Settings > Live TV > Live scores is on.
                 com.nuvio.app.features.livescores.LiveScoreEngine.start()
+                // fork:live-tv-departure - reminders ("Tune in at"); over a playing video the HUD's pill says it.
+                com.nuvio.app.features.iptv.IptvReminderEngine.playerPill = { title, line, durationMs ->
+                    val handles = runCatching { com.nuvio.app.features.player.desktop.NativeAudioDuck.liveHandles() }.getOrDefault(emptyList())
+                    val script = "window.nuvioShowPresetPill&&window.nuvioShowPresetPill(" +
+                        "${kotlinx.serialization.json.JsonPrimitive(title)},${kotlinx.serialization.json.JsonPrimitive(line)},$durationMs)"
+                    handles.forEach { handle -> runCatching { com.nuvio.app.features.player.desktop.NativePlayerBridge.runJavaScript(handle, script) } }
+                }
+                com.nuvio.app.features.iptv.IptvReminderEngine.start()
                 // fork:local-addons - AIOStreams and AIOMetadata in the background, only when switched on.
                 kotlin.concurrent.thread(isDaemon = true, name = "local-addons-start") {
                     com.nuvio.app.features.localaddons.LocalAddonHost.startIfEnabled()

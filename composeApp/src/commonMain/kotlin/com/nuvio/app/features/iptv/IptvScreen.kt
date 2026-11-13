@@ -260,7 +260,8 @@ fun IptvScreen(
     val favouritesLabel = stringResource(Res.string.iptv_category_favourites)
     val recentLabel = stringResource(Res.string.iptv_category_recent)
     val allLabel = stringResource(Res.string.iptv_category_all)
-    val sidebarItems = remember(playlists, content, region, categoryRegions, other, favouritesLabel, recentLabel, allLabel, onNow, lineupOn, lineupChannels, merged, wall, keptCategories) {
+    val soonOn = onNow && settings.departure
+    val sidebarItems = remember(playlists, content, region, categoryRegions, other, favouritesLabel, recentLabel, allLabel, onNow, soonOn, lineupOn, lineupChannels, merged, wall, keptCategories) {
         buildList {
             if (playlists.size > 1) {
                 playlists.forEach { add(IptvSidebarItem("playlist:${it.id}", it.name.ifBlank { it.id.take(8) }, playlist = it)) }
@@ -272,6 +273,9 @@ fun IptvScreen(
                 add(IptvSidebarItem("section:${IptvWall.ON_NOW}", "On now", section = IptvWall.ON_NOW))
                 add(IptvSidebarItem("section:${IptvWall.SPORT}", "Sport", count = wall?.sport?.size?.takeIf { it > 0 }, section = IptvWall.SPORT))
                 add(IptvSidebarItem("section:${IptvWall.FILMS}", "Films", count = wall?.films?.size?.takeIf { it > 0 }, section = IptvWall.FILMS))
+                if (soonOn) {
+                    add(IptvSidebarItem("section:${IptvWall.SOON}", "Starting soon", count = wall?.soon?.sumOf { it.programmes.size }?.takeIf { it > 0 }, section = IptvWall.SOON))
+                }
             }
             add(IptvSidebarItem("section:${IptvSection.FAVOURITES}", favouritesLabel, section = IptvSection.FAVOURITES))
             add(IptvSidebarItem("section:${IptvSection.RECENT}", recentLabel, section = IptvSection.RECENT))
@@ -339,7 +343,9 @@ fun IptvScreen(
     wallCol = wallCol.coerceIn(0, ((wallRows.getOrNull(wallRow)?.items?.size ?: 1) - 1).coerceAtLeast(0))
     var detail by remember(playlist.id, onNow) { mutableStateOf<IptvWallDetail?>(null) }
     var detailIndex by remember { mutableIntStateOf(0) }
-    val detailActions = remember(detail) { detail?.let { iptvDetailActions(playlist, it, System.currentTimeMillis()) }.orEmpty() }
+    val detailActions = remember(detail, settings.reminders, soonOn) {
+        detail?.let { iptvDetailActions(playlist, it, System.currentTimeMillis(), reminders = settings.reminders.takeIf { soonOn }) }.orEmpty()
+    }
     detailIndex = detailIndex.coerceIn(0, (detailActions.size - 1).coerceAtLeast(0))
     headerIndex = headerIndex.coerceIn(0, headerActions.lastIndex)
     if (sidebarIndex !in sidebarItems.indices) {
@@ -418,7 +424,9 @@ fun IptvScreen(
     // fork:live-tv-on-now - a film, or anything that can be started over, opens its page; the rest just plays.
     fun openOrPlay(channel: IptvMergedChannel, entry: IptvEpgEntry?, film: Boolean, match: com.nuvio.app.features.livescores.LiveMatch?) {
         val startOver = entry != null && IptvCatchup.available(playlist, channel, entry, System.currentTimeMillis())
-        if (film || startOver) {
+        // fork:live-tv-departure - a programme that has not begun opens its page, which offers the reminder.
+        val notBegun = soonOn && entry != null && entry.startMs > System.currentTimeMillis() + 60_000L
+        if (film || startOver || notBegun) {
             detail = IptvWallDetail(channel, entry, film, match)
             detailIndex = 0
         } else {
@@ -434,12 +442,29 @@ fun IptvScreen(
         }
     }
 
+    fun setReminder(channel: IptvMergedChannel, entry: IptvEpgEntry, autoSwitch: Boolean) {
+        IptvRepository.addReminder(
+            IptvReminder(
+                playlistId = playlist.id,
+                channelKey = channel.primary.key,
+                channelName = channel.primary.name.ifBlank { "Channel ${channel.primary.num}" },
+                title = entry.title,
+                startMs = entry.startMs,
+                endMs = entry.endMs,
+                autoSwitch = autoSwitch,
+            ),
+        )
+    }
+
     fun runDetailAction(action: IptvDetailAction) {
         val open = detail ?: return
         when (action) {
             is IptvDetailAction.StartOver -> IptvPlaybackRequests.playCatchup(playlist, open.channel, action.entry, mergedPrimaries, alternates)
             is IptvDetailAction.Earlier -> IptvPlaybackRequests.playCatchup(playlist, open.channel, action.entry, mergedPrimaries, alternates)
             IptvDetailAction.WatchLive -> play(open.channel.primary)
+            is IptvDetailAction.Remind -> setReminder(open.channel, action.entry, autoSwitch = false)
+            is IptvDetailAction.Switch -> setReminder(open.channel, action.entry, autoSwitch = true)
+            is IptvDetailAction.CancelReminder -> IptvRepository.removeReminder(action.reminder.id)
         }
     }
 
@@ -785,6 +810,8 @@ fun IptvScreen(
                         wall == null -> "Reading the guide..."
                         section == IptvWall.SPORT -> "No sport in the guide right now. Follow teams or competitions under " +
                             "Settings > Live TV > Live scores to see their matches here."
+                        section == IptvWall.SOON -> "Nothing starts in the next hour" +
+                            (if (settings.lineupOn) " on the channels of Your 40." else ", or this playlist has no programme guide.")
                         section == IptvWall.FILMS -> "No films on right now, or this playlist's guide does not say what is a film."
                         else -> "Nothing to show yet. This screen needs a programme guide; your channels appear here once you have watched some."
                     },

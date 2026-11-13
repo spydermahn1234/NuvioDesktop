@@ -30,6 +30,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material3.Icon
@@ -83,6 +85,11 @@ internal sealed interface IptvDetailAction {
     data class StartOver(val entry: IptvEpgEntry) : IptvDetailAction
     data object WatchLive : IptvDetailAction
 
+    /** fork:live-tv-departure - tell me when [entry] starts; or [Switch] to the channel by itself; or take the reminder away. */
+    data class Remind(val entry: IptvEpgEntry) : IptvDetailAction
+    data class Switch(val entry: IptvEpgEntry) : IptvDetailAction
+    data class CancelReminder(val reminder: IptvReminder) : IptvDetailAction
+
     /** A programme that has finished, still in the provider's recordings. */
     data class Earlier(val entry: IptvEpgEntry) : IptvDetailAction
 }
@@ -94,8 +101,23 @@ internal fun iptvGuideEntries(playlist: IptvPlaylist, channel: IptvMergedChannel
 /** How many finished programmes the page offers, newest first. */
 private const val EARLIER_SHOWN = 5
 
-internal fun iptvDetailActions(playlist: IptvPlaylist, detail: IptvWallDetail, now: Long): List<IptvDetailAction> = buildList {
+internal fun iptvDetailActions(
+    playlist: IptvPlaylist,
+    detail: IptvWallDetail,
+    now: Long,
+    /** fork:live-tv-departure - null with the switch off. */
+    reminders: List<IptvReminder>? = null,
+): List<IptvDetailAction> = buildList {
     val entry = detail.entry
+    if (reminders != null && entry != null && entry.startMs > now) {
+        val set = IptvReminderRules.find(reminders, playlist.id, detail.channel, entry.startMs)
+        if (set != null) {
+            add(IptvDetailAction.CancelReminder(set))
+        } else {
+            add(IptvDetailAction.Remind(entry))
+            add(IptvDetailAction.Switch(entry))
+        }
+    }
     if (entry != null && IptvCatchup.available(playlist, detail.channel, entry, now)) add(IptvDetailAction.StartOver(entry))
     add(IptvDetailAction.WatchLive)
     val source = IptvCatchup.source(playlist, detail.channel) ?: return@buildList
@@ -130,7 +152,14 @@ internal fun buildIptvWall(
     // What is usually on at this hour, then the starred channels, then the last ones watched.
     val likely = IptvUsuals.rank(settings.plays.filter { it.ref.startsWith(prefix) }, now) + settings.favourites + settings.recents
     val usuals = likely.asSequence().mapNotNull { byRef[it] }.distinctBy { it.primary.uid }.take(8).toList()
-    return IptvWall.build(channels, matches, usuals, now)
+    // fork:live-tv-departure - the board looks at the lineup's channels when there is one, else at every channel.
+    val soon = if (settings.departure) {
+        val lineupKeys = settings.lineup[playlist.id]?.toHashSet()?.takeIf { settings.lineupOn && it.isNotEmpty() }
+        IptvDeparture.buckets(channels, now, only = lineupKeys?.let { keys -> { channel: IptvMergedChannel -> channel.sources.any { it.key in keys } } })
+    } else {
+        emptyList()
+    }
+    return IptvWall.build(channels, matches, usuals, now, soon)
 }
 
 /**
@@ -152,6 +181,7 @@ internal fun rememberIptvWall(
     val model = produceState<IptvWallModel?>(
         null,
         playlist.id, merged, guideVersion, tick, matches, settings.plays.size, settings.favourites, settings.recents, shownCategories,
+        settings.departure, settings.lineup[playlist.id],
     ) {
         value = if (content == null || merged == null) {
             null
@@ -421,7 +451,9 @@ private fun SportProgrammeTile(programme: IptvWallProgramme, now: Long) {
         modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 11.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        TileTopLine(programme.channel.primary.name, if (onNow) "On now" else formatTime(entry.startMs), live = false)
+        // fork:live-tv-departure - inside the hour a coming programme says how long it is to the start.
+        val soonText = if (!onNow && entry.startMs - now <= 60 * 60_000L) IptvDeparture.countdown(entry.startMs - now) else null
+        TileTopLine(programme.channel.primary.name, if (onNow) "On now" else soonText ?: formatTime(entry.startMs), live = false)
         Text(
             text = entry.title,
             style = MaterialTheme.typography.bodyLarge,
@@ -726,6 +758,30 @@ internal fun IptvProgrammeDetail(
                             icon = Icons.Rounded.Replay,
                             label = "Start from the beginning",
                             note = formatTime(action.entry.startMs),
+                            accent = true,
+                            focused = focused,
+                            onClick = { onAction(action) },
+                        )
+                        is IptvDetailAction.Remind -> DetailActionRow(
+                            icon = Icons.Rounded.Notifications,
+                            label = "Remind me when it starts",
+                            note = "a card ${IptvReminderRules.LEAD_MS / 60_000L} min before ${formatTime(action.entry.startMs)}",
+                            accent = true,
+                            focused = focused,
+                            onClick = { onAction(action) },
+                        )
+                        is IptvDetailAction.Switch -> DetailActionRow(
+                            icon = Icons.Rounded.PlayArrow,
+                            label = "Switch to it at ${formatTime(action.entry.startMs)}",
+                            note = "Nuvio puts the channel on by itself",
+                            accent = false,
+                            focused = focused,
+                            onClick = { onAction(action) },
+                        )
+                        is IptvDetailAction.CancelReminder -> DetailActionRow(
+                            icon = Icons.Rounded.NotificationsOff,
+                            label = "Cancel the ${if (action.reminder.autoSwitch) "switch" else "reminder"} for ${formatTime(action.reminder.startMs)}",
+                            note = if (action.reminder.autoSwitch) "set to switch by itself" else "set to remind you",
                             accent = true,
                             focused = focused,
                             onClick = { onAction(action) },
