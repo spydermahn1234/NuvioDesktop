@@ -1,0 +1,106 @@
+name: Claude branch check
+
+# Branch-only: compiles the app and runs the Live TV tests for a claude/** branch, without publishing anything.
+# Not meant for Spyder; the commit that adds this file is dropped before the branch is merged.
+on:
+  push:
+    branches: ['claude/**']
+
+concurrency:
+  group: claude-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # services.gradle.org occasionally drops the TLS handshake on hosted runners.
+      # Download the wrapper distribution up front with retries so a blip doesn't fail the job.
+      - name: Warm up Gradle wrapper (retry)
+        shell: pwsh
+        # services.gradle.org hands the zip on to GitHub's release servers, which time out (504) at times. A mirror is tried
+        # too, alternating with the official address. Safe because gradle-wrapper.properties pins distributionSha256Sum: the
+        # wrapper refuses any download that is not byte for byte the official Gradle zip. Only this checkout's copy of the
+        # properties is rewritten; nothing is committed.
+        run: |
+          $props = 'gradle/wrapper/gradle-wrapper.properties'
+          if (-not (Select-String -Path $props -Pattern '^distributionSha256Sum=[0-9a-f]{64}$' -Quiet)) { throw "distributionSha256Sum must be pinned before a mirror is used" }
+          $official = (Select-String -Path $props -Pattern '^distributionUrl=(.*)$').Matches[0].Groups[1].Value
+          $zip = [regex]::Match($official, 'gradle-[0-9.]+-bin\.zip').Value
+          $sources = @($official, "https\://mirrors.cloud.tencent.com/gradle/$zip")
+          $ok = $false
+          foreach ($i in 1..6) {
+            $url = $sources[($i - 1) % $sources.Count]
+            (Get-Content $props) -replace '^distributionUrl=.*$', "distributionUrl=$url" | Set-Content $props
+            Write-Host "Gradle from $url"
+            ./gradlew.bat --version
+            if ($LASTEXITCODE -eq 0) { $ok = $true; break }
+            Write-Host "Gradle wrapper download failed (attempt $i/6); retrying in $($i * 5)s"
+            Start-Sleep -Seconds ($i * 5)
+          }
+          if (-not $ok) { throw "Could not download the Gradle wrapper after 6 attempts" }
+
+      # libmpv + ffmpeg DLLs. The build auto-detects C:/msys64/ucrt64/bin, which the
+      # runner image already has; we only need to install mpv into it.
+      - name: Install libmpv (MSYS2)
+        shell: pwsh
+        run: |
+          C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm"
+          # gcc compiles the patched libquickjs.dll (buildWindowsQuickJs); mpv does not pull it in.
+          C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-mpv mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-binutils"
+          if (-not (Test-Path C:\msys64\ucrt64\bin\libmpv-2.dll)) { throw "libmpv-2.dll missing after install" }
+          if (-not (Test-Path C:\msys64\ucrt64\bin\gcc.exe)) { throw "gcc.exe missing after install" }
+
+      # WebView2 SDK headers + loader, needed to compile player_bridge.dll.
+      - name: Fetch WebView2 SDK
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force C:\libs | Out-Null
+          Invoke-WebRequest https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2 -OutFile C:\libs\webview2.zip
+          Expand-Archive C:\libs\webview2.zip -DestinationPath C:\libs\webview2 -Force
+          if (-not (Test-Path C:\libs\webview2\build\native\include\WebView2.h)) { throw "WebView2.h missing" }
+
+      # --no-configuration-cache -I .github/mirror.init.gradle on every Gradle step here: storing the configuration cache fails now and then on CI
+      # ("Configuration cache state could not be cached", a Kotlin classpath snapshot provider), failing the build before
+      # anything compiles. Each run configures from scratch anyway, so CI loses nothing by not storing it. Local builds keep it.
+      - name: Compile and run the Live TV tests
+        shell: pwsh
+        env:
+          WIX_PATH: ${{ runner.temp }}\wix-unused
+        run: >
+          New-Item -ItemType Directory -Force $env:WIX_PATH | Out-Null;
+          ./gradlew.bat :composeApp:desktopTest --continue --no-configuration-cache "-Pcompose.desktop.application.downloadWix=false" -I .github/mirror.init.gradle
+          --tests "com.nuvio.app.features.iptv.*"
+          --tests "com.nuvio.app.features.livescores.*"
+          --tests "com.nuvio.app.features.settings.*Search*"
+          --tests "com.nuvio.app.features.settings.IptvSettingsPageTest"
+          "-Pnuvio.innertubex=true"
+          "-Pnuvio.webview2.dir=C:/libs/webview2"
+          "-Pnuvio.windows.libmpv.runtimeDir=C:/msys64/ucrt64/bin"
+          "-Pnuvio.windows.allowWhisperAvfilter=true"
+          "-Pnuvio.windows.bundleFullRuntime=true"
+          "-Pnuvio.engine.optional=true"
+
+      - name: Upload screenshots and test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-check
+          if-no-files-found: ignore
+          path: |
+            composeApp/build/test-screenshots/
+            composeApp/build/reports/tests/desktopTest/
+            composeApp/build/test-results/desktopTest/
