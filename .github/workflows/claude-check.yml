@@ -95,6 +95,14 @@ jobs:
           "-Pnuvio.windows.bundleFullRuntime=true"
           "-Pnuvio.engine.optional=true"
 
+      - name: Failed tests (messages)
+        if: failure()
+        shell: pwsh
+        run: |
+          Get-ChildItem composeApp/build/test-results/desktopTest/*.xml -ErrorAction SilentlyContinue |
+            Select-String -Pattern '<(failure|error) message="[^"]{0,600}' |
+            ForEach-Object { Write-Host "$($_.Filename): $($_.Matches.Value)" }
+
       - name: Upload screenshots and test reports
         if: always()
         uses: actions/upload-artifact@v4

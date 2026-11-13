@@ -8,6 +8,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -47,6 +48,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -161,7 +164,12 @@ internal fun IptvTriageScreen(
             TriageTile(channel.primary.uid.toString(), name, null, null, channel.primary.uid in chosen)
         }
     }
-    val columns = if (step == 2) 5 else 3
+    // As many columns as fit, so a narrow window gets fewer, wider tiles instead of cut-off names.
+    var gridWidth by remember { mutableStateOf(0.dp) }
+    val density = LocalDensity.current
+    val mostColumns = if (step == 2) 5 else 3
+    val narrowestTile = if (step == 2) 150.dp else 180.dp
+    val columns = if (gridWidth == 0.dp) mostColumns else (gridWidth / narrowestTile).toInt().coerceIn(1, mostColumns)
 
     fun toggle(tile: TriageTile) {
         when (step) {
@@ -305,8 +313,11 @@ internal fun IptvTriageScreen(
         )
         Text(text = under, style = MaterialTheme.typography.bodySmall, color = tokens.colors.textMuted, maxLines = 1)
         Spacer(Modifier.height(12.dp))
-        Row(modifier = Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            TriagePanel("So far", null, Modifier.width(TriageSidePanel).fillMaxHeight()) {
+        BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
+          // The side panels are always a pair: the same width, narrower on a narrow window.
+          val side = (maxWidth * 0.24f).coerceIn(200.dp, TriageSidePanel)
+          Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            TriagePanel("So far", null, Modifier.width(side).fillMaxHeight()) {
                 val regionNames = regionOptions.filter { it.id in regions }.map { iptvRegionName(it.id) }
                 val kindNames = kindOptions.filter { it.id in liveKinds }.map { IptvChannelKind.byName(it.id)?.label ?: it.id }
                 TriageStepLine("Countries", listed(regionNames), current = step == 0, done = step > 0)
@@ -329,7 +340,7 @@ internal fun IptvTriageScreen(
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(columns),
                     state = gridState,
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    modifier = Modifier.weight(1f).fillMaxWidth().onSizeChanged { gridWidth = with(density) { it.width.toDp() } },
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -356,7 +367,7 @@ internal fun IptvTriageScreen(
                     }
                 }
             }
-            TriagePanel("What is left", null, Modifier.width(TriageSidePanel).fillMaxHeight()) {
+            TriagePanel("What is left", null, Modifier.width(side).fillMaxHeight()) {
                 Text(
                     text = count(left),
                     modifier = Modifier.fillMaxWidth(),
@@ -391,6 +402,7 @@ internal fun IptvTriageScreen(
                     color = tokens.colors.textMuted,
                 )
             }
+          }
         }
     }
 }
