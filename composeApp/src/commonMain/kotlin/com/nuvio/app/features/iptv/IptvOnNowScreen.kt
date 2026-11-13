@@ -115,9 +115,12 @@ internal fun buildIptvWall(
     settings: IptvSettings,
     matches: List<LiveMatch>,
     now: Long,
+    /** fork:live-tv-triage - the categories the triage kept; null = all. The viewer's own channels are never left out. */
+    shownCategories: Set<String>? = null,
 ): IptvWallModel {
     val categoryNames = content.categoryNames
     val channels = merged.mapNotNull { channel ->
+        if (shownCategories != null && channel.sources.none { it.categoryId in shownCategories }) return@mapNotNull null
         val around = iptvGuideEntries(playlist, channel).filter { it.endMs > now - 5 * 60_000L && it.startMs < now + 12 * 3_600_000L }
         if (around.isEmpty()) null else IptvChannelNow(channel, around, categoryNames[channel.primary.categoryId].orEmpty())
     }
@@ -142,17 +145,18 @@ internal fun rememberIptvWall(
     settings: IptvSettings,
     now: Long,
     guideVersion: Int,
+    shownCategories: Set<String>? = null,
 ): IptvWallModel? {
     val matches by LiveScoreEngine.followed.collectAsStateWithLifecycle()
     val tick = now / 120_000L
     val model = produceState<IptvWallModel?>(
         null,
-        playlist.id, merged, guideVersion, tick, matches, settings.plays.size, settings.favourites, settings.recents,
+        playlist.id, merged, guideVersion, tick, matches, settings.plays.size, settings.favourites, settings.recents, shownCategories,
     ) {
         value = if (content == null || merged == null) {
             null
         } else {
-            withContext(Dispatchers.Default) { buildIptvWall(playlist, content, merged, settings, matches, System.currentTimeMillis()) }
+            withContext(Dispatchers.Default) { buildIptvWall(playlist, content, merged, settings, matches, System.currentTimeMillis(), shownCategories) }
         }
     }
     return model.value
@@ -318,7 +322,7 @@ private fun LiveDot() {
 }
 
 @Composable
-private fun ProgressLine(progress: Float, height: Dp = 3.dp) {
+internal fun ProgressLine(progress: Float, height: Dp = 3.dp) {
     val tokens = MaterialTheme.nuvio
     LinearProgressIndicator(
         progress = { progress },

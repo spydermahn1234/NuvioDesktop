@@ -1,6 +1,7 @@
 # Live TV: less to choose
 
-Brainstormed and mocked up with Nick on Nov 13, 2026. **Not built.** Nick will do this phase later and asked for
+Brainstormed and mocked up with Nick on Nov 13, 2026. **Only the triage (screen 1) is built** (Nov 13, see its entry
+below); the rest is not. Nick will do this phase later and asked for
 everything to be kept: the ideas, the mockups and how to build them. Nothing here has been decided beyond "keep it";
 the build order below is a recommendation, and the first job of the session that picks this up is to ask Nick which
 screens go in.
@@ -61,7 +62,12 @@ Each entry: what it is, the rules, and what it needs.
 
 ### Shrink the 12,000
 
-**1. Triage, once.** Four questions, one per screen: countries, languages, kinds of channel, then "your first ten".
+**1. Triage, once. BUILT Nov 13** as three questions (countries, kinds, your first ten) behind a Triage button in the
+Live TV header: `IptvTriage.kt`, `IptvTriageScreen.kt`, `IptvSettings.triage`. There is no language question (the
+playlist has no language data; the country does the job), "your first ten" stars favourites until the lineup exists,
+and the player's channel switcher is not narrowed yet. What follows is the original plan.
+
+Four questions, one per screen: countries, languages, kinds of channel, then "your first ten".
 A counter shows what is left ("1,280 of 12,014"). Nothing is deleted; everything stays in search; it can be redone
 from Settings.
 - Needs: region and language per channel. Regions exist (`IptvRegions.categoryRegions`, from category prefixes).

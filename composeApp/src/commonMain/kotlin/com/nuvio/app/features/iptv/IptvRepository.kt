@@ -50,6 +50,8 @@ data class IptvSettings(
     val onNow: Boolean = false,
     /** fork:live-tv-on-now - when each channel was put on, newest last, for "Your channels" ([IptvUsuals]). */
     val plays: List<IptvPlay> = emptyList(),
+    /** fork:live-tv-triage - by playlist id: the countries and kinds its triage kept. No entry = everything shows. */
+    val triage: Map<String, IptvTriage> = emptyMap(),
 ) {
     /** Whether the Live TV entry belongs in the navigation. */
     val tabShown: Boolean
@@ -199,6 +201,8 @@ object IptvRepository {
                 playlists = s.playlists.filterNot { it.id == id },
                 favourites = s.favourites.filterNot { it.startsWith(prefix) },
                 recents = s.recents.filterNot { it.startsWith(prefix) },
+                plays = s.plays.filterNot { it.ref.startsWith(prefix) },
+                triage = s.triage - id,
             )
         }
         contentStates.remove(id)
@@ -252,6 +256,12 @@ object IptvRepository {
                 plays = (s.plays + IptvPlay(ref, System.currentTimeMillis())).takeLast(IptvUsuals.MAX_PLAYS),
             )
         }
+    }
+
+    /** fork:live-tv-triage - saves [playlistId]'s triage; null shows everything again. */
+    fun setTriage(playlistId: String, triage: IptvTriage?) {
+        ensureLoaded()
+        mutate { s -> s.copy(triage = if (triage == null) s.triage - playlistId else s.triage + (playlistId to triage)) }
     }
 
     /** fork:live-tv-on-now */
