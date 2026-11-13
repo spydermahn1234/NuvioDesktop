@@ -1,5 +1,9 @@
 package com.nuvio.app.features.music
 
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import com.nuvio.app.features.player.AppShortcutAction
+import com.nuvio.app.features.player.appShortcutMatches
+import com.nuvio.app.core.ui.requestFocusLogged
 import com.nuvio.app.core.ui.collectIsKeyboardFocusedAsState
 import com.nuvio.app.core.ui.KeyboardInputMode
 import com.nuvio.app.core.ui.smoothBorder
@@ -458,7 +462,7 @@ internal fun qualityTag(state: MusicPlayerState): String? =
     state.track?.videoId?.let(com.nuvio.app.features.music.nebula.NebulaMusicSource::qualityOf)
         ?.takeUnless { state.mode == MusicPlayMode.Video && !state.lyricVideo }
 
-/** [withQuality] false leaves the quality tag out, for a player that shows it as a pill of its own. */
+/** [withQuality] false leaves the quality tag out, for a player that shows it as a pill of its own. (fork: upstream dropped the tag; kept here.) */
 internal fun subtitle(state: MusicPlayerState, withQuality: Boolean = true): String {
     val artist = (state.track?.artists?.takeIf { it.isNotEmpty() } ?: state.album?.artists.orEmpty())
         .joinToString(", ") { it.name }
@@ -572,7 +576,8 @@ internal fun MorePanel(
         properties = PopupProperties(focusable = true),
     ) {
         // The popup has its own composition, so the focus request has to run in here, once the first row exists.
-        LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+        LaunchedEffect(Unit) { first.requestFocusLogged() }
+        com.nuvio.app.core.ui.KeyRouteLayer("music player panel")
         val shape = RoundedCornerShape(24.dp)
         Column(
             modifier = Modifier
@@ -582,6 +587,15 @@ internal fun MorePanel(
                 .background(NuvioGlass.night(colors.background, colors.accent))
                 .ditheredBackground(NuvioGlass.Fill, shape)
                 .border(BorderStroke(1.dp, NuvioGlass.EdgeColor), shape)
+                // Back closes the panel: Escape, Backspace or the Back shortcut (a pad's B, which is not Escape while
+                // browsing). The popup holds the keyboard, so without this B did nothing and the panel stayed up.
+                .onPreviewKeyEvent { event ->
+                    val back = event.key == Key.Escape || event.key == Key.Backspace ||
+                        appShortcutMatches(AppShortcutAction.GoBack, event)
+                    if (!back) return@onPreviewKeyEvent false
+                    if (event.type == KeyEventType.KeyDown) onDismiss()
+                    true
+                }
                 .padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
@@ -724,6 +738,9 @@ internal fun SeekBar(
     fill: Color? = null,
 ) {
     val colors = MaterialTheme.nuvio.colors
+    // The pointer handlers below are set up once (keyed on [enabled] only), so they read the latest [onSeek] through this:
+    // the caller's lambda holds the song's length, and a stale one seeked a new song by the old song's length.
+    val seekNow by androidx.compose.runtime.rememberUpdatedState(onSeek)
     var hover by remember { mutableStateOf<Float?>(null) }
     var widthPx by remember { mutableIntStateOf(0) }
     // While dragging, follow the finger rather than the (older) playback position.
@@ -759,7 +776,7 @@ internal fun SeekBar(
             }
             .pointerInput(enabled) {
                 if (!enabled) return@pointerInput
-                detectTapGestures { offset -> onSeek((offset.x / size.width).coerceIn(0f, 1f)) }
+                detectTapGestures { offset -> seekNow((offset.x / size.width).coerceIn(0f, 1f)) }
             }
             .pointerInput(enabled) {
                 if (!enabled) return@pointerInput
@@ -774,7 +791,7 @@ internal fun SeekBar(
                         dragging = last
                     },
                     onDragEnd = {
-                        onSeek(last)
+                        seekNow(last)
                         dragging = null
                     },
                     onDragCancel = { dragging = null },

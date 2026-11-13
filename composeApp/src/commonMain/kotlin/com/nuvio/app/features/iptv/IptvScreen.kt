@@ -1,5 +1,7 @@
 package com.nuvio.app.features.iptv
 
+import com.nuvio.app.core.ui.keyLayer
+import com.nuvio.app.core.ui.requestFocusLogged
 import com.nuvio.app.core.ui.smoothBorder
 import com.nuvio.app.core.ui.NuvioGlass
 import com.nuvio.app.core.ui.ditheredBackground
@@ -183,13 +185,23 @@ fun IptvScreen(
     // fork:live-tv-on-now - with On Now on, the tab opens on the wall instead of the channel list.
     val onNow = settings.onNow
     var section by rememberSaveable(playlist.id, onNow) { mutableStateOf(if (onNow) IptvWall.ON_NOW else IptvSection.ALL) }
-    var filter by rememberSaveable(playlist.id) { mutableStateOf("") }
+    // fork:navbar-search - shared with the app bar's Search, which on this tab filters the channels.
+    var filter by IptvTopBarSearch::text
+    LaunchedEffect(playlist.id) { if (IptvTopBarSearch.playlistId != playlist.id) IptvTopBarSearch.text = "" ; IptvTopBarSearch.playlistId = playlist.id }
     var searchOpen by rememberSaveable(playlist.id) { mutableStateOf(false) }
     var region by rememberSaveable(playlist.id) { mutableStateOf<String?>(null) }
     var regionsOpen by rememberSaveable(playlist.id) { mutableStateOf(false) }
     var guideView by rememberSaveable { mutableStateOf(false) }
 
     val content = state.content
+    // fork:navbar-search - the channels whose names hold what is typed (those that start with it first), offered by the
+    // on-screen keyboard above its keys.
+    // The same list the top bar's search panel shows (SearchPredictions.kt).
+    val channelWords = remember(filter, content) {
+        com.nuvio.app.features.search.channelPredictions(filter, content?.channels.orEmpty().asSequence().map { it.name })
+            .take(com.nuvio.app.core.ui.MAX_KEYBOARD_SUGGESTIONS)
+    }
+    com.nuvio.app.core.ui.PublishKeyboardSuggestions(channelWords) { picked -> filter = picked }
     val categoryRegions = remember(content) { content?.let(IptvRegions::categoryRegions).orEmpty() }
     val regions = remember(categoryRegions) { IptvRegions.regions(categoryRegions) }
     if (region != null && region !in regions) region = null
@@ -305,12 +317,12 @@ fun IptvScreen(
         // on the first frame.
         if (triageOpen) return@LaunchedEffect
         repeat(10) {
-            if (runCatching { screenFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+            if (screenFocus.requestFocusLogged()) return@LaunchedEffect
             delay(48)
         }
     }
     LaunchedEffect(focusSearchRequests) {
-        if (focusSearchRequests > 0) runCatching { searchFocus.requestFocus() }
+        if (focusSearchRequests > 0) searchFocus.requestFocusLogged()
     }
 
     val sidebarState = rememberLazyListState()
@@ -391,7 +403,7 @@ fun IptvScreen(
     fun closeSearch() {
         filter = ""
         searchOpen = false
-        runCatching { screenFocus.requestFocus() }
+        screenFocus.requestFocusLogged()
     }
 
     fun activateHeader(action: IptvHeaderAction) {
@@ -539,6 +551,8 @@ fun IptvScreen(
             .fillMaxSize()
             // The settings sky and glass, so Live TV reads as part of the same app as Settings.
             .settingsSkyBackground(tokens.colors.background, tokens.colors.accent)
+            // Focus router fallback (KeyLayers): an arrow or OK that went to no one puts focus back here.
+            .keyLayer("Live TV") { screenFocus.requestFocusLogged() }
             .focusRequester(screenFocus)
             .focusable()
             .onGloballyPositioned { rootOrigin = it.positionInWindow() }
@@ -546,7 +560,7 @@ fun IptvScreen(
                 keyboardActive = false
                 // A press in the filter box is the box's own; anywhere else takes the keys back.
                 val at = event.changes.first().position + rootOrigin
-                if (searchBounds?.contains(at) != true) runCatching { screenFocus.requestFocus() }
+                if (searchBounds?.contains(at) != true) screenFocus.requestFocusLogged()
             }
             .onPreviewKeyEvent { event ->
                 if (detail != null && !searchFocused && event.key in IptvBackKeys) {
@@ -570,7 +584,7 @@ fun IptvScreen(
                             keyboardActive = true
                             zone = if (hasContent) IptvZone.Channels else IptvZone.Sidebar
                             if (filter.isEmpty()) searchOpen = false
-                            runCatching { screenFocus.requestFocus() }
+                            screenFocus.requestFocusLogged()
                             true
                         }
                         else -> false
@@ -907,7 +921,7 @@ private fun IptvHeader(
                         trailingContent = {
                             com.nuvio.app.core.ui.VoiceSearchButton(
                                 owner = "iptv-filter",
-                                focusField = { runCatching { searchFocus.requestFocus() } },
+                                focusField = { searchFocus.requestFocusLogged() },
                                 tint = tokens.colors.textMuted,
                                 size = 26.dp,
                                 iconSize = 18.dp,
@@ -1320,3 +1334,9 @@ internal fun Modifier.iptvGlass(
         shape,
     )
     .border(1.dp, NuvioGlass.Edge, shape)
+
+/** fork:navbar-search - the Live TV channel filter, typed in the tab's own box or the app bar's Search on this tab. */
+object IptvTopBarSearch {
+    var text by mutableStateOf("")
+    internal var playlistId: String? = null
+}

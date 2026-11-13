@@ -672,7 +672,7 @@ private fun HomeTabs(libraryTab: LibraryView?, onSelect: (LibraryView?) -> Unit)
 }
 
 private val HOME_VIEW_ICONS: List<Triple<LibraryView, ImageVector, String>> = listOf(
-    Triple(LibraryView.Shelf, Icons.Rounded.ViewModule, "Library shelf"),
+    Triple(LibraryView.Crates, Icons.Rounded.ViewModule, "Library shelf"),
     Triple(LibraryView.Playlists, Icons.Rounded.QueueMusic, "Playlists"),
 )
 

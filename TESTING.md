@@ -410,10 +410,49 @@ Turn it on in Settings > Random Play > Tonight picker > "Open on Tonight".
 
 - [ ] A "What to watch" button (sparkle icon) sits beside Search in the top bar and the sidebar; it opens the Tonight launcher over Home, Library or Discover (from Music or Live TV it goes to Home first)
 - [ ] Every Tonight screen has an ✕ in the top-right corner; clicking it closes Tonight and the rows behind come straight back
+  - Nov 12: the ✕ is gone (user: "Just browse everything" is the way out); nothing to check here now
 - [ ] Back on the launcher closes Tonight (Back inside a mode still steps back first)
 - [ ] With "Open on Tonight" off, Nuvio opens on Home; with it on, Nuvio opens on Tonight once at start, and after closing it stays closed until the button is pressed
 - [ ] The button can be moved in Settings > Appearance > Navigation order ("What to watch")
 - [ ] Phone remote: a "What to watch?" button above the pad on the Remote tab opens Tonight on the TV, and the phone switches to the Tonight mirror
+
+### Tonight picker: the launcher redesign with backdrops (Nov 12)
+
+- [ ] Each of the eight launcher tiles shows a film or show backdrop, no icons, with the mode's name, its line and an arrow at the bottom left and LAST TIME at the top left; the eight backdrops are all different titles
+- [ ] The backdrops fit the mode: The Pile shows something in your library you have never started, Ends By something that ends before bed
+- [ ] The chosen tile glows all round (no bright border) in its own backdrop's colour: a green backdrop glows green; the glow fades as you move between tiles and lies over the gaps, not under the next tile
+- [ ] The screen behind is a colour wash (no picture) of the chosen tile's backdrop colours, easing from one to the next; the header text stays readable over any colour; nothing on the screen moves or changes size
+- [ ] Tonight fills the whole screen from the very top (no strip left empty for the top bar), and there is no ✕ on any Tonight screen
+- [ ] The header reads "How shall we choose tonight?" ("tonight?" tinted) over "A little inspiration goes a long way.", with the day and time above it
+- [ ] Before the titles have loaded (first open after start) the tiles are plain glass and fill in with backdrops when they arrive
+- [ ] Under the key hint is a thin separator, and "Just browse everything →" (a rounded pill) sits straight beneath it rather than at the foot of the screen; Down from the tiles reaches it and OK closes Tonight
+- [ ] The tiles' rounded corners are smooth, not stair-stepped, on every tile (with and without a picture)
+
+### Tonight picker: the modes redesigned (Nov 12)
+
+Every mode below has a "← Back" button in a strip under its content (hint line, separator, buttons), as the launcher does.
+
+- [ ] Three Questions: the background is a colour wash; hovering an answer glows it in its colour (amber left, teal right) and shifts the wash toward what that answer would leave
+- [ ] Three Questions: the two answer boxes mirror each other: "◀ LEFT" top left and "RIGHT ▶" top right, the left box's answer right-aligned and the right box's left-aligned; "Exciting" fits in its box
+- [ ] Three Cards: the cards sit higher, the chosen card glows in its poster's colour (no accent border) and the background takes its colours
+- [ ] Three Cards: Back, Its page and Reshuffle sit in a row under the cards; Down from a card reaches them (on Its page), Left/Right move along them, Up goes back to the card, OK presses one
+- [ ] Knockout: the bracket on the left is small posters, eight down the first column, then four, two and the winner; the pair in play glows, losers fade back, unplayed slots are empty glass
+- [ ] Knockout: the background mixes the two posters' colours; hovering a poster glows it; Undo last pick and Taste each work from the buttons
+- [ ] Ends By: the rows fill the page down to the buttons (more than six on a big screen), the mouse wheel moves up and down the list, and the last hour label and BED are never cut off at the right
+- [ ] Ends By: the chosen row glows in its title's colour and the background takes its colours; Bed earlier / Bed later / Play it buttons work
+- [ ] Channel Flick: a "← Back" button sits at the left of the buttons and returns to the launcher
+- [ ] Coin Toss: the poster and its panel are centred as one block, the poster glows, the background takes its colours, and the buttons (with Back) are in the strip below
+- [ ] The Pile: a centred 3 x 3 grid of posters, each with its name and how long it has waited underneath; arrows and the wheel move (a row at a time with the wheel); the chosen poster glows and the background takes its colours
+- [ ] Three Cards: the chosen card's glow hugs its rounded corners, with no faint square line round the poster at the corners
+- [ ] Three Cards: SAFE / NEW TO YOU / WILD CARD are headings above each poster (brighter on the chosen one), not printed on the picture; the row of cards and the buttons below do not move
+- [ ] Knockout: the bracket's posters have no glow; the pair in play has a thin edge in its own colour instead, and neighbouring posters never overlap
+- [ ] Three Cards: moving from one card to the next, the old card's bloom fades all round, with no green or blue arcs left at its corners
+- [ ] Three Cards: the button under the cards reads "Detail page" (Coin Toss's hint says "▼ opens the detail page")
+- [ ] Knockout: the heading and its line sit where Three Cards' do, the two posters and "vs" are centred on the screen at the same height as Three Cards' cards, the buttons sit straight under them, and the bracket fills the left without touching the posters
+- [ ] Settings > Random Play > Tonight picker: "Cards pick from the top" slides from 1 to 20 (5 to start); at 1 the same three cards come up every visit, at 15 or more they change from night to night
+- [ ] Settings > Random Play > Tonight picker: turning on "Add Top picks for you", "Add Because you watched" and "Add More like your favourites" brings those Discover titles into Three Cards (a New to you card can say "Because you watched ..." or "A top pick for you"); all three are off to start
+- [ ] With a Discover source on, Channel Flick shows the Discover reason ("BECAUSE YOU WATCHED ...") over those titles; Settings search finds the new rows by "top picks" and "pick from"
+- [ ] The Pile: a small panel at the top right shows the chosen title's wait, name, length and genres; Down from the bottom row reaches Back / Finally watch it / Let it go, and Let it go needs pressing twice
 
 ### Tonight picker: Coin Toss and Knockout (phase 2, Nov 10)
 
@@ -512,3 +551,69 @@ Settings > Live TV > Live scores (off by default). Best tried while Man Utd or a
 - [ ] Turning the switch off stops all three (no node.exe or redis-server.exe left)
 - [ ] PC build (D:\NuvioBuild\build.cmd, Nov 11): after a build the setting no longer says "This build does not include the servers"; the first build after a bundle change also builds the bundle (10 to 20 minutes, "Local addons: bundle ready" in build.log), later ones say "Local addons: bundle up to date" and keep the servers
 
+## Upstream merge (Nov 13)
+
+Upstream's windows-tv-adaptive (8e2adb00) merged into Spyder. These check that what the fork kept still works and that what came in did not break it.
+
+- [ ] Nuvio starts, and Settings > About (or the update check) still looks at this fork's Nightly, not UmbraProjects'
+- [ ] Music tab with "New music home" on: the music home is still the first screen, typing searches as before, and its Library tab opens the three-panel Shelf
+- [ ] With the music home on, the Search key (S) and the top bar's Search on the Music tab put the cursor in the music home's own search line
+- [ ] A genre chip on the Stage still opens the Music tab searching that genre
+- [ ] Settings > Music still has "New album page", "New artist page" and "New music home", each as you left it; the album page and the artist page look as they did before the merge
+- [ ] Settings > Music has a new "Album notes and facts" switch, on: liner notes, song stories and the facts filler work as before
+- [ ] Settings > Music > Library views (new): Crates (the three-panel Shelf) and Playlists are on; Shelf (the old row-per-artist one), Constellation and Eras are off and do not show in the Library
+- [ ] The Stage looks as it did before the merge: three panels, nothing moves, the liner notes / visualiser box is there, the options menu has no "Side box" row
+- [ ] Stage options menu: the arrow keys stay inside the open menu (they do not jump to the page behind it)
+- [ ] The dock still shows the quality pill (FLAC) and the beat dot; the mini bar's line still ends with the quality
+- [ ] Release tiles still show the "Lossless" text pill (not upstream's icon)
+- [ ] Loud lyrics on the Stage: no row is cut off at the top or the foot (upstream's fit fix came in)
+- [ ] Music pages from the keyboard: after closing a menu or a dialog the arrows still move (upstream's focus router); Escape or B gets out of the dock and the player panel
+- [ ] Live TV with On Now on opens on the wall; the top bar's Search on the Live TV tab narrows the wall and the channel list; Triage still opens from the header
+- [ ] Tonight ("What to watch"): the launcher shows real backdrops and every mode has the new look; each mode still shows on the phone remote and a pick from the phone plays on the TV
+- [ ] Tonight: a trending title (one with a tmdb id) still opens its details page
+- [ ] Phone remote: connects as before; a live-score notification still arrives on the phone
+- [ ] R (or holding LB) brings up the panel ring; O opens Settings
+- [ ] Top bar Search on the YouTube tab searches YouTube
+
+## Top bar search predictions (from upstream, Nov 11)
+
+- [ ] Typing in the top bar's Search (films and shows): the panel under the box swaps the recent searches for predictions, recent searches that match first (clock icon), then TMDB titles (film icon), with the typed part in bold
+- [ ] Enter with nothing highlighted searches exactly what was typed
+- [ ] Down/Up walk the predictions and put each one in the box; Up from the top one gives back what was typed; Enter runs the one shown
+- [ ] Tab puts the top prediction in the box without searching; Tab again moves to the next and wraps round; Tab never jumps to Discover from the search box
+- [ ] Mouse: hovering a prediction lights it; clicking runs it; "Clear history" shows only under the recent searches (empty box)
+- [ ] Escape hides the panel first (and gives back the typed text if you were walking it); a second Escape leaves the search
+- [ ] The same panel works on the Music tab (music note, YouTube Music completions), YouTube tab (YouTube autocomplete) and Live TV (channel names)
+- [ ] The search box no longer has the Discover (compass) button; Tab outside search still opens Discover
+
+## Music search rows, seek bar and strings (from upstream, Nov 12)
+
+The "Music search" lines are upstream's search, which this fork shows only while Settings > Music > New music home is **off** (with it on, the music home searches as before). Upstream's album page, artist page and Stage changes of Nov 11-12 were not taken (see CHANGELOG, Upstream merge of Nov 13), so their checks are not listed here.
+
+- [ ] Seek bar (Stage, dock, mini player): a drag or click lands where you let go, also after the song has changed a few times
+- [ ] Music search waits for Enter, like the films and shows search: typing shows predictions only, the Library stays until Enter; a voice search or a genre chip on the Stage still searches straight away; clearing the box goes back to the Library
+- [ ] Music search hero (TV Mode / Adaptive): more results have a description, each its own: an artist shows their story (saved artist's, else TheAudioDB, else Wikipedia); an album or single its own (TheAudioDB, else its Wikipedia page); a song or video the song's own; none of them falls back to the artist's story
+- [ ] Music search hero: an artist result shows their name logo in the logo slot like a film's (when one exists); songs and albums keep artwork with the name under it
+- [ ] TV Mode hero on Home: the logo and description sit a little higher and the description's last lines are no longer hidden under the first shelf row
+- [ ] Album page: with a white or very bright cover, the left side stays dark enough that the left panel and its text read clearly
+- [ ] Settings > Music > Word-by-word lyrics: descriptions read "the song's title" with no backslashes (also the Gemini and Last.fm key descriptions)
+- [ ] Settings > Playback: the custom shader paths and custom mpv options hints show "e.g." and each example on its own line
+- [ ] The P2P consent text (first P2P stream) shows its paragraphs and bullet points on separate lines
+- [ ] French and the other languages: no stray backslash before apostrophes or quotes
+- [ ] Settings > Music > Music facts: the daily token limit is a dropdown (50k to 600k), like the app's other choices
+- [ ] Music search in TV Mode: the logo and description sit clearly higher above the shelf, and a long description shows up to about nine lines before it starts scrolling
+- [ ] TV Mode hero on Home is back where it was (the column a little lower, short synopses no longer look stranded); music search keeps its higher column
+- [ ] Music search hero, songs: several songs by one artist each get a different artist photo behind them (when the artist has more than one); a song with no artist photo gets a gradient of its cover's colours, not a small picture blown up
+- [ ] Music search hero, albums and singles: a large cover (1000 px or more) stands whole and uncropped at the right of the hero, full height, its left edge fading into a gradient of its own colours behind the text; a smaller cover gives the gradient alone
+- [ ] Music search hero, albums: when TheAudioDB has disc art, the disc peeks out to the right of the cover
+- [ ] Music search hero, facts line under the genres: a song shows e.g. "2013 · 128 BPM · No. 3 of CHVRCHES's most played · Explicit"; an album e.g. "20 Sep 2013 · Virgin · 12 tracks · 49 min · ★ 8.4"; a live or remix result is not given the studio version's facts
+- [ ] Music search hero, videos: the picture beside the name is the video's own large thumbnail
+- [ ] Music search: browse quickly through many results; descriptions, facts and photos keep filling in (no stretch where everything comes back empty); people-panel photos may fill in a little later when browsing fast
+- [ ] Music search hero, album gradients: brighter than before, still dark enough for the text
+- [ ] Music search hero, disc: shows for more than the first result: albums with "(Deluxe)" style titles, and songs (their album's disc), when TheAudioDB or fanart.tv has disc art
+- [ ] Music search guesses what you want: "Eminem" puts Artists first; "Eminem without me" puts Songs first with that song leading the row; "Eminem encore" puts Albums first with Encore leading; an ordinary search keeps the usual Songs, Albums, EPs, Singles, Artists, YouTube order
+- [ ] "Against the current gravity": the Gravity (The Acoustic Sessions Volume II) record shows in the EPs row (YouTube Music calls it a single) and EPs come first, ahead of the song Gravity; a release YouTube Music calls a single but your library (saved artist) knows as an EP is always in EPs
+- [ ] When an EP and a song (or single) share the search's title, EPs come first; an album of that name still beats them
+- [ ] Music search rows put well-known artists ahead of near-unknown uploads among equally good matches: "love is dead" shows CHVRCHES' album before Gofun's (7 fans); rows don't reshuffle after they appear (they may take up to about 1.5 s longer to show)
+- [ ] Music search: move quickly off an album before its details load, then come back: it fills in (description, genres, facts) instead of staying with the plain cover and no words (Kerli's Love Is Dead in "love is dead" was one)
+- [ ] Artwork that was half grey (Momento's Love Is Dead (Extended Mix) and the other song tiles in "love is dead") shows whole after its next load, in the row and in the hero; posters and other artwork across the app are no longer kept when a download is cut short
