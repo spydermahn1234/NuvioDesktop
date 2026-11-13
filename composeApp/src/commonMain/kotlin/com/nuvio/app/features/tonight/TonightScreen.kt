@@ -1330,13 +1330,3 @@ internal suspend fun tonightOpenableId(type: String, id: String): Pair<String, S
     }.getOrNull()
     return type to (imdb ?: id)
 }
-
-/** A title's id as the details page and the addons expect it: a `tmdb:` id becomes its IMDb id when TMDB knows one. */
-internal suspend fun tonightOpenableId(type: String, id: String): Pair<String, String> {
-    val tmdbId = id.takeIf { it.startsWith("tmdb:") }?.removePrefix("tmdb:")?.substringBefore(':')?.toIntOrNull()
-        ?: return type to id
-    val imdb = runCatching {
-        com.nuvio.app.features.tmdb.TmdbService.tmdbToImdb(tmdbId, if (type == "series") "tv" else "movie")
-    }.getOrNull()
-    return type to (imdb ?: id)
-}
