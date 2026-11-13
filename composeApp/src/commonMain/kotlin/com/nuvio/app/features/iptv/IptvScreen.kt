@@ -709,7 +709,7 @@ fun IptvScreen(
                 else -> IptvChannelList(
                     playlist = playlist,
                     channels = channels,
-                    isFavourite = ::isFavourite,
+                    isFavourite = { isFavourite(it) },
                     sourcesLabel = { channel -> mergedByUid[channel.uid]?.sourcesLabel() },
                     now = now,
                     guideVersion = guideVersion,
@@ -717,7 +717,7 @@ fun IptvScreen(
                     focusedIndex = if (keyboardActive && zone == IptvZone.Channels) channelIndex else -1,
                     starFocused = starFocused,
                     onPlay = { play(it) },
-                    onToggleFavourite = ::toggleFavourite,
+                    onToggleFavourite = { toggleFavourite(it) },
                 )
             }
         }

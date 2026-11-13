@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -99,7 +100,8 @@ private fun listed(names: List<String>, shown: Int = 3): String = when {
 /** One choice in the middle panel. [region] draws a flag. */
 private data class TriageTile(val id: String, val label: String, val note: String?, val region: String?, val on: Boolean)
 
-private data class TriageButton(val label: String, val enabled: Boolean = true, val accent: Boolean = false, val action: () -> Unit)
+/** Not a data class: two buttons with the same label are not the same button when their actions close over different answers. */
+private class TriageButton(val label: String, val enabled: Boolean = true, val accent: Boolean = false, val action: () -> Unit)
 
 /**
  * The triage for [playlist]. Saves on Done and calls [onClose]; Cancel and Back on the first question close without
@@ -183,6 +185,9 @@ internal fun IptvTriageScreen(
         }
     }
 
+    // By id, through the latest composition, for the same reason as the buttons below.
+    val latestToggle by rememberUpdatedState<(String) -> Unit> { id -> tiles.firstOrNull { it.id == id }?.let { toggle(it) } }
+
     fun finish() {
         IptvRepository.setTriage(playlist.id, IptvTriage(regions, liveKinds))
         candidates.forEach { channel ->
@@ -213,8 +218,12 @@ internal fun IptvTriageScreen(
             TriageButton("Back") { step = 0 },
             TriageButton("Next: your first ten", enabled = kept.isNotEmpty(), accent = true) { step = 2 },
         )
-        else -> listOf(TriageButton("Back") { step = 1 }, TriageButton("Done", accent = true, action = ::finish))
+        else -> listOf(TriageButton("Back") { step = 1 }, TriageButton("Done", accent = true) { finish() })
     }
+    // Clicks and Enter go through the buttons of the latest composition. A button view that Compose did not redraw
+    // would otherwise keep an action from before the last tick (Done once saved the first ten as they stood when the
+    // question opened).
+    val latestButtons by rememberUpdatedState(buttons)
 
     // The highlight: a tile of the question, or one of the buttons under it. Drawn once a key has been pressed.
     var keyboardActive by remember { mutableStateOf(false) }
@@ -259,7 +268,7 @@ internal fun IptvTriageScreen(
             Key.PageDown -> if (!onButtons) tileIndex = (tileIndex + columns * 4).coerceAtMost(tiles.lastIndex.coerceAtLeast(0))
             Key.PageUp -> if (!onButtons) tileIndex = (tileIndex - columns * 4).coerceAtLeast(0)
             Key.Enter, Key.NumPadEnter -> if (onButtons) {
-                buttons.getOrNull(buttonIndex)?.takeIf { it.enabled }?.action?.invoke()
+                latestButtons.getOrNull(buttonIndex)?.takeIf { it.enabled }?.action?.invoke()
             } else {
                 tiles.getOrNull(tileIndex)?.let(::toggle)
             }
@@ -352,7 +361,7 @@ internal fun IptvTriageScreen(
                                 keyboardActive = false
                                 tileIndex = index
                                 onButtons = false
-                                toggle(tile)
+                                latestToggle(tile.id)
                             },
                         )
                     }
@@ -360,9 +369,12 @@ internal fun IptvTriageScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     buttons.forEachIndexed { index, button ->
                         TriageButtonView(
-                            button = button,
+                            label = button.label,
+                            enabled = button.enabled,
+                            accent = button.accent && button.enabled,
                             focused = keyboardActive && onButtons && index == buttonIndex,
                             modifier = Modifier.weight(1f),
+                            onClick = { latestButtons.getOrNull(index)?.takeIf { it.enabled }?.action?.invoke() },
                         )
                     }
                 }
@@ -493,26 +505,25 @@ private fun TriageTileView(tile: TriageTile, focused: Boolean, onClick: () -> Un
 }
 
 @Composable
-private fun TriageButtonView(button: TriageButton, focused: Boolean, modifier: Modifier) {
+private fun TriageButtonView(label: String, enabled: Boolean, accent: Boolean, focused: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val tokens = MaterialTheme.nuvio
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val shape = NuvioGlass.Shape
-    val accent = button.accent && button.enabled
     Box(
         modifier = modifier
             .height(44.dp)
-            .alpha(if (button.enabled) 1f else 0.5f)
-            .iptvGlass(shape, raised = focused || (hovered && button.enabled), selected = accent && !hovered, selectedTint = tokens.colors.accent.copy(alpha = 0.42f))
+            .alpha(if (enabled) 1f else 0.5f)
+            .iptvGlass(shape, raised = focused || (hovered && enabled), selected = accent && !hovered, selectedTint = tokens.colors.accent.copy(alpha = 0.42f))
             .then(if (accent) Modifier.border(1.dp, tokens.colors.accent.copy(alpha = 0.85f), shape) else Modifier)
             // Clipped after the edge: a clip is not anti-aliased here and stair-steps an edge drawn inside it.
             .clip(shape)
             .then(if (focused) Modifier.smoothBorder(1.5.dp, tokens.colors.borderFocus, shape) else Modifier)
-            .clickable(interactionSource = interaction, indication = null, enabled = button.enabled, onClick = button.action),
+            .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = button.label,
+            text = label,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             color = tokens.colors.textPrimary,
