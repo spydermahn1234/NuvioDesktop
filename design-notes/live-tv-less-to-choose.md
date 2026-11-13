@@ -77,7 +77,7 @@ from Settings.
   radio, "24/7").
 - Store: `IptvTriage(regions, languages, kinds)` per playlist in `IptvSettings`.
 
-**2. Your 40.** The whole of Live TV as a numbered lineup of about 40 merged channels, like a television. Side panels
+**2. Your 40.** (BUILT Nov 13 as a sidebar section behind Settings > Live TV > Your 40: cap fixed at 40, numbers stay put until moved, menu on a "..." beside the star, Never again, typed numbers follow the lineup. Not built: overnight weeding, rebuild, the side panels of the mockup, the player banner's number.) The whole of Live TV as a numbered lineup of about 40 merged channels, like a television. Side panels
 show how it got there (triage, copies merged, what you watch, added by hand) and what is kept out (never again, dead,
 unwatched). OK watches; hold OK moves, renumbers or drops.
 - Rules: lineup = channels added by hand, then the most watched over 30 days (`IptvSettings.plays`), filled from the
