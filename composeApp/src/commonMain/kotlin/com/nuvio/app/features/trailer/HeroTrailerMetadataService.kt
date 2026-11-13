@@ -94,7 +94,7 @@ object HeroTrailerMetadataService {
             } else {
                 candidate?.let {
                     kotlinx.coroutines.withContext(com.nuvio.app.features.music.YouTubeCaller("hero trailer")) {
-                        TrailerPlaybackResolver.resolveTrailerFromYouTubeUrl(it.youtubePlaybackUrl()) // fork:trailer-signed-in.sourceOrNull()
+                        TrailerPlaybackResolver.resolveTrailerFromYouTubeUrl(it.youtubePlaybackUrl()).sourceOrNull() // fork:trailer-signed-in
                     }
                 }
             }
