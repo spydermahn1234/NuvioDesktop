@@ -261,7 +261,8 @@ fun IptvScreen(
     val recentLabel = stringResource(Res.string.iptv_category_recent)
     val allLabel = stringResource(Res.string.iptv_category_all)
     val soonOn = onNow && settings.departure
-    val sidebarItems = remember(playlists, content, region, categoryRegions, other, favouritesLabel, recentLabel, allLabel, onNow, soonOn, lineupOn, lineupChannels, merged, wall, keptCategories) {
+    val decideOn = onNow && settings.decide
+    val sidebarItems = remember(playlists, content, region, categoryRegions, other, favouritesLabel, recentLabel, allLabel, onNow, soonOn, decideOn, settings.minutes, settings.follows, lineupOn, lineupChannels, merged, wall, keptCategories) {
         buildList {
             if (playlists.size > 1) {
                 playlists.forEach { add(IptvSidebarItem("playlist:${it.id}", it.name.ifBlank { it.id.take(8) }, playlist = it)) }
@@ -273,6 +274,12 @@ fun IptvScreen(
                 add(IptvSidebarItem("section:${IptvWall.ON_NOW}", "On now", section = IptvWall.ON_NOW))
                 add(IptvSidebarItem("section:${IptvWall.SPORT}", "Sport", count = wall?.sport?.size?.takeIf { it > 0 }, section = IptvWall.SPORT))
                 add(IptvSidebarItem("section:${IptvWall.FILMS}", "Films", count = wall?.films?.size?.takeIf { it > 0 }, section = IptvWall.FILMS))
+                if (decideOn) {
+                    add(IptvSidebarItem("section:${IptvDecide.THREE}", "Three things", section = IptvDecide.THREE))
+                    add(IptvSidebarItem("section:${IptvDecide.MINUTES}", "I have ${settings.minutes} minutes", section = IptvDecide.MINUTES))
+                    add(IptvSidebarItem("section:${IptvDecide.EARLIER}", "Earlier today", section = IptvDecide.EARLIER))
+                    add(IptvSidebarItem("section:${IptvDecide.FOLLOWING}", "Following", count = settings.follows.size.takeIf { it > 0 }, section = IptvDecide.FOLLOWING))
+                }
                 if (soonOn) {
                     add(IptvSidebarItem("section:${IptvWall.SOON}", "Starting soon", count = wall?.soon?.sumOf { it.programmes.size }?.takeIf { it > 0 }, section = IptvWall.SOON))
                 }
@@ -343,8 +350,10 @@ fun IptvScreen(
     wallCol = wallCol.coerceIn(0, ((wallRows.getOrNull(wallRow)?.items?.size ?: 1) - 1).coerceAtLeast(0))
     var detail by remember(playlist.id, onNow) { mutableStateOf<IptvWallDetail?>(null) }
     var detailIndex by remember { mutableIntStateOf(0) }
-    val detailActions = remember(detail, settings.reminders, soonOn) {
-        detail?.let { iptvDetailActions(playlist, it, System.currentTimeMillis(), reminders = settings.reminders.takeIf { soonOn }) }.orEmpty()
+    val detailActions = remember(detail, settings.reminders, soonOn, settings.follows, decideOn) {
+        detail?.let {
+            iptvDetailActions(playlist, it, System.currentTimeMillis(), reminders = settings.reminders.takeIf { soonOn }, follows = settings.follows.takeIf { decideOn })
+        }.orEmpty()
     }
     detailIndex = detailIndex.coerceIn(0, (detailActions.size - 1).coerceAtLeast(0))
     headerIndex = headerIndex.coerceIn(0, headerActions.lastIndex)
@@ -439,6 +448,12 @@ fun IptvScreen(
             is IptvWallItem.Match -> item.programme?.let { openOrPlay(it.channel, it.entry, film = false, match = item.match) }
             is IptvWallItem.Programme -> openOrPlay(item.programme.channel, item.programme.entry, item.film, match = null)
             is IptvWallItem.Channel -> play(item.channel.primary)
+            is IptvWallItem.Action -> when {
+                item.id.startsWith("minutes:") -> item.id.removePrefix("minutes:").toIntOrNull()?.let(IptvRepository::setMinutes)
+                item.id == "reshuffle" -> IptvRepository.reshuffleThree(IptvDecide.nightOf(System.currentTimeMillis()))
+                else -> Unit
+            }
+            is IptvWallItem.Note -> Unit
         }
     }
 
@@ -465,6 +480,8 @@ fun IptvScreen(
             is IptvDetailAction.Remind -> setReminder(open.channel, action.entry, autoSwitch = false)
             is IptvDetailAction.Switch -> setReminder(open.channel, action.entry, autoSwitch = true)
             is IptvDetailAction.CancelReminder -> IptvRepository.removeReminder(action.reminder.id)
+            is IptvDetailAction.Follow -> IptvRepository.follow(action.title)
+            is IptvDetailAction.Unfollow -> IptvRepository.unfollow(action.title)
         }
     }
 
@@ -810,6 +827,9 @@ fun IptvScreen(
                         wall == null -> "Reading the guide..."
                         section == IptvWall.SPORT -> "No sport in the guide right now. Follow teams or competitions under " +
                             "Settings > Live TV > Live scores to see their matches here."
+                        section == IptvDecide.EARLIER -> "Nothing from earlier today is kept for these channels. This needs an Xtream account " +
+                            "whose provider keeps catch-up, and the lineup's (or your usual) channels."
+                        section == IptvDecide.FOLLOWING -> "Nothing followed yet. Open a programme and choose Follow: it is found on whichever channel has it."
                         section == IptvWall.SOON -> "Nothing starts in the next hour" +
                             (if (settings.lineupOn) " on the channels of Your 40." else ", or this playlist has no programme guide.")
                         section == IptvWall.FILMS -> "No films on right now, or this playlist's guide does not say what is a film."

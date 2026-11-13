@@ -90,6 +90,10 @@ internal sealed interface IptvDetailAction {
     data class Switch(val entry: IptvEpgEntry) : IptvDetailAction
     data class CancelReminder(val reminder: IptvReminder) : IptvDetailAction
 
+    /** fork:live-tv-decide - follow a programme by its title, or stop. */
+    data class Follow(val title: String) : IptvDetailAction
+    data class Unfollow(val title: String) : IptvDetailAction
+
     /** A programme that has finished, still in the provider's recordings. */
     data class Earlier(val entry: IptvEpgEntry) : IptvDetailAction
 }
@@ -107,6 +111,8 @@ internal fun iptvDetailActions(
     now: Long,
     /** fork:live-tv-departure - null with the switch off. */
     reminders: List<IptvReminder>? = null,
+    /** fork:live-tv-decide - null with the switch off. */
+    follows: List<String>? = null,
 ): List<IptvDetailAction> = buildList {
     val entry = detail.entry
     if (reminders != null && entry != null && entry.startMs > now) {
@@ -120,6 +126,9 @@ internal fun iptvDetailActions(
     }
     if (entry != null && IptvCatchup.available(playlist, detail.channel, entry, now)) add(IptvDetailAction.StartOver(entry))
     add(IptvDetailAction.WatchLive)
+    if (follows != null && entry != null) {
+        add(if (IptvDecide.isFollowed(follows, entry.title)) IptvDetailAction.Unfollow(entry.title) else IptvDetailAction.Follow(entry.title))
+    }
     val source = IptvCatchup.source(playlist, detail.channel) ?: return@buildList
     val from = now - minOf(source.archiveDays * 24 * 3_600_000L, 12 * 3_600_000L)
     iptvGuideEntries(playlist, detail.channel)
@@ -159,7 +168,32 @@ internal fun buildIptvWall(
     } else {
         emptyList()
     }
-    return IptvWall.build(channels, matches, usuals, now, soon)
+    // fork:live-tv-decide - the four "decide for me" sections, built from the lineup (or the usual channels) and the guide.
+    val sections = if (settings.decide) {
+        val lineupKeys = settings.lineup[playlist.id]?.toHashSet()?.takeIf { settings.lineupOn && it.isNotEmpty() }
+        val inLineup: ((IptvMergedChannel) -> Boolean)? = lineupKeys?.let { keys -> { channel: IptvMergedChannel -> channel.sources.any { it.key in keys } } }
+        val own = if (lineupKeys != null) merged.filter { inLineup!!(it) } else (usuals + (settings.favourites + settings.recents).mapNotNull { byRef[it] }).distinctBy { it.primary.uid }
+        val past = own.flatMap { channel ->
+            iptvGuideEntries(playlist, channel).filter { it.endMs <= now && it.startMs >= now - 24 * 3_600_000L }.map { IptvWallProgramme(channel, it) }
+        }.filter { IptvCatchup.available(playlist, it.channel, it.entry, now) }
+        val night = IptvDecide.nightOf(now)
+        val three = IptvDecide.three(channels, usuals, inLineup, now, IptvDecide.rotationFor(settings.shuffle, night))
+        val board = IptvDecide.minutes(channels, past, now, settings.minutes)
+        val ahead = if (settings.follows.isEmpty()) emptyList() else merged.flatMap { channel ->
+            iptvGuideEntries(playlist, channel).filter { it.endMs > now }.map { IptvWallProgramme(channel, it) }
+        }
+        IptvDecide.sections(
+            three = three,
+            board = board,
+            minutes = settings.minutes,
+            canReshuffle = IptvDecide.canReshuffle(settings.shuffle, night),
+            earlier = IptvDecide.earlier(past, settings.follows, now),
+            followResults = IptvDecide.follows(settings.follows, ahead, inLineup),
+        )
+    } else {
+        emptyMap()
+    }
+    return IptvWall.build(channels, matches, usuals, now, soon, sections)
 }
 
 /**
@@ -182,6 +216,7 @@ internal fun rememberIptvWall(
         null,
         playlist.id, merged, guideVersion, tick, matches, settings.plays.size, settings.favourites, settings.recents, shownCategories,
         settings.departure, settings.lineup[playlist.id],
+        settings.decide, settings.minutes, settings.shuffle, settings.follows,
     ) {
         value = if (content == null || merged == null) {
             null
@@ -244,6 +279,8 @@ private fun tileHeight(item: IptvWallItem): Dp = when (item) {
     is IptvWallItem.Match -> SportTileHeight
     is IptvWallItem.Programme -> if (item.film) FilmTileHeight else SportTileHeight
     is IptvWallItem.Channel -> ChannelTileHeight
+    is IptvWallItem.Action -> ChannelTileHeight
+    is IptvWallItem.Note -> SportTileHeight
 }
 
 private fun lengthText(ms: Long): String {
@@ -323,7 +360,7 @@ private fun IptvWallTile(playlist: IptvPlaylist, item: IptvWallItem, now: Long, 
     val hovered by interaction.collectIsHoveredAsState()
     val shape = NuvioGlass.Shape
     // A match the guide has no channel for can be read but not played.
-    val dead = item is IptvWallItem.Match && item.programme == null
+    val dead = (item is IptvWallItem.Match && item.programme == null) || (item is IptvWallItem.Action && !item.enabled) || item is IptvWallItem.Note
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -339,9 +376,11 @@ private fun IptvWallTile(playlist: IptvPlaylist, item: IptvWallItem, now: Long, 
             is IptvWallItem.Programme -> if (item.film) {
                 FilmTile(item.programme, now, canStartOver = IptvCatchup.available(playlist, item.programme.channel, item.programme.entry, now))
             } else {
-                SportProgrammeTile(item.programme, now)
+                SportProgrammeTile(item.programme, now, item.tag, item.over)
             }
             is IptvWallItem.Channel -> ChannelTile(item)
+            is IptvWallItem.Action -> ActionTile(item)
+            is IptvWallItem.Note -> NoteTile(item)
         }
     }
 }
@@ -443,17 +482,22 @@ private fun MatchTile(item: IptvWallItem.Match, now: Long) {
 }
 
 @Composable
-private fun SportProgrammeTile(programme: IptvWallProgramme, now: Long) {
+private fun SportProgrammeTile(programme: IptvWallProgramme, now: Long, tag: String? = null, over: Int = 0) {
     val tokens = MaterialTheme.nuvio
     val entry = programme.entry
     val onNow = programme.onNow(now)
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 11.dp),
+        modifier = Modifier.fillMaxSize().alpha(if (over > 0) 0.6f else 1f).padding(horizontal = 14.dp, vertical = 11.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         // fork:live-tv-departure - inside the hour a coming programme says how long it is to the start.
-        val soonText = if (!onNow && entry.startMs - now <= 60 * 60_000L) IptvDeparture.countdown(entry.startMs - now) else null
-        TileTopLine(programme.channel.primary.name, if (onNow) "On now" else soonText ?: formatTime(entry.startMs), live = false)
+        val soonText = if (!onNow && entry.startMs > now && entry.startMs - now <= 60 * 60_000L) IptvDeparture.countdown(entry.startMs - now) else null
+        // fork:live-tv-decide - a Three things card names what it is; a programme over the minutes dialled is dimmed.
+        TileTopLine(
+            if (tag != null) "$tag · ${programme.channel.primary.name}" else programme.channel.primary.name,
+            if (onNow) "On now" else soonText ?: formatTime(entry.startMs),
+            live = false,
+        )
         Text(
             text = entry.title,
             style = MaterialTheme.typography.bodyLarge,
@@ -466,11 +510,44 @@ private fun SportProgrammeTile(programme: IptvWallProgramme, now: Long) {
             ProgressLine(entry.progress(now))
         } else {
             Text(
-                text = "${formatTime(entry.startMs)} to ${formatTime(entry.endMs)}",
+                text = "${formatTime(entry.startMs)} to ${formatTime(entry.endMs)}" + if (over > 0) " · $over min over" else "",
                 style = MaterialTheme.typography.bodySmall,
                 color = tokens.colors.textMuted,
             )
         }
+    }
+}
+
+/** fork:live-tv-decide - a button: a minutes choice, Reshuffle. */
+@Composable
+private fun ActionTile(item: IptvWallItem.Action) {
+    val tokens = MaterialTheme.nuvio
+    Column(
+        modifier = Modifier.fillMaxSize().alpha(if (item.enabled) 1f else 0.5f).padding(horizontal = 14.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = item.label,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = if (item.selected) tokens.colors.accent else tokens.colors.textPrimary,
+        )
+        if (item.note != null) Text(text = item.note, style = MaterialTheme.typography.bodySmall, color = tokens.colors.textMuted, maxLines = 1)
+        if (item.selected) ProgressLine(1f)
+    }
+}
+
+/** fork:live-tv-decide - a tile of words only. */
+@Composable
+private fun NoteTile(item: IptvWallItem.Note) {
+    val tokens = MaterialTheme.nuvio
+    Column(
+        modifier = Modifier.fillMaxSize().alpha(0.6f).padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(text = item.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = tokens.colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text = item.text, style = MaterialTheme.typography.bodySmall, color = tokens.colors.textMuted, maxLines = 3, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -791,6 +868,22 @@ internal fun IptvProgrammeDetail(
                             label = if (onNow) "Watch live" else "Go to the channel",
                             note = if (onNow && entry != null) stateText(entry, now) else null,
                             accent = !canStartOver,
+                            focused = focused,
+                            onClick = { onAction(action) },
+                        )
+                        is IptvDetailAction.Follow -> DetailActionRow(
+                            icon = Icons.Rounded.Notifications,
+                            label = "Follow \"${action.title}\"",
+                            note = "Following shows where it is on",
+                            accent = false,
+                            focused = focused,
+                            onClick = { onAction(action) },
+                        )
+                        is IptvDetailAction.Unfollow -> DetailActionRow(
+                            icon = Icons.Rounded.NotificationsOff,
+                            label = "Stop following \"${action.title}\"",
+                            note = null,
+                            accent = false,
                             focused = focused,
                             onClick = { onAction(action) },
                         )

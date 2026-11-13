@@ -620,6 +620,13 @@ private fun settingsSearchEntries(
             "Live TV opens on what is on: sport with scores, films, your usual channels. Merges copies of a channel and adds Start over.",
             "General",
         ),
+        // fork:live-tv-decide
+        PlaybackSearchRow(
+            "iptv-decide",
+            "Decide for me",
+            "Three things, I have 25 minutes, Earlier today and Following: Live TV views that offer very little.",
+            "General",
+        ),
         // fork:live-tv-departure
         PlaybackSearchRow(
             "iptv-departure",

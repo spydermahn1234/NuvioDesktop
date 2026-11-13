@@ -102,7 +102,7 @@ The right panel has "Tune in at 20:00": carry on with what is on and Nuvio switc
   `LiveScoreOverlay` and `LiveScorePlatform.showOnPlayers`), with OK to switch; when the user asked to be tuned
   automatically it switches by itself through `IptvPlaybackRequests.play`. Persist reminders so a restart keeps them.
 
-**4. Earlier today, ready to play.** Programmes already shown on the lineup that the provider still has, best first,
+**4. Earlier today, ready to play.** (BUILT Nov 13 in Decide for me, without the day list.) Programmes already shown on the lineup that the provider still has, best first,
 each played from its start. A day list on the left goes back as far as the catch-up does.
 - Needs: `IptvCatchup.available` (Xtream only; M3U `catchup=` attributes are not parsed yet and would widen this),
   `guideEntries` for past programmes. Past the guide's 24 h window there is no data: either widen
@@ -110,7 +110,7 @@ each played from its start. A day list on the left goes back as far as the catch
 - "Best first" rule: followed programmes, then films (with a TMDB match), then kinds the viewer watches most, with
   repeats and shows under 10 minutes dropped. Keep it a pure function so it can be tuned.
 
-**5. Follow programmes.** Star a programme, a team or "any Bond film" once; Nuvio finds it each week on whichever
+**5. Follow programmes.** (BUILT Nov 13 in Decide for me: Follow on a programme's page, matched over the guide's window only, no suggestions.) Star a programme, a team or "any Bond film" once; Nuvio finds it each week on whichever
 channel has it. The list shows where each was found; one with nothing this week is dimmed.
 - Needs: a title index over the whole guide, not just the lineup (all 12,000 channels' programmes, title to channel
   and time). The guide is already cut to the playlist's channels at parse time, so build the index in
@@ -122,12 +122,12 @@ channel has it. The list shows where each was found; one with nothing this week 
 
 ### Decide for me
 
-**6. Three things.** Three equal cards: SAFE (the usual at this hour), STARTS SOON (from the first minute, over before
+**6. Three things.** (BUILT Nov 13 in Decide for me; bedtime is in the rules, not wired.) Three equal cards: SAFE (the usual at this hour), STARTS SOON (from the first minute, over before
 bedtime), WILDCARD (off the lineup, tied to something known about the viewer). One reshuffle a night; never a fourth.
 - Reuse Tonight's Three Cards rules (`TonightDeal.kt`) and its one-reshuffle-per-night state. SAFE from `IptvUsuals`,
   STARTS SOON from the departure board, WILDCARD from films and followed things outside the lineup.
 
-**7. I have 25 minutes.** A dial (15, 25, 45, 60, 90 minutes, or "until 21:00") and three equal columns: already on
+**7. I have 25 minutes.** (BUILT Nov 13 in Decide for me, as a row of five choices and three rows of tiles.) A dial (15, 25, 45, 60, 90 minutes, or "until 21:00") and three equal columns: already on
 and ending in time; starting and ending in time; from catch-up and short enough.
 - Pure filtering over the same guide data; the dial value is the only state. Nothing may be offered that runs over,
   except shown dimmed with how far over ("30 min, 5 over").

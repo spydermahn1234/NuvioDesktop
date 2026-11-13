@@ -309,6 +309,23 @@ Needs the new NuvioRemote app (no change on the PC).
 
 - [x] Stalker portals log in, load channels and play (2026-11-08)
 
+## Live TV: Decide for me (Nov 13)
+
+Settings > Live TV > Decide for me (needs On Now). Four sections appear under Films: Three things, I have 25 minutes, Earlier today, Following.
+
+- [ ] Three things shows three cards the same size: SAFE, STARTS SOON, WILDCARD, each with its channel; a card with nothing says so in words instead of vanishing
+- [ ] SAFE is something on now from the channels you usually watch; STARTS SOON begins within half an hour; WILDCARD is a film from outside those; no two cards share a channel
+- [ ] The Reshuffle tile changes the cards once; after that it says "used tonight" and does nothing until tomorrow (after 05:00)
+- [ ] OK on a card goes to the channel (or its page, when it has not started)
+- [ ] "I have N minutes" has five choices (15, 25, 45, 60, 90); OK on one selects it, the sidebar label follows, and the three rows change
+- [ ] Nothing in the three rows runs over the minutes, except a dimmed tile that says how many minutes over (at most 10)
+- [ ] Earlier today lists finished programmes from your lineup or usual channels that the provider still has, films and followed first; OK opens a page with Start from the beginning
+- [ ] Earlier today explains itself when the provider keeps no catch-up
+- [ ] On a programme's page "Follow ..." adds it; the Following section then lists the channels that have it next, soonest first, and a lineup channel before others
+- [ ] A followed thing that is not in the guide is shown dimmed with "Not in the guide yet"; "Stop following" on a page removes it
+- [ ] Everything in these sections works with arrows, OK and Back, and the mouse
+- [ ] With Decide for me off none of these appear
+
 ## Live TV: Starting soon (Nov 13)
 
 Settings > Live TV > Starting soon (needs On Now). It needs a playlist with a programme guide.

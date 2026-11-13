@@ -284,8 +284,25 @@ sealed interface IptvWallItem {
     }
 
     /** A film or a sport programme from the guide. */
-    data class Programme(val programme: IptvWallProgramme, val film: Boolean) : IptvWallItem {
-        override val key: String get() = "programme:${programme.channel.primary.uid}:${programme.entry.startMs}"
+    data class Programme(
+        val programme: IptvWallProgramme,
+        val film: Boolean,
+        /** fork:live-tv-decide - "SAFE", "STARTS SOON", "WILDCARD" on the Three things cards. */
+        val tag: String? = null,
+        /** fork:live-tv-decide - minutes the programme runs over what was dialled (shown dimmed); 0 = fits. */
+        val over: Int = 0,
+    ) : IptvWallItem {
+        override val key: String get() = "programme:${programme.channel.primary.uid}:${programme.entry.startMs}:${tag.orEmpty()}"
+    }
+
+    /** fork:live-tv-decide - a button tile: the minutes dial, Reshuffle. [id] says which. */
+    data class Action(val id: String, val label: String, val note: String?, val selected: Boolean, val enabled: Boolean) : IptvWallItem {
+        override val key: String get() = "action:$id"
+    }
+
+    /** fork:live-tv-decide - a tile with only words: an empty card, a follow the guide has nothing for. */
+    data class Note(val id: String, val title: String, val text: String) : IptvWallItem {
+        override val key: String get() = "note:$id"
     }
 
     /** A channel with what it is showing, for "Your channels". */
@@ -305,12 +322,16 @@ class IptvWallModel(
     val matchCount: Int,
     /** fork:live-tv-departure - the departure board's buckets (empty with the switch off). */
     val soon: List<IptvDepartureBucket> = emptyList(),
+    /** fork:live-tv-decide - the rows of the Decide for me sections, ready made (see [IptvDecide.sections]). */
+    val sections: Map<String, List<IptvWallRow>> = emptyMap(),
 ) {
     private fun matches(item: IptvWallItem, needle: String): Boolean = when (item) {
         is IptvWallItem.Match -> item.match.home.name.contains(needle, true) || item.match.away.name.contains(needle, true) ||
             item.programme?.channel?.primary?.name?.contains(needle, true) == true
         is IptvWallItem.Programme -> item.programme.entry.title.contains(needle, true) || item.programme.channel.primary.name.contains(needle, true)
         is IptvWallItem.Channel -> item.channel.primary.name.contains(needle, true) || item.entry?.title?.contains(needle, true) == true
+        is IptvWallItem.Action -> false
+        is IptvWallItem.Note -> item.title.contains(needle, true)
     }
 
     private fun rowsOf(title: String, note: String?, columns: Int, items: List<IptvWallItem>): List<IptvWallRow> =
@@ -318,6 +339,7 @@ class IptvWallModel(
 
     /** The rows of [section], narrowed to [query] (a title, a team or a channel name) when it is not blank. */
     fun rows(section: String, query: String = ""): List<IptvWallRow> {
+        sections[section]?.let { return it }
         val needle = query.trim()
         fun <T : IptvWallItem> List<T>.narrowed(): List<T> = if (needle.isEmpty()) this else filter { matches(it, needle) }
         val sportNote = when {
@@ -347,7 +369,7 @@ object IptvWall {
     const val SPORT = "__sport__"
     const val FILMS = "__films__"
     const val SOON = "__soon__"
-    val SECTIONS = setOf(ON_NOW, SPORT, FILMS, SOON)
+    val SECTIONS = setOf(ON_NOW, SPORT, FILMS, SOON) + IptvDecide.SECTIONS
 
     private const val MAX_FILMS = 30
     private const val MAX_SPORT = 24
@@ -363,6 +385,7 @@ object IptvWall {
         now: Long,
         /** fork:live-tv-departure */
         soon: List<IptvDepartureBucket> = emptyList(),
+        sections: Map<String, List<IptvWallRow>> = emptyMap(),
     ): IptvWallModel {
         val byUid = channels.associateBy { it.channel.primary.uid }
         val sportProgrammes = IptvOnNow.sport(channels, now)
@@ -378,6 +401,6 @@ object IptvWall {
         val sport = current + sportProgrammes.filter { it !in taken }.take(MAX_SPORT).map { IptvWallItem.Programme(it, film = false) }
         val films = IptvOnNow.films(channels, now).take(MAX_FILMS).map { IptvWallItem.Programme(it, film = true) }
         val usualItems = usuals.map { IptvWallItem.Channel(it, byUid[it.primary.uid]?.current(now)) }
-        return IptvWallModel(sport, films, usualItems, matchCount = current.size, soon = soon)
+        return IptvWallModel(sport, films, usualItems, matchCount = current.size, soon = soon, sections = sections)
     }
 }

@@ -158,6 +158,19 @@ internal fun LazyListScope.iptvSettingsContent(
                     modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-on-now")),
                     onCheckedChange = IptvRepository::setOnNow,
                 )
+                // fork:live-tv-decide
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSwitchRow(
+                    title = "Decide for me",
+                    description = "Needs On Now. Four short views that offer little and end: Three things (a safe one, one " +
+                        "starting soon, a wildcard, and one reshuffle a night), I have N minutes (only what fits, 15 to 90), " +
+                        "Earlier today (what your provider kept, ready to play from the start) and Following (programmes and " +
+                        "teams you follow, found on whichever channel has them).",
+                    checked = settings.decide,
+                    isTablet = isTablet,
+                    modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-decide")),
+                    onCheckedChange = IptvRepository::setDecide,
+                )
                 // fork:live-tv-departure
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(

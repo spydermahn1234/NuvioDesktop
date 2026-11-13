@@ -62,6 +62,14 @@ data class IptvSettings(
     val departure: Boolean = false,
     /** fork:live-tv-departure - the reminders waiting, earliest first ([IptvReminderRules]). */
     val reminders: List<IptvReminder> = emptyList(),
+    /** fork:live-tv-decide - Settings > Live TV > Decide for me: Three things, I have N minutes, Earlier today, Following. */
+    val decide: Boolean = false,
+    /** fork:live-tv-decide - the minutes dialled on "I have N minutes". */
+    val minutes: Int = IptvDecide.DEFAULT_MINUTES,
+    /** fork:live-tv-decide - tonight's reshuffle of Three things. */
+    val shuffle: IptvShuffle = IptvShuffle(),
+    /** fork:live-tv-decide - what is followed: programme titles, teams, "any Bond film". */
+    val follows: List<String> = emptyList(),
 ) {
     /** Whether the Live TV entry belongs in the navigation. */
     val tabShown: Boolean
@@ -275,6 +283,36 @@ object IptvRepository {
     fun setTriage(playlistId: String, triage: IptvTriage?) {
         ensureLoaded()
         mutate { s -> s.copy(triage = if (triage == null) s.triage - playlistId else s.triage + (playlistId to triage)) }
+    }
+
+    /** fork:live-tv-decide */
+    fun setDecide(enabled: Boolean) {
+        ensureLoaded()
+        mutate { it.copy(decide = enabled) }
+    }
+
+    fun setMinutes(minutes: Int) {
+        ensureLoaded()
+        if (minutes in IptvDecide.MINUTE_CHOICES) mutate { it.copy(minutes = minutes) }
+    }
+
+    /** One reshuffle a night: does nothing once tonight's is used. */
+    fun reshuffleThree(night: Long) {
+        ensureLoaded()
+        mutate { s -> if (IptvDecide.canReshuffle(s.shuffle, night)) s.copy(shuffle = IptvShuffle(night, 1)) else s }
+    }
+
+    fun follow(text: String) {
+        ensureLoaded()
+        val clean = text.trim()
+        if (clean.isEmpty()) return
+        mutate { s -> if (IptvDecide.normalise(clean) in s.follows.map(IptvDecide::normalise)) s else s.copy(follows = s.follows + clean) }
+    }
+
+    /** Stops following everything that [title] counts as. */
+    fun unfollow(title: String) {
+        ensureLoaded()
+        mutate { s -> s.copy(follows = s.follows - IptvDecide.followsOf(s.follows, title).toSet()) }
     }
 
     /** fork:live-tv-departure */
