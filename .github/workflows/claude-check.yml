@@ -10,8 +10,9 @@ concurrency:
   group: claude-check-${{ github.ref }}
   cancel-in-progress: true
 
+# Writes only the screenshots branch below.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -104,3 +105,22 @@ jobs:
             composeApp/build/test-screenshots/
             composeApp/build/reports/tests/desktopTest/
             composeApp/build/test-results/desktopTest/
+
+      # The session that reads these cannot download run artifacts, so the screenshots also go to a throwaway branch.
+      - name: Push screenshots to a throwaway branch
+        if: always()
+        shell: pwsh
+        run: |
+          $shots = "$env:RUNNER_TEMP\shots"
+          New-Item -ItemType Directory -Force $shots | Out-Null
+          Copy-Item composeApp/build/test-screenshots/iptv*.png $shots -ErrorAction SilentlyContinue
+          if (-not (Get-ChildItem $shots -Filter *.png)) { Write-Host "no screenshots"; exit 0 }
+          git config user.name "claude-check"
+          git config user.email "noreply@anthropic.com"
+          git switch --orphan shots-tmp
+          git rm -rf --cached . 2>$null | Out-Null
+          New-Item -ItemType Directory -Force shots | Out-Null
+          Copy-Item "$shots\*.png" shots
+          git add -f shots
+          git commit -m "Screenshots from run ${{ github.run_id }}" | Out-Null
+          git push -f origin HEAD:refs/heads/${{ github.ref_name }}-shots
