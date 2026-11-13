@@ -179,7 +179,7 @@ Each phase stands on its own and can be switched on by itself.
 4. **Earlier today and Follow** (4, 5). Needs the wider guide window and the title index.
 5. **The brakes** (10, 11, 12). Player-side work; the end card needs the care noted above.
 6. **Running order and Just ask** (8, 9). Last: they lean on everything before them.
-7. **Overnight weeding**. Separate because it talks to the provider unattended.
+7. **Overnight weeding**. (BUILT Nov 13: lineup and recents, 02:00 to 05:00, three bad nights, no Dead list.) Separate because it talks to the provider unattended.
 
 Where the screens live: the On Now sidebar already has On now, Sport and Films. Add the new ones as sidebar sections
 in the same way (`IptvWall.SECTIONS`, `IptvSidebarItem`), or, if Nick wants the symmetric three-panel layout to

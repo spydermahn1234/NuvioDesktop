@@ -693,3 +693,13 @@ Settings > Live TV > Running order and Just ask (needs On Now). Two sidebar item
 - [ ] "a film, an hour" offers a film that fits; "any bond film" finds a title with bond in it, if one is on
 - [ ] A line nothing fits says "Nothing fits" and no button
 - [ ] With the switch off neither item appears
+
+## Live TV: Overnight weeding (Nov 13)
+
+Settings > Live TV > Overnight weeding. It works only between 02:00 and 05:00 with the app running and nothing playing, so these need a night.
+- [ ] Leave Nuvio open overnight with the switch on and Your 40 set up; in the morning Settings > Overnight weeding says "Now marked dead: 0" if all your channels work
+- [ ] The log of the night (Windows build log) shows no flood: one channel at a time, a few seconds apart
+- [ ] A channel you know is dead (change its stream in the provider, or add a broken test channel to the lineup) is still in Your 40 after one and two nights, and gone after the third; "Now marked dead" counts it
+- [ ] "Bring back channels thrown out" returns it
+- [ ] Starting a channel in the night stops the weeding until the next quiet check
+- [ ] With the switch off nothing is opened at night

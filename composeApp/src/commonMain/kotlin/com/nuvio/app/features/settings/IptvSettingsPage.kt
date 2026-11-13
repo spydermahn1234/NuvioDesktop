@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.NuvioModalDialog
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.features.iptv.IptvBrakeRules
+import com.nuvio.app.features.iptv.IptvWeedRules
 import com.nuvio.app.features.iptv.IptvDecide
 import com.nuvio.app.features.iptv.IptvPlaylist
 import com.nuvio.app.features.iptv.IptvPlaylistType
@@ -172,6 +173,20 @@ internal fun LazyListScope.iptvSettingsContent(
                     isTablet = isTablet,
                     modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-decide")),
                     onCheckedChange = IptvRepository::setDecide,
+                )
+                // fork:live-tv-weed
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSwitchRow(
+                    title = "Overnight weeding",
+                    description = "Between 02:00 and 05:00, while nothing is playing, opens the channels of Your 40 and the ones " +
+                        "you watched lately, one at a time and for a few seconds (at most 60 a night; not on portals). A channel " +
+                        "that fails three nights in a row leaves Your 40 and the wall; one good night keeps it. " +
+                        "\"Bring back channels thrown out\" returns them. " +
+                        "Now marked dead: ${settings.weeds.values.sumOf { IptvWeedRules.dead(it).size }}.",
+                    checked = settings.weed,
+                    isTablet = isTablet,
+                    modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-weed")),
+                    onCheckedChange = IptvRepository::setWeed,
                 )
                 // fork:live-tv-evening
                 SettingsGroupDivider(isTablet = isTablet)

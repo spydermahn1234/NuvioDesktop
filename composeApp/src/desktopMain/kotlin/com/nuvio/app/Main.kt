@@ -925,6 +925,7 @@ fun main(args: Array<String>) {
                     handles.forEach { handle -> runCatching { com.nuvio.app.features.player.desktop.NativePlayerBridge.runJavaScript(handle, script) } }
                 }
                 com.nuvio.app.features.iptv.IptvReminderEngine.start()
+                com.nuvio.app.features.iptv.IptvWeedEngine.start() // fork:live-tv-weed
                 // fork:live-tv-brakes - the choice card (zap budget, end card) drawn by the player's HUD.
                 com.nuvio.app.features.iptv.IptvBrakeEngine.showChoice = { title, line, options, focused ->
                     val handles = runCatching { com.nuvio.app.features.player.desktop.NativeAudioDuck.liveHandles() }.getOrDefault(emptyList())

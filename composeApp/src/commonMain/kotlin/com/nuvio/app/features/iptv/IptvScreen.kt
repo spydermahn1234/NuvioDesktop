@@ -229,7 +229,8 @@ fun IptvScreen(
     val mergedPrimaries = remember(merged) { merged?.map { it.primary }.orEmpty() }
     val wallSection = onNow && section in IptvWall.SECTIONS
     // fork:live-tv-lineup - what was thrown out with "Never again", and the lineup as merged channels.
-    val never = settings.never[playlist.id].orEmpty()
+    // fork:live-tv-weed - channels the night checks found dead leave the same way as ones thrown out.
+    val never = settings.never[playlist.id].orEmpty() + IptvWeedRules.dead(settings.weeds[playlist.id].orEmpty())
     val storedLineup = settings.lineup[playlist.id]
     val keyIndex = remember(merged) { merged?.let(IptvLineupRules::keyIndex).orEmpty() }
     val lineupChannels = remember(storedLineup, keyIndex, never) {

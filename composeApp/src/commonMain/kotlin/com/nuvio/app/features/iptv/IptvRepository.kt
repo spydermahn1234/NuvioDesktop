@@ -70,6 +70,10 @@ data class IptvSettings(
     val shuffle: IptvShuffle = IptvShuffle(),
     /** fork:live-tv-decide - what is followed: programme titles, teams, "any Bond film". */
     val follows: List<String> = emptyList(),
+    /** fork:live-tv-weed - overnight checks of the lineup's channels; off by default. */
+    val weed: Boolean = false,
+    /** fork:live-tv-weed - what the checks found, per playlist and channel key. */
+    val weeds: Map<String, Map<String, IptvWeedRecord>> = emptyMap(),
     /** fork:live-tv-evening - Tonight's running order and Just ask; off by default. */
     val evening: Boolean = false,
     /** fork:live-tv-brakes - zap budget and end card; off by default. */
@@ -231,6 +235,7 @@ object IptvRepository {
                 triage = s.triage - id,
                 lineup = s.lineup - id,
                 never = s.never - id,
+                weeds = s.weeds - id,
                 reminders = s.reminders.filterNot { it.playlistId == id },
             )
         }
@@ -297,6 +302,17 @@ object IptvRepository {
     fun setDecide(enabled: Boolean) {
         ensureLoaded()
         mutate { it.copy(decide = enabled) }
+    }
+
+    fun setWeed(enabled: Boolean) {
+        ensureLoaded()
+        mutate { it.copy(weed = enabled) }
+    }
+
+    /** fork:live-tv-weed - one channel's result for [night]. */
+    fun weedResult(playlistId: String, key: String, ok: Boolean, night: Long) {
+        ensureLoaded()
+        mutate { s -> s.copy(weeds = s.weeds + (playlistId to IptvWeedRules.record(s.weeds[playlistId].orEmpty(), key, ok, night))) }
     }
 
     fun setEvening(enabled: Boolean) {
@@ -399,7 +415,7 @@ object IptvRepository {
     /** fork:live-tv-lineup - brings back every channel thrown out (all playlists). */
     fun bringBackAll() {
         ensureLoaded()
-        mutate { it.copy(never = emptyMap()) }
+        mutate { it.copy(never = emptyMap(), weeds = emptyMap()) }
     }
 
     /** fork:live-tv-on-now */

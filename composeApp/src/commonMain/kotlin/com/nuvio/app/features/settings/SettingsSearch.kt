@@ -627,6 +627,13 @@ private fun settingsSearchEntries(
             "Three things, I have 25 minutes, Earlier today and Following: Live TV views that offer very little.",
             "General",
         ),
+        // fork:live-tv-weed
+        PlaybackSearchRow(
+            "iptv-weed",
+            "Overnight weeding",
+            "At night, tests the channels of Your 40 one at a time and drops the ones that fail three nights in a row.",
+            "General",
+        ),
         // fork:live-tv-evening
         PlaybackSearchRow(
             "iptv-evening",
