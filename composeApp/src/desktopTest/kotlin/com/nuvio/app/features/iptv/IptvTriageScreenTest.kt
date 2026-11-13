@@ -22,7 +22,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -79,7 +78,14 @@ class IptvTriageScreenTest {
                     }
                 }
                 fun shown(text: String) = onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+                fun check(ok: Boolean, what: String) {
+                    if (!ok) {
+                        saveScreenshot("iptv-triage-FAILED.png")
+                        throw AssertionError("Triage screen check failed: $what")
+                    }
+                }
                 fun click(text: String) {
+                    check(onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty(), "nothing to click called \"$text\"")
                     onAllNodesWithText(text)[0].performClick()
                     waitForIdle()
                 }
@@ -88,38 +94,38 @@ class IptvTriageScreenTest {
                     waitForIdle()
                 }
                 waitForIdle()
-                assertTrue(shown("FR | Info"), "before the triage every category is in the sidebar")
+                check(shown("FR | Info"), "'before the triage every category is in the sidebar'")
 
                 openTriage()
-                assertTrue(shown("Which countries do you watch?"))
-                assertTrue(shown("No country marked"))
+                check(shown("Which countries do you watch?"), "shown('Which countries do you watch?')")
+                check(shown("No country marked"), "shown('No country marked')")
                 click("United Kingdom")
-                assertTrue(shown("3"), "three UK channels left")
+                check(shown("3"), "'three UK channels left'")
                 saveScreenshot("iptv-triage-countries.png")
                 click("Next: kinds")
 
-                assertTrue(shown("Which of these would you ever watch?"))
-                assertTrue(shown("Entertainment and general"))
-                assertTrue(!shown("Shopping"), "a kind the chosen countries do not have is not asked about")
+                check(shown("Which of these would you ever watch?"), "shown('Which of these would you ever watch?')")
+                check(shown("Entertainment and general"), "shown('Entertainment and general')")
+                check(!shown("Shopping"), "'a kind the chosen countries do not have is not asked about'")
                 click("Sport")
                 saveScreenshot("iptv-triage-kinds.png")
                 click("Next: your first ten")
 
-                assertTrue(shown("Your first ten"))
-                assertTrue(shown("Dave"))
-                assertTrue(!shown("Sky Sports Main Event"))
+                check(shown("Your first ten"), "shown('Your first ten')")
+                check(shown("Dave"), "shown('Dave')")
+                check(!shown("Sky Sports Main Event"), "!shown('Sky Sports Main Event')")
                 click("BBC One")
                 saveScreenshot("iptv-triage-first-ten.png")
                 click("Done")
 
                 // Back on the tab: only what was kept, with BBC One starred.
                 assertEquals(IptvTriage(setOf("GB"), setOf("Entertainment")), IptvRepository.settings.value.triage[playlist.id])
-                assertTrue(IptvRepository.settings.value.favourites.any { it.startsWith(playlist.id) })
-                assertTrue(shown("UK | Entertainment"))
-                assertTrue(!shown("UK | Sports"))
-                assertTrue(!shown("FR | Info"))
-                assertTrue(shown("Dave"))
-                assertTrue(!shown("CNN"))
+                check(IptvRepository.settings.value.favourites.any { it.startsWith(playlist.id) }, "BBC One was starred")
+                check(shown("UK | Entertainment"), "shown('UK | Entertainment')")
+                check(!shown("UK | Sports"), "!shown('UK | Sports')")
+                check(!shown("FR | Info"), "!shown('FR | Info')")
+                check(shown("Dave"), "shown('Dave')")
+                check(!shown("CNN"), "!shown('CNN')")
                 saveScreenshot("iptv-triage-after.png")
 
                 // The search box still reaches a channel the triage left out.
@@ -127,27 +133,27 @@ class IptvTriageScreenTest {
                 waitForIdle()
                 onAllNodes(hasSetTextAction())[0].performTextInput("cnn")
                 waitForIdle()
-                assertTrue(shown("CNN"))
+                check(shown("CNN"), "shown('CNN')")
                 onRoot().performKeyInput { pressKey(Key.Escape) }
                 onRoot().performKeyInput { pressKey(Key.Escape) }
                 waitForIdle()
 
                 // The keyboard drives the questions, and Back on the first one leaves without saving.
                 openTriage()
-                assertTrue(shown("Show everything"), "offered once a triage exists")
+                check(shown("Show everything"), "'offered once a triage exists'")
                 listOf(Key.DirectionDown, Key.DirectionRight, Key.Enter).forEach { key -> onRoot().performKeyInput { pressKey(key) } }
                 waitForIdle()
                 saveScreenshot("iptv-triage-keyboard.png")
                 onRoot().performKeyInput { pressKey(Key.Escape) }
                 waitForIdle()
-                assertTrue(shown("UK | Entertainment"), "back on the tab")
+                check(shown("UK | Entertainment"), "'back on the tab'")
                 assertEquals(setOf("GB"), IptvRepository.settings.value.triage[playlist.id]?.regions, "unsaved")
 
                 // Show everything clears it.
                 openTriage()
                 click("Show everything")
                 assertNull(IptvRepository.settings.value.triage[playlist.id])
-                assertTrue(shown("FR | Info"))
+                check(shown("FR | Info"), "shown('FR | Info')")
             }
         } finally {
             IptvRepository.setTriage(playlist.id, null)
