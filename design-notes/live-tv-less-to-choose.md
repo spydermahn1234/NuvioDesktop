@@ -132,7 +132,7 @@ and ending in time; starting and ending in time; from catch-up and short enough.
 - Pure filtering over the same guide data; the dial value is the only state. Nothing may be offered that runs over,
   except shown dimmed with how far over ("30 min, 5 over").
 
-**8. Tonight's running order.** One proposed evening from all the channels, ending before bedtime; approve once and
+**8. Tonight's running order. (BUILT Nov 13 in Running order and Just ask: rules only, no AI, no catch-up gaps, no dimming at the end.)** One proposed evening from all the channels, ending before bedtime; approve once and
 Nuvio changes channel at each start. Any key takes over; at the end the screen dims and nothing starts by itself.
 - Built from: usuals per hour, followed teams and programmes, films, bedtime (reuse Tonight's Ends By bedtime
   setting). Gaps are filled from catch-up ("from catch-up, shown 20:45"). Something that would run past bedtime is
@@ -140,7 +140,7 @@ Nuvio changes channel at each start. Any key takes over; at the end the screen d
 - Needs the reminder scheduler from screen 3 (auto-switch) and a "running order active" state the player can show.
 - Rules first so it works with no AI key; the AI may reorder or explain, cached, as Tonight's Map does.
 
-**9. Just ask.** A typed or spoken line ("something funny, half an hour") and **one** answer with a "Not that"
+**9. Just ask. (BUILT Nov 13 in Running order and Just ask: rules only, no AI, no catch-up gaps, no dimming at the end.)** A typed or spoken line ("something funny, half an hour") and **one** answer with a "Not that"
 button; side panels show earlier asks and why this was chosen.
 - Rules first: parse a duration, a kind and names out of the text and run the screen 7 filter plus the follow
   matcher. With an AI key (Groq, as Tonight uses, behind the same consent row in

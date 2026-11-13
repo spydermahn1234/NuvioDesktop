@@ -42,7 +42,7 @@ object IptvDecide {
     const val MINUTES = "__minutes__"
     const val EARLIER = "__earlier__"
     const val FOLLOWING = "__following__"
-    val SECTIONS = setOf(THREE, MINUTES, EARLIER, FOLLOWING)
+    val SECTIONS = setOf(THREE, MINUTES, EARLIER, FOLLOWING, IptvRunningOrder.SECTION, IptvAsk.SECTION)
 
     private val NON_WORD = Regex("""[^\p{L}\p{N}]+""")
 

@@ -679,3 +679,17 @@ Settings > Live TV > Brakes (off by default).
 - [ ] Stay on one programme for 15 minutes or more: at its end a card shows its title with Stop here (focused) and One more; Stop here leaves the player, One more carries on
 - [ ] Flicking past channels quickly never shows the end card
 - [ ] With Brakes off none of this appears and the week line is not shown as counting
+
+## Live TV: Running order and Just ask (Nov 13)
+
+Settings > Live TV > Running order and Just ask (needs On Now). Two sidebar items appear: Tonight's running order, Just ask.
+- [ ] Tonight's running order shows up to six numbered programmes with start times, in order, and the bedtime from What to watch in its heading
+- [ ] None of them runs past bedtime; with a very early bedtime the screen says nothing fits
+- [ ] Approve: the button becomes "Approved"; Starting soon's reminders list does not need to be on, and at the first slot's start Nuvio switches to its channel by itself, and again at each later start
+- [ ] Selecting Approved cancels them; no switching happens
+- [ ] Just ask with an empty search box tells you what to type
+- [ ] Type "something funny, half an hour": one answer tile marked THE ANSWER, a "Why this" tile and Not that
+- [ ] Not that shows a different answer; after the last it wraps round to the first; editing the text starts again at the first
+- [ ] "a film, an hour" offers a film that fits; "any bond film" finds a title with bond in it, if one is on
+- [ ] A line nothing fits says "Nothing fits" and no button
+- [ ] With the switch off neither item appears

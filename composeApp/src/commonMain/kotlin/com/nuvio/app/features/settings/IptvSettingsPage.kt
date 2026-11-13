@@ -173,6 +173,19 @@ internal fun LazyListScope.iptvSettingsContent(
                     modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-decide")),
                     onCheckedChange = IptvRepository::setDecide,
                 )
+                // fork:live-tv-evening
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSwitchRow(
+                    title = "Running order and Just ask",
+                    description = "Needs On Now. Tonight's running order: one proposed evening from your lineup (or usual channels), " +
+                        "ending before the bedtime set under What to watch; approve it once and Nuvio changes channel at each " +
+                        "start, any key takes over, nothing starts after the last. Just ask: type a line in the search box " +
+                        "(\"something funny, half an hour\") and get one answer, with Not that for the next.",
+                    checked = settings.evening,
+                    isTablet = isTablet,
+                    modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-evening")),
+                    onCheckedChange = IptvRepository::setEvening,
+                )
                 // fork:live-tv-brakes
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(

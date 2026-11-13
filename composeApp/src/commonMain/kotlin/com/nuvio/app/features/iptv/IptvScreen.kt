@@ -253,7 +253,8 @@ fun IptvScreen(
         }
     }
     val wallMerged = remember(merged, never) { merged?.let { IptvLineupRules.visible(it, never) } }
-    val wall = if (onNow) rememberIptvWall(playlist, content, wallMerged, settings, now, guideVersion, keptCategories) else null
+    var askSkips by remember(filter) { mutableIntStateOf(0) } // fork:live-tv-evening - "Not that"
+    val wall = if (onNow) rememberIptvWall(playlist, content, wallMerged, settings, now, guideVersion, keptCategories, filter, askSkips) else null
     val wallRows = remember(wall, section, filter, wallSection) { if (wallSection) wall?.rows(section, filter).orEmpty() else emptyList() }
 
     val other = stringResource(Res.string.iptv_category_other)
@@ -262,7 +263,8 @@ fun IptvScreen(
     val allLabel = stringResource(Res.string.iptv_category_all)
     val soonOn = onNow && settings.departure
     val decideOn = onNow && settings.decide
-    val sidebarItems = remember(playlists, content, region, categoryRegions, other, favouritesLabel, recentLabel, allLabel, onNow, soonOn, decideOn, settings.minutes, settings.follows, lineupOn, lineupChannels, merged, wall, keptCategories) {
+    val eveningOn = onNow && settings.evening
+    val sidebarItems = remember(playlists, content, region, categoryRegions, other, favouritesLabel, recentLabel, allLabel, onNow, soonOn, decideOn, eveningOn, settings.minutes, settings.follows, lineupOn, lineupChannels, merged, wall, keptCategories) {
         buildList {
             if (playlists.size > 1) {
                 playlists.forEach { add(IptvSidebarItem("playlist:${it.id}", it.name.ifBlank { it.id.take(8) }, playlist = it)) }
@@ -279,6 +281,10 @@ fun IptvScreen(
                     add(IptvSidebarItem("section:${IptvDecide.MINUTES}", "I have ${settings.minutes} minutes", section = IptvDecide.MINUTES))
                     add(IptvSidebarItem("section:${IptvDecide.EARLIER}", "Earlier today", section = IptvDecide.EARLIER))
                     add(IptvSidebarItem("section:${IptvDecide.FOLLOWING}", "Following", count = settings.follows.size.takeIf { it > 0 }, section = IptvDecide.FOLLOWING))
+                }
+                if (eveningOn) {
+                    add(IptvSidebarItem("section:${IptvRunningOrder.SECTION}", "Tonight's running order", section = IptvRunningOrder.SECTION))
+                    add(IptvSidebarItem("section:${IptvAsk.SECTION}", "Just ask", section = IptvAsk.SECTION))
                 }
                 if (soonOn) {
                     add(IptvSidebarItem("section:${IptvWall.SOON}", "Starting soon", count = wall?.soon?.sumOf { it.programmes.size }?.takeIf { it > 0 }, section = IptvWall.SOON))
@@ -451,6 +457,14 @@ fun IptvScreen(
             is IptvWallItem.Action -> when {
                 item.id.startsWith("minutes:") -> item.id.removePrefix("minutes:").toIntOrNull()?.let(IptvRepository::setMinutes)
                 item.id == "reshuffle" -> IptvRepository.reshuffleThree(IptvDecide.nightOf(System.currentTimeMillis()))
+                // fork:live-tv-evening - approving the running order sets an auto-switch reminder for every slot.
+                item.id == "order:approve" -> wallRows.flatMap { it.items }.filterIsInstance<IptvWallItem.Programme>().forEach {
+                    setReminder(it.programme.channel, it.programme.entry, autoSwitch = true)
+                }
+                item.id == "order:cancel" -> wallRows.flatMap { it.items }.filterIsInstance<IptvWallItem.Programme>().forEach {
+                    IptvRepository.removeReminder(IptvRunningOrder.reminderId(playlist.id, it.programme))
+                }
+                item.id == "ask:not" -> askSkips++
                 else -> Unit
             }
             is IptvWallItem.Note -> Unit

@@ -148,6 +148,9 @@ internal fun buildIptvWall(
     now: Long,
     /** fork:live-tv-triage - the categories the triage kept; null = all. The viewer's own channels are never left out. */
     shownCategories: Set<String>? = null,
+    /** fork:live-tv-evening - the typed line of Just ask and how many answers "Not that" has passed. */
+    ask: String = "",
+    askSkips: Int = 0,
 ): IptvWallModel {
     val categoryNames = content.categoryNames
     val channels = merged.mapNotNull { channel ->
@@ -193,7 +196,25 @@ internal fun buildIptvWall(
     } else {
         emptyMap()
     }
-    return IptvWall.build(channels, matches, usuals, now, soon, sections)
+    // fork:live-tv-evening - Tonight's running order and Just ask, over the lineup (or the usual channels).
+    val evening = if (settings.evening) {
+        val lineupKeys = settings.lineup[playlist.id]?.toHashSet()?.takeIf { settings.lineupOn && it.isNotEmpty() }
+        val ownUids = (usuals + (settings.favourites + settings.recents).mapNotNull { byRef[it] }).map { it.primary.uid }.toHashSet()
+        fun allowed(channel: IptvMergedChannel): Boolean =
+            if (lineupKeys != null) channel.sources.any { it.key in lineupKeys } else channel.primary.uid in ownUids
+        val guide = channels.filter { allowed(it.channel) }.flatMap { on -> on.entries.map { IptvWallProgramme(on.channel, it) } }
+        val usualKeys = usuals.map { it.primary.key }.toHashSet()
+        val bedMs = IptvRunningOrder.bedtimeMs(now, com.nuvio.app.features.tonight.TonightSettingsRepository.state.value.bedMinuteOfDay)
+        val slots = IptvRunningOrder.build(guide, settings.follows, usualKeys, now, bedMs)
+        val answer = if (ask.isBlank()) null else IptvAsk.answer(ask, guide, settings.follows, usualKeys, now, askSkips)
+        mapOf(
+            IptvRunningOrder.SECTION to IptvEveningRows.order(slots, IptvRunningOrder.approved(playlist.id, slots, settings.reminders), bedMs),
+            IptvAsk.SECTION to IptvEveningRows.ask(ask, answer),
+        )
+    } else {
+        emptyMap()
+    }
+    return IptvWall.build(channels, matches, usuals, now, soon, sections + evening)
 }
 
 /**
@@ -209,6 +230,8 @@ internal fun rememberIptvWall(
     now: Long,
     guideVersion: Int,
     shownCategories: Set<String>? = null,
+    ask: String = "",
+    askSkips: Int = 0,
 ): IptvWallModel? {
     val matches by LiveScoreEngine.followed.collectAsStateWithLifecycle()
     val tick = now / 120_000L
@@ -217,11 +240,12 @@ internal fun rememberIptvWall(
         playlist.id, merged, guideVersion, tick, matches, settings.plays.size, settings.favourites, settings.recents, shownCategories,
         settings.departure, settings.lineup[playlist.id],
         settings.decide, settings.minutes, settings.shuffle, settings.follows,
+        settings.evening, settings.reminders.size, ask, askSkips,
     ) {
         value = if (content == null || merged == null) {
             null
         } else {
-            withContext(Dispatchers.Default) { buildIptvWall(playlist, content, merged, settings, matches, System.currentTimeMillis(), shownCategories) }
+            withContext(Dispatchers.Default) { buildIptvWall(playlist, content, merged, settings, matches, System.currentTimeMillis(), shownCategories, ask, askSkips) }
         }
     }
     return model.value

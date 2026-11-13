@@ -70,6 +70,8 @@ data class IptvSettings(
     val shuffle: IptvShuffle = IptvShuffle(),
     /** fork:live-tv-decide - what is followed: programme titles, teams, "any Bond film". */
     val follows: List<String> = emptyList(),
+    /** fork:live-tv-evening - Tonight's running order and Just ask; off by default. */
+    val evening: Boolean = false,
     /** fork:live-tv-brakes - zap budget and end card; off by default. */
     val brakes: Boolean = false,
     /** fork:live-tv-brakes - the honest tally, one entry per night (key: the night's number). */
@@ -295,6 +297,11 @@ object IptvRepository {
     fun setDecide(enabled: Boolean) {
         ensureLoaded()
         mutate { it.copy(decide = enabled) }
+    }
+
+    fun setEvening(enabled: Boolean) {
+        ensureLoaded()
+        mutate { it.copy(evening = enabled) }
     }
 
     fun setBrakes(enabled: Boolean) {
