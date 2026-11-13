@@ -124,6 +124,7 @@ internal fun StageOptionsMenu(
                 onDismissRequest = { close() },
                 properties = PopupProperties(focusable = true),
             ) {
+                com.nuvio.app.core.ui.KeyRouteLayer("stage options menu") // upstream focus router (Nov 13): leaves an open menu alone
                 LaunchedEffect(Unit) { runCatching { firstRow.requestFocus() } }
                 Column(
                     Modifier

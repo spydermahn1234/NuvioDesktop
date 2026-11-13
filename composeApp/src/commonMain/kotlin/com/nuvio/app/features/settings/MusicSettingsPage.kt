@@ -18,6 +18,26 @@ import com.nuvio.app.features.music.library.MusicLibraryRepository
 import com.nuvio.app.features.music.library.addonLinks
 import com.nuvio.app.features.preroll.PreshowSettings
 import nuvio.composeapp.generated.resources.Res
+import nuvio.composeapp.generated.resources.settings_music_album_notes
+import nuvio.composeapp.generated.resources.settings_music_album_lenses
+import nuvio.composeapp.generated.resources.settings_music_album_lenses_description
+import nuvio.composeapp.generated.resources.settings_music_artist_stage
+import nuvio.composeapp.generated.resources.settings_music_artist_stage_description
+import nuvio.composeapp.generated.resources.settings_music_home
+import nuvio.composeapp.generated.resources.settings_music_home_description
+import nuvio.composeapp.generated.resources.settings_music_album_notes_description
+import com.nuvio.app.features.music.library.LibraryView
+import nuvio.composeapp.generated.resources.settings_music_section_views
+import nuvio.composeapp.generated.resources.settings_music_view_shelf
+import nuvio.composeapp.generated.resources.settings_music_view_shelf_description
+import nuvio.composeapp.generated.resources.settings_music_view_crates
+import nuvio.composeapp.generated.resources.settings_music_view_crates_description
+import nuvio.composeapp.generated.resources.settings_music_view_constellation
+import nuvio.composeapp.generated.resources.settings_music_view_constellation_description
+import nuvio.composeapp.generated.resources.settings_music_view_eras
+import nuvio.composeapp.generated.resources.settings_music_view_eras_description
+import nuvio.composeapp.generated.resources.settings_music_view_playlists
+import nuvio.composeapp.generated.resources.settings_music_view_playlists_description
 import nuvio.composeapp.generated.resources.settings_music_audiodb_key
 import nuvio.composeapp.generated.resources.settings_music_audiodb_key_description
 import nuvio.composeapp.generated.resources.settings_music_fanart_key
@@ -54,12 +74,6 @@ import nuvio.composeapp.generated.resources.settings_music_pause_for_trailers_de
 import nuvio.composeapp.generated.resources.settings_music_resume_after_playback
 import nuvio.composeapp.generated.resources.settings_music_resume_after_playback_description
 import nuvio.composeapp.generated.resources.settings_music_reduced_motion
-import nuvio.composeapp.generated.resources.settings_music_album_lenses
-import nuvio.composeapp.generated.resources.settings_music_album_lenses_description
-import nuvio.composeapp.generated.resources.settings_music_artist_stage
-import nuvio.composeapp.generated.resources.settings_music_home
-import nuvio.composeapp.generated.resources.settings_music_home_description
-import nuvio.composeapp.generated.resources.settings_music_artist_stage_description
 import nuvio.composeapp.generated.resources.settings_music_reduced_motion_description
 import nuvio.composeapp.generated.resources.settings_music_section_general
 import nuvio.composeapp.generated.resources.settings_music_lyrics_amll
@@ -99,7 +113,7 @@ internal fun LazyListScope.musicSettingsContent(isTablet: Boolean) {
             val settings = state.settings
             SettingsGroup(
                 isTablet = isTablet,
-                modifier = Modifier.settingsSearchAnchors("music-show-tab", "music-reduced-motion", "music-album-lenses", "music-artist-stage", "music-home"),
+                modifier = Modifier.settingsSearchAnchors("music-show-tab", "music-reduced-motion", "music-album-lenses", "music-artist-stage", "music-album-notes", "music-home"),
             ) {
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_music_show_tab),
@@ -120,6 +134,15 @@ internal fun LazyListScope.musicSettingsContent(isTablet: Boolean) {
                     isTablet = isTablet,
                     onCheckedChange = { MusicLibraryRepository.updateSettings(settings.copy(reducedMotion = it)) },
                 )
+                SettingsGroupDivider(isTablet)
+                SettingsSwitchRow(
+                    title = stringResource(Res.string.settings_music_album_notes),
+                    description = stringResource(Res.string.settings_music_album_notes_description),
+                    checked = settings.albumNotes,
+                    isTablet = isTablet,
+                    onCheckedChange = { MusicLibraryRepository.updateSettings(settings.copy(albumNotes = it)) },
+                )
+                // fork: the album page, artist page and music home switches (upstream removed all three on Nov 11-12 2026).
                 SettingsGroupDivider(isTablet)
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_music_album_lenses),
@@ -144,6 +167,43 @@ internal fun LazyListScope.musicSettingsContent(isTablet: Boolean) {
                     isTablet = isTablet,
                     onCheckedChange = { MusicLibraryRepository.updateSettings(settings.copy(musicHome = it)) },
                 )
+            }
+        }
+    }
+
+    // The Library's views: each can be switched off, and its icon leaves the Library's header (and the music home's).
+    item {
+        SettingsSection(
+            title = stringResource(Res.string.settings_music_section_views),
+            isTablet = isTablet,
+        ) {
+            val state by MusicLibraryRepository.state.collectAsStateWithLifecycle()
+            val settings = state.settings
+            val rows = listOf(
+                Triple(LibraryView.Shelf, Res.string.settings_music_view_shelf, Res.string.settings_music_view_shelf_description),
+                Triple(LibraryView.Crates, Res.string.settings_music_view_crates, Res.string.settings_music_view_crates_description),
+                Triple(LibraryView.Constellation, Res.string.settings_music_view_constellation, Res.string.settings_music_view_constellation_description),
+                Triple(LibraryView.Eras, Res.string.settings_music_view_eras, Res.string.settings_music_view_eras_description),
+                Triple(LibraryView.Playlists, Res.string.settings_music_view_playlists, Res.string.settings_music_view_playlists_description),
+            )
+            SettingsGroup(
+                isTablet = isTablet,
+                modifier = Modifier.settingsSearchAnchors(*rows.map { "music-view-${it.first.name.lowercase()}" }.toTypedArray()),
+            ) {
+                rows.forEachIndexed { index, (view, title, description) ->
+                    if (index > 0) SettingsGroupDivider(isTablet)
+                    val on = view.name !in settings.hiddenLibraryViews
+                    SettingsSwitchRow(
+                        title = stringResource(title),
+                        description = stringResource(description),
+                        checked = on,
+                        isTablet = isTablet,
+                        onCheckedChange = { show ->
+                            val hidden = if (show) settings.hiddenLibraryViews - view.name else settings.hiddenLibraryViews + view.name
+                            MusicLibraryRepository.updateSettings(settings.copy(hiddenLibraryViews = hidden))
+                        },
+                    )
+                }
             }
         }
     }

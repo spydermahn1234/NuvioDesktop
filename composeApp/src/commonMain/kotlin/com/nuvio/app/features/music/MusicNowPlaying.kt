@@ -435,8 +435,7 @@ private fun MusicNowPlayingScreen(
                                         onClick = genre?.let { g ->
                                             {
                                                 // A genre chip searches that genre (the Ladder is hidden): the music home shows its genre card.
-                                                MusicTabState.query = g
-                                                MusicTabState.section = MusicSection.Search
+                                                MusicTabState.search(g)
                                                 onClose()
                                                 onOpenMusicTab()
                                             }
