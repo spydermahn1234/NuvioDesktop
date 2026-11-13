@@ -450,6 +450,20 @@ fun IptvScreen(
         }
     }
 
+    fun setReminder(channel: IptvMergedChannel, entry: IptvEpgEntry, autoSwitch: Boolean) {
+        IptvRepository.addReminder(
+            IptvReminder(
+                playlistId = playlist.id,
+                channelKey = channel.primary.key,
+                channelName = channel.primary.name.ifBlank { "Channel ${channel.primary.num}" },
+                title = entry.title,
+                startMs = entry.startMs,
+                endMs = entry.endMs,
+                autoSwitch = autoSwitch,
+            ),
+        )
+    }
+
     fun activateWall(item: IptvWallItem) {
         when (item) {
             is IptvWallItem.Match -> item.programme?.let { openOrPlay(it.channel, it.entry, film = false, match = item.match) }
@@ -470,20 +484,6 @@ fun IptvScreen(
             }
             is IptvWallItem.Note -> Unit
         }
-    }
-
-    fun setReminder(channel: IptvMergedChannel, entry: IptvEpgEntry, autoSwitch: Boolean) {
-        IptvRepository.addReminder(
-            IptvReminder(
-                playlistId = playlist.id,
-                channelKey = channel.primary.key,
-                channelName = channel.primary.name.ifBlank { "Channel ${channel.primary.num}" },
-                title = entry.title,
-                startMs = entry.startMs,
-                endMs = entry.endMs,
-                autoSwitch = autoSwitch,
-            ),
-        )
     }
 
     fun runDetailAction(action: IptvDetailAction) {
