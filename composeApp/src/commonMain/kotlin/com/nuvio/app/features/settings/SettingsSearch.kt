@@ -627,6 +627,13 @@ private fun settingsSearchEntries(
             "Three things, I have 25 minutes, Earlier today and Following: Live TV views that offer very little.",
             "General",
         ),
+        // fork:live-tv-brakes
+        PlaybackSearchRow(
+            "iptv-brakes",
+            "Brakes",
+            "Live TV offers to stop after five quick channel changes or at the end of a programme, and keeps an honest tally of your week.",
+            "General",
+        ),
         // fork:live-tv-departure
         PlaybackSearchRow(
             "iptv-departure",

@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.NuvioModalDialog
 import com.nuvio.app.core.ui.nuvio
+import com.nuvio.app.features.iptv.IptvBrakeRules
+import com.nuvio.app.features.iptv.IptvDecide
 import com.nuvio.app.features.iptv.IptvPlaylist
 import com.nuvio.app.features.iptv.IptvPlaylistType
 import com.nuvio.app.features.iptv.IptvRefreshPolicy
@@ -170,6 +172,18 @@ internal fun LazyListScope.iptvSettingsContent(
                     isTablet = isTablet,
                     modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-decide")),
                     onCheckedChange = IptvRepository::setDecide,
+                )
+                // fork:live-tv-brakes
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSwitchRow(
+                    title = "Brakes",
+                    description = "Three gentle stops. Five channel changes in two minutes offers to stop (once a night). " +
+                        "After a programme you stayed with, \"Stop here\" comes first. And an honest week: " +
+                        (IptvBrakeRules.weekLine(IptvBrakeRules.week(settings.tally, IptvDecide.nightOf(System.currentTimeMillis()))) + "."),
+                    checked = settings.brakes,
+                    isTablet = isTablet,
+                    modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-brakes")),
+                    onCheckedChange = IptvRepository::setBrakes,
                 )
                 // fork:live-tv-departure
                 SettingsGroupDivider(isTablet = isTablet)

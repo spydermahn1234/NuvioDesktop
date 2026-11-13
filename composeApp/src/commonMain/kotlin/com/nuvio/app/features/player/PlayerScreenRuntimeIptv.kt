@@ -14,6 +14,8 @@ import com.nuvio.app.features.iptv.IptvChannel
 import com.nuvio.app.features.iptv.IptvEpgRepository
 import com.nuvio.app.features.iptv.IptvGroups
 import com.nuvio.app.features.iptv.IptvRepository
+import com.nuvio.app.features.iptv.IptvBrakeAnswer
+import com.nuvio.app.features.iptv.IptvBrakeEngine
 import com.nuvio.app.features.iptv.IptvPlaybackSession
 import com.nuvio.app.features.iptv.redactIptvCredentials
 import com.nuvio.app.features.iptv.requestHeaders
@@ -76,6 +78,15 @@ internal fun PlayerScreenRuntime.BindIptvLiveEffects() {
     }
 
     BindIptvStallReconnect()
+
+    // fork:live-tv-brakes - a minute counted while it plays; the end card is the engine's call.
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000L)
+            val active = IptvPlaybackSession.active.value ?: continue
+            if (playbackSnapshot.isPlaying && active.catchup == null) IptvBrakeEngine.tick(active.playlist, active.channel)
+        }
+    }
     BindIptvBufferTelemetry()
 
     DisposableEffect(Unit) {
@@ -303,6 +314,8 @@ internal fun PlayerScreenRuntime.handleIptvControlsEvent(type: String, value: Do
         "previousEpisode" -> switchIptvChannel(-1)
         "iptvChannel" -> switchIptvChannel(if (value < 0) -1 else 1)
         "iptvChannelNumber" -> switchIptvChannelNumber(value.toInt())
+        // fork:live-tv-brakes - the answer to the HUD's choice card.
+        "iptvChoice" -> if (IptvBrakeEngine.answer(value.toInt()) == IptvBrakeAnswer.TurnOff) args.onBack()
         "iptvPanelOpen" -> {
             iptvPanelOpen = value > 0
             if (!iptvPanelOpen) iptvPanelQuery = ""
@@ -365,6 +378,7 @@ private fun PlayerScreenRuntime.zapTo(channel: IptvChannel) {
     iptvLinkJob?.cancel()
     IptvPlaybackSession.setOpening(null)
     if (IptvPlaybackSession.active.value?.channel?.uid == channel.uid) return
+    IptvBrakeEngine.noteChange() // fork:live-tv-brakes
     if (!IptvPlaybackSession.needsLink(channel)) {
         openIptvChannel(channel, IptvPlaybackSession.switchTo(channel))
         return

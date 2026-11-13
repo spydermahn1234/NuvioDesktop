@@ -925,6 +925,14 @@ fun main(args: Array<String>) {
                     handles.forEach { handle -> runCatching { com.nuvio.app.features.player.desktop.NativePlayerBridge.runJavaScript(handle, script) } }
                 }
                 com.nuvio.app.features.iptv.IptvReminderEngine.start()
+                // fork:live-tv-brakes - the choice card (zap budget, end card) drawn by the player's HUD.
+                com.nuvio.app.features.iptv.IptvBrakeEngine.showChoice = { title, line, options, focused ->
+                    val handles = runCatching { com.nuvio.app.features.player.desktop.NativeAudioDuck.liveHandles() }.getOrDefault(emptyList())
+                    val script = "window.nuvioShowChoice&&window.nuvioShowChoice(" +
+                        "${kotlinx.serialization.json.JsonPrimitive(title)},${kotlinx.serialization.json.JsonPrimitive(line)}," +
+                        "${kotlinx.serialization.json.JsonArray(options.map { kotlinx.serialization.json.JsonPrimitive(it) })},$focused)"
+                    handles.forEach { handle -> runCatching { com.nuvio.app.features.player.desktop.NativePlayerBridge.runJavaScript(handle, script) } }
+                }
                 // fork:local-addons - AIOStreams and AIOMetadata in the background, only when switched on.
                 kotlin.concurrent.thread(isDaemon = true, name = "local-addons-start") {
                     com.nuvio.app.features.localaddons.LocalAddonHost.startIfEnabled()

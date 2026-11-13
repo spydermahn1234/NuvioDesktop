@@ -7319,6 +7319,80 @@ window.nuvioShowScoreCard = card => {
   }, hold);
 };
 
+// fork:live-tv-brakes - a small glass choice card (zap budget, end card). Arrow keys and Enter pick,
+// Escape dismisses; the answer goes back as "iptvChoice" with the option's index, -1 for dismissed.
+let choiceCardEl = null;
+let choiceCardKeys = null;
+const closeChoiceCard = answer => {
+  if (!choiceCardEl) return;
+  const el = choiceCardEl;
+  choiceCardEl = null;
+  if (choiceCardKeys) document.removeEventListener("keydown", choiceCardKeys, true);
+  choiceCardKeys = null;
+  el.style.opacity = "0";
+  window.setTimeout(() => el.remove(), 260);
+  send("iptvChoice", answer);
+};
+window.nuvioShowChoice = (title, line, options, focused) => {
+  if (isHeroTrailerSurface) return;
+  if (choiceCardEl) {
+    choiceCardEl.remove();
+    if (choiceCardKeys) document.removeEventListener("keydown", choiceCardKeys, true);
+    choiceCardEl = null;
+    choiceCardKeys = null;
+  }
+  const labels = Array.isArray(options) ? options.map(String) : [];
+  if (!labels.length) return;
+  let at = Math.min(Math.max(Number(focused) || 0, 0), labels.length - 1);
+  const el = document.createElement("div");
+  el.style.cssText = [
+    "position:fixed", "left:50%", "top:50%", "width:560px", "margin:-120px 0 0 -280px", "padding:28px 32px",
+    "z-index:2147483002", "box-sizing:border-box", "color:#fff", "text-align:center",
+    "background:rgba(14,14,20,0.82)", "border:1px solid rgba(255,255,255,0.16)", "border-radius:24px",
+    "backdrop-filter:blur(22px)", "-webkit-backdrop-filter:blur(22px)",
+    "font-family:var(--nuvio-ui-font,system-ui,sans-serif)", "opacity:0", "transition:opacity 260ms ease",
+  ].join(";");
+  const head = document.createElement("div");
+  head.textContent = String(title || "");
+  head.style.cssText = "font-weight:800;font-size:24px";
+  const sub = document.createElement("div");
+  sub.textContent = String(line || "");
+  sub.style.cssText = "margin-top:8px;color:#c8c8d0;font-size:16px";
+  const row = document.createElement("div");
+  row.style.cssText = "margin-top:24px;display:flex;gap:14px;justify-content:center";
+  const buttons = labels.map((label, index) => {
+    const b = document.createElement("div");
+    b.textContent = label;
+    b.style.cssText = "flex:1;padding:14px 10px;border-radius:14px;font-weight:700;font-size:17px;cursor:pointer;border:1px solid rgba(255,255,255,0.2)";
+    b.addEventListener("click", () => closeChoiceCard(index));
+    row.appendChild(b);
+    return b;
+  });
+  const paint = () => buttons.forEach((b, index) => {
+    b.style.background = index === at ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.08)";
+    b.style.color = index === at ? "#101014" : "#fff";
+  });
+  paint();
+  el.appendChild(head);
+  el.appendChild(sub);
+  el.appendChild(row);
+  document.body.appendChild(el);
+  choiceCardEl = el;
+  choiceCardKeys = event => {
+    const key = event.key;
+    if (key === "ArrowLeft" || key === "ArrowUp") at = (at + labels.length - 1) % labels.length;
+    else if (key === "ArrowRight" || key === "ArrowDown") at = (at + 1) % labels.length;
+    else if (key === "Enter" || key === " ") { event.preventDefault(); event.stopImmediatePropagation(); closeChoiceCard(at); return; }
+    else if (key === "Escape" || key === "Backspace") { event.preventDefault(); event.stopImmediatePropagation(); closeChoiceCard(-1); return; }
+    else return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    paint();
+  };
+  document.addEventListener("keydown", choiceCardKeys, true);
+  window.requestAnimationFrame(() => { el.style.opacity = "1"; });
+};
+
 window.nuvioSetPlaybackInfo = payload => {
   const next = payload || {};
   playbackInfo = {

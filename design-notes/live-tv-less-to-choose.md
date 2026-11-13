@@ -149,12 +149,12 @@ button; side panels show earlier asks and why this was chosen.
 
 ### Brakes
 
-**10. Zap budget.** Five channel changes in two minutes and a card stops the flicking with three picks, plus "Keep
+**10. Zap budget. (BUILT Nov 13 in Brakes: two answers on the zap card, the week shown in Settings.)** Five channel changes in two minutes and a card stops the flicking with three picks, plus "Keep
 flicking" and "Turn Live TV off". Once an evening; can be switched off.
 - Hook: `switchIptvChannel` / `zapTo` in `PlayerScreenRuntimeIptv.kt` (count changes in a sliding window). The card
   is drawn by the player's HUD (`controls.js`, the way `window.nuvioShowScoreCard` is) so it shows over the video.
 
-**11. The end card.** When a programme ends nothing starts by itself: "Stop here" (focused) or "One more", which
+**11. The end card. (BUILT Nov 13 in Brakes: two answers on the zap card, the week shown in Settings.)** When a programme ends nothing starts by itself: "Stop here" (focused) or "One more", which
 offers exactly one thing.
 - Hook: the programme boundary from the guide for the playing channel (`rememberIptvControlState` already knows now
   and next), and `finishCatchup` for a recording that ran out. Live channels do not stop, so the card appears over the
@@ -163,7 +163,7 @@ offers exactly one thing.
   only at the end of something the viewer **chose** (from the board, Three things, the running order, Earlier today,
   Start over), never after plain channel surfing.
 
-**12. Honest tally.** On leaving Live TV: time watched, programmes watched to the end, channel changes, and this week
+**12. Honest tally. (BUILT Nov 13 in Brakes: two answers on the zap card, the week shown in Settings.)** On leaving Live TV: time watched, programmes watched to the end, channel changes, and this week
 against last. Kept on this PC only.
 - Store: a small daily log (`IptvWatchLog`: minutes, changes, finished) beside the settings, not in them; cap it at
   a few months. The music play log (`MusicPlayLog`) is the pattern to copy.

@@ -668,3 +668,14 @@ The "Music search" lines are upstream's search, which this fork shows only while
 - [ ] Music search rows put well-known artists ahead of near-unknown uploads among equally good matches: "love is dead" shows CHVRCHES' album before Gofun's (7 fans); rows don't reshuffle after they appear (they may take up to about 1.5 s longer to show)
 - [ ] Music search: move quickly off an album before its details load, then come back: it fills in (description, genres, facts) instead of staying with the plain cover and no words (Kerli's Love Is Dead in "love is dead" was one)
 - [ ] Artwork that was half grey (Momento's Love Is Dead (Extended Mix) and the other song tiles in "love is dead") shows whole after its next load, in the row and in the hero; posters and other artwork across the app are no longer kept when a download is cut short
+
+## Live TV: Brakes (Nov 13)
+
+Settings > Live TV > Brakes (off by default).
+- [ ] With Brakes on, the switch's text shows a week line ("0 min watching, 0 channel changes, 0 programmes seen to the end"); after an evening of watching it counts up
+- [ ] On a channel, press channel up five times quickly: a glass card "That's a lot of flicking" appears over the video with Keep flicking and Turn Live TV off; arrows and Enter pick, Escape dismisses
+- [ ] Keep flicking: the card goes and does not come back that night, however much you flick
+- [ ] Turn Live TV off leaves the player
+- [ ] Stay on one programme for 15 minutes or more: at its end a card shows its title with Stop here (focused) and One more; Stop here leaves the player, One more carries on
+- [ ] Flicking past channels quickly never shows the end card
+- [ ] With Brakes off none of this appears and the week line is not shown as counting

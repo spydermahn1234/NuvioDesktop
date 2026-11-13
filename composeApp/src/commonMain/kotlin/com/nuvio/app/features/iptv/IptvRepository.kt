@@ -70,6 +70,12 @@ data class IptvSettings(
     val shuffle: IptvShuffle = IptvShuffle(),
     /** fork:live-tv-decide - what is followed: programme titles, teams, "any Bond film". */
     val follows: List<String> = emptyList(),
+    /** fork:live-tv-brakes - zap budget and end card; off by default. */
+    val brakes: Boolean = false,
+    /** fork:live-tv-brakes - the honest tally, one entry per night (key: the night's number). */
+    val tally: Map<String, IptvNight> = emptyMap(),
+    /** fork:live-tv-brakes - the night the zap-budget card was last offered. */
+    val brakeOffered: Long? = null,
 ) {
     /** Whether the Live TV entry belongs in the navigation. */
     val tabShown: Boolean
@@ -289,6 +295,22 @@ object IptvRepository {
     fun setDecide(enabled: Boolean) {
         ensureLoaded()
         mutate { it.copy(decide = enabled) }
+    }
+
+    fun setBrakes(enabled: Boolean) {
+        ensureLoaded()
+        mutate { it.copy(brakes = enabled) }
+    }
+
+    /** fork:live-tv-brakes - adds to tonight's tally. */
+    fun tally(night: Long, change: (IptvNight) -> IptvNight) {
+        ensureLoaded()
+        mutate { it.copy(tally = IptvBrakeRules.add(it.tally, night, change)) }
+    }
+
+    fun brakeOffered(night: Long) {
+        ensureLoaded()
+        mutate { it.copy(brakeOffered = night) }
     }
 
     fun setMinutes(minutes: Int) {
