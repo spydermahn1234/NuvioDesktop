@@ -409,6 +409,7 @@ fun IptvScreen(
     fun activateSidebar(item: IptvSidebarItem) {
         item.playlist?.let { selectedPlaylistId = it.id }
         item.section?.let { section = it }
+        detail = null // picking a section leaves an open programme page
     }
 
     fun moveDown() {
