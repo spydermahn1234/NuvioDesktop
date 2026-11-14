@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
  */
 object IptvOnDemand {
     private val none = IptvOnDemandTarget("", "", "", null, null, null, null)
+    private const val MAX_SEASONS = 30
     private val found = ConcurrentHashMap<String, IptvOnDemandTarget>()
 
     private fun key(q: IptvOnDemandQuery) = "${if (q.film) "m" else "s"}:${IptvDecide.normalise(q.title)}:${q.year ?: ""}:${q.season ?: ""}:${q.episode ?: ""}"
@@ -49,12 +50,24 @@ object IptvOnDemand {
             ?: if (q.film && q.year != null) results.firstOrNull() else null
         best ?: return null
         val imdb = TmdbService.tmdbToImdb(best.id, if (q.film) "movie" else "tv") ?: return null
+        // No numbers in the guide: find the episode by the name its description starts with.
+        var season = q.season
+        var episode = q.episode
+        if (!q.film && season == null && !q.desc.isNullOrBlank()) {
+            val seasons = TmdbService.fetchSeasonEpisodeCounts(best.id).orEmpty().take(MAX_SEASONS).mapNotNull { count ->
+                TmdbService.fetchSeasonEpisodeNames(best.id, count.season)?.let { count.season to it }
+            }
+            IptvOnDemandRules.episodeByName(q.desc, seasons)?.let { (s, e) ->
+                season = s
+                episode = e
+            }
+        }
         return IptvOnDemandTarget(
             type = if (q.film) "movie" else "series",
             imdbId = imdb,
             name = (if (q.film) best.title else best.name) ?: q.title,
-            season = q.season,
-            episode = q.episode,
+            season = season,
+            episode = episode,
             poster = best.posterPath?.takeIf { it.isNotBlank() }?.let { "https://image.tmdb.org/t/p/w342$it" },
             backdrop = best.backdropPath?.takeIf { it.isNotBlank() }?.let { "https://image.tmdb.org/t/p/w780$it" },
         )
@@ -62,6 +75,8 @@ object IptvOnDemand {
 
     /** Plays it from the start through the add-ons, or opens the series' page to pick the episode. */
     fun play(target: IptvOnDemandTarget) {
+        // The viewer chose a programme, not a release: the add-ons' source is picked without asking.
+        com.nuvio.app.features.streams.StreamAutoPlayOverride.arm(target.videoId)
         if (!target.playable) {
             handleAppUrl(buildMetaDeepLinkUrl(target.type, target.imdbId))
             return

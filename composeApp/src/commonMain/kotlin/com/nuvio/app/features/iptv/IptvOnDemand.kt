@@ -6,7 +6,15 @@ package com.nuvio.app.features.iptv
  * like) instead of joining it live. A film by its title and year; an episode by the series' exact name and the
  * guide's season and episode numbers; a series without numbers opens on its page to pick the episode.
  */
-data class IptvOnDemandQuery(val title: String, val film: Boolean, val year: Int?, val season: Int?, val episode: Int?)
+data class IptvOnDemandQuery(
+    val title: String,
+    val film: Boolean,
+    val year: Int?,
+    val season: Int?,
+    val episode: Int?,
+    /** The guide's description, for finding the episode by its name when there are no numbers. */
+    val desc: String? = null,
+)
 
 /** What TMDB matched: Stremio ids ("tt0111161", "tt0903747:2:5"). */
 data class IptvOnDemandTarget(
@@ -48,14 +56,32 @@ object IptvOnDemandRules {
         val film = entry.kind == IptvProgrammeKind.FILM
         val (title, yearInTitle) = if (film) IptvOnNow.filmQuery(entry.title) else entry.title.trim() to null
         if (IptvDecide.normalise(title).length < 3) return null
-        val (season, episode) = episodeNumbers(entry.episode)
-        return IptvOnDemandQuery(title, film, entry.year ?: yearInTitle, if (film) null else season, if (film) null else episode)
+        // The numbers from the guide's own field, else from its description or title ("S3 E22 The One With ...").
+        val (season, episode) = listOf(entry.episode, entry.desc, entry.title)
+            .map(::episodeNumbers).firstOrNull { it.first != null } ?: (null to null)
+        return IptvOnDemandQuery(title, film, entry.year ?: yearInTitle, if (film) null else season, if (film) null else episode, entry.desc)
     }
 
-    /** "S2 E5" to (2, 5); anything else to nulls. */
+    /** "S2 E5", "S02E05" or "Series 2, Episode 5" to (2, 5); anything else to nulls. */
     fun episodeNumbers(label: String?): Pair<Int?, Int?> {
-        val match = label?.let { Regex("""S(\d{1,2})\s*E(\d{1,3})""", RegexOption.IGNORE_CASE).find(it) } ?: return null to null
+        if (label == null) return null to null
+        val match = Regex("""\bS(\d{1,2})\s*E(\d{1,3})\b""", RegexOption.IGNORE_CASE).find(label)
+            ?: Regex("""\b(?:Series|Season)\s+(\d{1,2}),?\s+Episode\s+(\d{1,3})\b""", RegexOption.IGNORE_CASE).find(label)
+            ?: return null to null
         return match.groupValues[1].toInt() to match.groupValues[2].toInt()
+    }
+
+    /**
+     * The episode whose TMDB name the guide's description starts with (after any "S3 E22"), names of five letters or
+     * more only; the longest match wins. Null when none does.
+     */
+    fun episodeByName(desc: String?, seasons: List<Pair<Int, List<Pair<Int, String>>>>): Pair<Int, Int>? {
+        val text = IptvDecide.normalise(desc?.replace(Regex("""^\s*S\d{1,2}\s*E\d{1,3}\s*""", RegexOption.IGNORE_CASE), "") ?: return null)
+        if (text.isEmpty()) return null
+        return seasons.flatMap { (season, episodes) -> episodes.map { (number, name) -> Triple(season, number, IptvDecide.normalise(name)) } }
+            .filter { it.third.length >= 5 && text.startsWith(it.third) }
+            .maxByOrNull { it.third.length }
+            ?.let { it.first to it.second }
     }
 
     /** "Started 23 min ago" / "Ended at 21:00". */

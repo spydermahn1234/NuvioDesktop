@@ -56,3 +56,29 @@ class IptvOnDemandTest {
         assertEquals("Started 20 min ago", IptvOnDemandRules.lateLine(e("X", -20, 40), now) { "" })
     }
 }
+
+class IptvOnDemandEpisodeTest {
+    private val now = 50_000_000L
+
+    @Test
+    fun `numbers come from the description when the guide's field is empty`() {
+        val entry = IptvEpgEntry("Friends", now - 27 * 60_000L, now + 3 * 60_000L, null, desc = "S3 E22 The One With the Screamer When Rachel finds out...")
+        val q = IptvOnDemandRules.query(entry)!!
+        assertEquals(3, q.season)
+        assertEquals(22, q.episode)
+        assertEquals(2 to 5, IptvOnDemandRules.episodeNumbers("Series 2, Episode 5. Something happens."))
+        assertEquals(null to null, IptvOnDemandRules.episodeNumbers("Rachel's S3 plan"))
+    }
+
+    @Test
+    fun `an episode is found by the name its description starts with, the longest name winning`() {
+        val seasons = listOf(
+            3 to listOf(21 to "The One with the Dollhouse", 22 to "The One with the Screamer"),
+            4 to listOf(1 to "The One with the Jellyfish", 2 to "Plan"),
+        )
+        assertEquals(3 to 22, IptvOnDemandRules.episodeByName("The One With the Screamer. When Rachel finds out...", seasons))
+        assertEquals(3 to 22, IptvOnDemandRules.episodeByName("S3 E22 The One With the Screamer When...", seasons))
+        assertNull(IptvOnDemandRules.episodeByName("Plan B for something", seasons), "five letters or more")
+        assertNull(IptvOnDemandRules.episodeByName("Rachel and Ross argue.", seasons))
+    }
+}

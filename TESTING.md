@@ -748,6 +748,9 @@ Needs the new Nuvio Remote build (android-remote workflow) and Settings > Live T
 Settings > Live TV > From the start, on demand (and Stage) on; add-ons with TorBox (or another source) set up.
 - [ ] OK on a film that started more than 3 minutes ago asks: From the start, on demand / Join live, N min in / Close; it says what TMDB found
 - [ ] From the start plays the film from 0:00 through your add-ons (the source they pick), not the live channel
+- [ ] It starts playing by itself, with no source list, even with Settings' auto-play set to choose manually
+- [ ] Friends (S3 E22 in the description, not the guide's episode field) plays S3 E22 from the start instead of opening the series page
+- [ ] An episode with no numbers but a description starting with its title ("The One With ...") finds and plays that episode
 - [ ] An episode with S/E numbers in the guide plays that episode from the start; one without opens the series' page
 - [ ] A programme TMDB doesn't know says so and offers only Join live; news, sport and Live-marked programmes join live straight away
 - [ ] Up/Down, OK and Back work on the choice; tapping a card on the phone mirror opens the same choice on the TV
