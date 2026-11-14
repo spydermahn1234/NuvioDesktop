@@ -803,12 +803,12 @@ Settings > Live TV > Stage. Watch a few programmes on Live TV first (each one at
 
 ## Phone remote: poster wallpaper (Nov 14)
 
-- [ ] Remote › More shows a Lock screen row: Poster off/on, My picture, and a line saying what it does
-- [ ] With Poster on, start a film on the TV: within a few seconds the phone's lock screen shows its poster, whole and centred on a blurred copy (home screen unchanged)
+- [x] Remote › More shows a Lock screen row: Poster off/on, My picture, and a line saying what it does (2026-11-14)
+- [x] With Poster on, start a film on the TV: within a few seconds the phone's lock screen shows its poster, whole and centred on a blurred copy (home screen unchanged) (2026-11-14)
 - [ ] An episode of a show: the lock screen shows the show's poster; the next episode does not make it flicker
 - [ ] Music on the TV: the lock screen shows the album cover; a new album changes it
 - [ ] Pausing keeps the poster
 - [ ] My picture: pick a photo; about 20 seconds after stopping playback on the TV, that photo is back on the lock screen
 - [ ] Without My picture: after stopping, the lock screen goes back to matching the home screen
 - [ ] Turning Poster off while something plays puts the normal picture back straight away
-- [ ] The poster is sharp, not blurry, on the phone's screen
+- [x] The poster is sharp, not blurry, on the phone's screen (2026-11-14); layout and darkness kept as they are (the clock and media card sit over it)
