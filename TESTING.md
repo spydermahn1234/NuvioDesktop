@@ -718,3 +718,16 @@ Settings > Live TV > Stage. Live TV opens on Three things with a strip of stages
 - [ ] Following: type a name in the box and press Enter to follow it; Follow on a suggestion; hold OK on a followed one to stop; one on now plays, one later sets a reminder
 - [ ] Just ask: type "something funny, half an hour" (or use the mic): one answer with artwork, why this on the right, Not that for the next; the line is kept under Asked before
 - [ ] Your 40: the numbered grid with a progress bar per channel; OK plays; type 1 2 to go to 12; hold OK for move / take out / Never again; Redo the triage opens the questions
+
+## Live TV: Stage v2 (Nov 14)
+
+Settings > Live TV > Stage. The first start after updating reads the guide again (it takes a little longer once).
+- [ ] The whole stage glows softly in the colours of the highlighted programme's picture, and the glow fades over as the highlight moves; nothing moves or changes size
+- [ ] Three things: each card has a picture (film backdrop, series art or the channel logo) with LIVE / STARTS / FILM marks, chips (genre, year, length, episode), three lines of description, why it was picked and a button
+- [ ] No 24/7 loop channel (SpongeBob, American Pie, Luke Wilson), radio or Teleshopping appears in Three things, Starting soon, minutes, Tonight or Just ask unless it is on Your 40; the stages say how many were hidden
+- [ ] Titles show without "- S02E01" and without ᴺᵉʷ / ᴸⁱᵛᵉ; those show as badges instead
+- [ ] Starting soon, Earlier today: the right panel shows a picture, marks, a description and what comes on after
+- [ ] I have N minutes: rows have pictures; things on now have LIVE and a progress line
+- [ ] Tonight, opened in the morning: plans from 18:00, the ribbon shows the evening up to bedtime, Starts chips (Now, 18:00, 20:00) change it, and something that runs past bed is shown dimmed as left for another night
+- [ ] Your 40: the band at the top shows the highlighted channel's programme with its picture and what is next; tiles show the logo, what is on and progress; placeholder logos ("Content not viewable") are replaced by the channel name
+- [ ] Just ask: the three example lines under the answer fill in the question; the answer card shows the picture, marks and description

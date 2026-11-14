@@ -2,6 +2,8 @@
 
 package com.nuvio.app.features.iptv
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -19,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,11 +35,25 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.LiveTv
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.SwapHoriz
+import androidx.compose.material.icons.rounded.Tv
+import androidx.compose.material.icons.rounded.ViewColumn
+import androidx.compose.material.icons.rounded.ViewList
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.WatchLater
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -53,10 +70,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
@@ -82,15 +101,18 @@ import com.nuvio.app.core.ui.smoothBorder
 import com.nuvio.app.features.settings.settingsSkyBackground
 import com.nuvio.app.features.tonight.TonightSettingsRepository
 import java.text.NumberFormat
+import java.time.Instant
+import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
- * fork:live-tv-stage - Live TV as stages, one decision each, as the mockups have them: a centred heading, the strip of
- * stages under it, then two 296 dp glass side panels round a centre (or three equal columns). Every row, tile and card
- * has a fixed size; nothing moves or resizes with what it holds. One highlight, moved by the arrows across the panels
+ * fork:live-tv-stage - Live TV as stages, one decision each, as the v2 mockups have them ("Nuvio Live TV: Less to
+ * choose", Stage v2 row): a centred heading, the strip of stages under it, then two glass side panels round a centre
+ * (or three equal columns), lit from behind by the highlighted programme's picture. Every row, tile and card has a
+ * fixed size; nothing moves or resizes with what it holds. One highlight, moved by the arrows across the panels
  * (IptvStageFocusRules); OK acts, holding OK opens a channel's menu, Back goes to the strip.
  */
 
@@ -112,8 +134,13 @@ internal class IptvStageModel(
     val order: List<IptvWallProgramme>,
     val orderApproved: Boolean,
     val orderLeftOut: IptvWallProgramme?,
+    val orderFrom: Long,
     val bedMs: Long,
     val ask: IptvAskAnswer?,
+    /** Channels kept off the picks: 24/7 loops, radio, shopping, adult, religious (unless on the lineup). */
+    val hiddenFiller: Int,
+    /** Shopping slots on now or within the hour, kept off the picks. */
+    val hiddenShopping: Int,
 )
 
 /** The stage's data, from the guide as it stands. Heavy (every channel's guide): run it off the UI thread. */
@@ -127,7 +154,9 @@ internal fun buildIptvStage(
     askText: String,
     askSkips: Int,
     orderExclude: Set<String>,
+    orderFrom: Long,
 ): IptvStageModel {
+    IptvLogos.placeholders = IptvLogos.placeholdersOf(content.channels)
     val categoryNames = content.categoryNames
     val channels = merged.mapNotNull { channel ->
         val around = iptvGuideEntries(playlist, channel).filter { it.endMs > now - 5 * 60_000L && it.startMs < now + 12 * 3_600_000L }
@@ -144,14 +173,24 @@ internal fun buildIptvStage(
     val ownUids = if (lineupUids.isNotEmpty()) lineupUids else (usuals + (settings.favourites + settings.recents).mapNotNull { byRef[it] }).mapTo(HashSet()) { it.primary.uid }
     val own = merged.filter { it.primary.uid in ownUids }
 
+    // Filler never reaches the picks unless the viewer put the channel on the lineup themselves.
+    fun filler(on: IptvChannelNow) = on.channel.primary.uid !in lineupUids &&
+        IptvGuideText.fillerChannel(on.channel.primary.name, on.categoryName) != null
+    val hiddenFiller = channels.count(::filler)
+    val hiddenShopping = channels.sumOf { on -> on.entries.count { it.startMs <= now + 60 * 60_000L && it.endMs > now && IptvGuideText.isShopping(it.title) } }
+    val picks = channels.filterNot(::filler)
+        .map { on -> IptvChannelNow(on.channel, on.entries.filterNot { IptvGuideText.isShopping(it.title) }, on.categoryName) }
+        .filter { it.entries.isNotEmpty() }
+
     val past = own.flatMap { channel ->
-        iptvGuideEntries(playlist, channel).filter { it.endMs <= now && it.startMs >= now - 24 * 3_600_000L }.map { IptvWallProgramme(channel, it) }
+        iptvGuideEntries(playlist, channel).filter { it.endMs <= now && it.startMs >= now - 24 * 3_600_000L && !IptvGuideText.isShopping(it.title) }
+            .map { IptvWallProgramme(channel, it) }
     }.filter { IptvCatchup.available(playlist, it.channel, it.entry, now) }
     val night = IptvDecide.nightOf(now)
     val bedMs = IptvRunningOrder.bedtimeMs(now, TonightSettingsRepository.state.value.bedMinuteOfDay)
-    val three = IptvDecide.three(channels, usuals, inLineup, now, IptvDecide.rotationFor(settings.shuffle, night), endsBy = bedMs)
-    val board = IptvDecide.minutes(channels, past, now, settings.minutes, perColumn = 6)
-    val upcoming = channels.flatMap { on ->
+    val three = IptvDecide.three(picks, usuals, inLineup, now, IptvDecide.rotationFor(settings.shuffle, night), endsBy = bedMs)
+    val board = IptvDecide.minutes(picks, past, now, settings.minutes, perColumn = 6)
+    val upcoming = picks.flatMap { on ->
         on.entries.filter { it.startMs > now && it.startMs <= now + 60 * 60_000L }.map { IptvWallProgramme(on.channel, it) }
     }.sortedBy { it.entry.startMs }.take(400)
     val earlier = IptvDecide.earlier(past, settings.follows, now, limit = 40)
@@ -159,14 +198,18 @@ internal fun buildIptvStage(
         iptvGuideEntries(playlist, channel).filter { it.endMs > now }.map { IptvWallProgramme(channel, it) }
     }
     val follows = IptvDecide.follows(settings.follows, ahead, inLineup, limit = 3)
-    val ownNow = channels.filter { it.channel.primary.uid in ownUids }
+    val ownNow = picks.filter { it.channel.primary.uid in ownUids }
     val suggestions = ownNow.mapNotNull { on -> on.current(now)?.let { IptvWallProgramme(on.channel, it) } }
         .filter { !IptvDecide.isFollowed(settings.follows, it.entry.title) && it.entry.endMs - it.entry.startMs >= 20 * 60_000L }
         .distinctBy { IptvDecide.normalise(it.entry.title) }
         .take(5)
-    val ownGuide = ownNow.flatMap { on -> on.entries.map { IptvWallProgramme(on.channel, it) } }
-    val order = IptvRunningOrder.build(ownGuide, settings.follows, usualKeys, now, bedMs, orderExclude)
-    val allGuide = channels.flatMap { on -> on.entries.filter { it.startMs <= now + IptvOnNow.SOON_MS && it.endMs > now }.map { IptvWallProgramme(on.channel, it) } }
+    // The evening reads the whole guide of the viewer's channels, so a plan made in the morning reaches the night.
+    val ownGuide = own.flatMap { channel ->
+        iptvGuideEntries(playlist, channel).filter { it.endMs > orderFrom && it.startMs < bedMs + 3 * 3_600_000L && !IptvGuideText.isShopping(it.title) }
+            .map { IptvWallProgramme(channel, it) }
+    }
+    val order = IptvRunningOrder.build(ownGuide, settings.follows, usualKeys, orderFrom, bedMs, orderExclude)
+    val allGuide = picks.flatMap { on -> on.entries.filter { it.startMs <= now + IptvOnNow.SOON_MS && it.endMs > now }.map { IptvWallProgramme(on.channel, it) } }
     val ask = if (askText.isBlank()) null else IptvAsk.answer(askText, allGuide, settings.follows, usualKeys + lineup.map { it.primary.key }, now, askSkips)
     val guideByUid = channels.associateBy { it.channel.primary.uid }
     return IptvStageModel(
@@ -187,22 +230,28 @@ internal fun buildIptvStage(
         followSuggestions = suggestions,
         order = order,
         orderApproved = IptvRunningOrder.approved(playlist.id, order, settings.reminders),
-        orderLeftOut = IptvRunningOrder.pastBedtime(ownGuide, settings.follows, usualKeys, now, bedMs),
+        orderLeftOut = IptvRunningOrder.pastBedtime(ownGuide, settings.follows, usualKeys, orderFrom, bedMs),
+        orderFrom = orderFrom,
         bedMs = bedMs,
         ask = ask,
+        hiddenFiller = hiddenFiller,
+        hiddenShopping = hiddenShopping,
     )
 }
 
 private fun count(n: Int): String = NumberFormat.getIntegerInstance(Locale.UK).format(n)
 
 private val StageSidePanel = 296.dp
-private val StageRowHeight = 58.dp
+private val StageRowHeight = 64.dp
 private val StageBackKeys = setOf(Key.Escape, Key.Back, Key.Backspace)
 private val StageKeys = setOf(
     Key.DirectionUp, Key.DirectionDown, Key.DirectionLeft, Key.DirectionRight, Key.Enter, Key.NumPadEnter, Key.PageUp, Key.PageDown,
 )
 private const val HOLD_MS = 550L
 private val BedChoices = listOf(22 * 60 + 30, 23 * 60 + 30, 30)
+/** Tonight's "Starts" choices: now, 18:00, 20:00 (as minutes of the day; -1 = now). */
+private val FromChoices = listOf(-1, 18 * 60, 20 * 60)
+private val AskExamples = listOf("a film, an hour", "the football", "news, ten minutes")
 
 private fun digitOf(key: Key): Int? = when (key) {
     Key.Zero, Key.NumPad0 -> 0
@@ -216,6 +265,14 @@ private fun digitOf(key: Key): Int? = when (key) {
     Key.Eight, Key.NumPad8 -> 8
     Key.Nine, Key.NumPad9 -> 9
     else -> null
+}
+
+/** Today at [minuteOfDay], or [now] when that has passed (or for -1). */
+private fun startAt(now: Long, minuteOfDay: Int): Long {
+    if (minuteOfDay < 0) return now
+    val at = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate()
+        .atTime(minuteOfDay / 60, minuteOfDay % 60).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    return maxOf(now, at)
 }
 
 @Composable
@@ -253,17 +310,22 @@ internal fun IptvStageScreen(
     var soonSel by remember { mutableIntStateOf(0) }
     var earlierSel by remember { mutableIntStateOf(0) }
     var orderSel by remember { mutableIntStateOf(0) }
+    // In the morning or afternoon "Tonight" plans the evening; from five it starts now.
+    var fromChoice by remember {
+        mutableIntStateOf(if (Instant.ofEpochMilli(System.currentTimeMillis()).atZone(ZoneId.systemDefault()).hour < 17) 1 else 0)
+    }
     remember { TonightSettingsRepository.ensureLoaded() }
     val tonightSettings by TonightSettingsRepository.state.collectAsStateWithLifecycle()
     val bedMinute = tonightSettings.bedMinuteOfDay
+    val orderFrom = startAt(now, FromChoices[fromChoice])
 
     val model by produceState<IptvStageModel?>(
         null,
         playlist.id, merged, lineup, guideVersion, now / 60_000L, settings.plays.size, settings.favourites, settings.recents,
-        settings.follows, settings.shuffle, settings.minutes, settings.reminders, askText, askSkips, orderExclude, bedMinute,
+        settings.follows, settings.shuffle, settings.minutes, settings.reminders, askText, askSkips, orderExclude, bedMinute, fromChoice,
     ) {
         value = withContext(Dispatchers.Default) {
-            buildIptvStage(playlist, content, merged, lineup, settings, System.currentTimeMillis(), askText, askSkips, orderExclude)
+            buildIptvStage(playlist, content, merged, lineup, settings, System.currentTimeMillis(), askText, askSkips, orderExclude, orderFrom)
         }
     }
 
@@ -274,7 +336,7 @@ internal fun IptvStageScreen(
     fun playFromStart(p: IptvWallProgramme) {
         if (!IptvPlaybackRequests.playCatchup(playlist, p.channel, p.entry, zapList, alternates)) play(p.channel)
     }
-    fun remind(p: IptvWallProgramme, autoSwitch: Boolean) {
+    fun remind(p: IptvWallProgramme, autoSwitch: Boolean, quiet: Boolean = false) {
         IptvRepository.addReminder(
             IptvReminder(
                 playlistId = playlist.id,
@@ -286,10 +348,12 @@ internal fun IptvStageScreen(
                 autoSwitch = autoSwitch,
             ),
         )
-        NuvioToastController.show(
-            message = if (autoSwitch) "Nuvio switches to ${p.channel.primary.name} at ${IptvStageRules.clock(p.entry.startMs)}" else "Reminder set for ${p.entry.title}",
-            durationMillis = 3500L,
-        )
+        if (!quiet) {
+            NuvioToastController.show(
+                message = if (autoSwitch) "Nuvio switches to ${p.channel.primary.name} at ${IptvStageRules.clock(p.entry.startMs)}" else "Reminder set for ${p.entry.title}",
+                durationMillis = 3500L,
+            )
+        }
     }
     /** The one thing OK does with a programme: on now plays, not begun tunes in at its start, over plays from the start. */
     fun take(p: IptvWallProgramme) {
@@ -300,6 +364,13 @@ internal fun IptvStageScreen(
             else -> play(p.channel)
         }
     }
+    fun follow(title: String) {
+        IptvRepository.follow(title)
+        NuvioToastController.show(message = "Following $title", durationMillis = 3000L)
+    }
+    /** What follows [p] on its channel, for "then ... at ...". */
+    fun nextOf(p: IptvWallProgramme): IptvEpgEntry? =
+        iptvGuideEntries(playlist, p.channel).firstOrNull { it.startMs >= p.entry.endMs - 60_000L && it.startMs > p.entry.startMs }
 
     // Your 40's channel menu (hold OK), and typed channel numbers.
     var menuChannel by remember { mutableStateOf<IptvMergedChannel?>(null) }
@@ -339,10 +410,9 @@ internal fun IptvStageScreen(
     val weekRows = remember(m) {
         m?.follows.orEmpty().flatMap { it.matches }.distinctBy { it.channel.primary.uid to it.entry.startMs }.sortedBy { it.entry.startMs }.take(8)
     }
-    val threeCards = 3
     val askPick = m?.ask?.programme
     val layout: List<List<IptvStageGroup>> = when (current) {
-        IptvStage.Three -> listOf(listOf(IptvStageGroup("cards", threeCards, columns = 3), IptvStageGroup("deal", 1)))
+        IptvStage.Three -> listOf(listOf(IptvStageGroup("cards", 3, columns = 3), IptvStageGroup("deal", 1)))
         IptvStage.Soon -> listOf(
             listOf(IptvStageGroup("kinds", 1 + IptvSoonKind.entries.size), IptvStageGroup("window", 3, columns = 3)),
             listOf(IptvStageGroup("departures", soonRows.size)),
@@ -356,12 +426,16 @@ internal fun IptvStageScreen(
         IptvStage.Order -> listOf(
             listOf(IptvStageGroup("builtFrom", 0)),
             listOf(IptvStageGroup("order", m?.order?.size ?: 0)),
-            listOf(IptvStageGroup("orderActions", 3), IptvStageGroup("bed", BedChoices.size, columns = BedChoices.size)),
+            listOf(
+                IptvStageGroup("orderActions", 3),
+                IptvStageGroup("from", FromChoices.size, columns = FromChoices.size),
+                IptvStageGroup("bed", BedChoices.size, columns = BedChoices.size),
+            ),
         )
         IptvStage.Earlier -> listOf(
             listOf(IptvStageGroup("days", earlierDays.size)),
             listOf(IptvStageGroup("earlier", earlierRows.size)),
-            listOf(IptvStageGroup("earlierActions", if (earlierRows.isEmpty()) 0 else 1)),
+            listOf(IptvStageGroup("earlierActions", if (earlierRows.isEmpty()) 0 else 2)),
         )
         IptvStage.Following -> listOf(
             listOf(IptvStageGroup("followInput", 1), IptvStageGroup("suggest", m?.followSuggestions?.size ?: 0)),
@@ -370,7 +444,11 @@ internal fun IptvStageScreen(
         )
         IptvStage.Ask -> listOf(
             listOf(IptvStageGroup("asked", settings.asks.size)),
-            listOf(IptvStageGroup("askInput", 1), IptvStageGroup("askActions", if (askPick == null) 0 else 2)),
+            listOf(
+                IptvStageGroup("askInput", 1),
+                IptvStageGroup("askActions", if (askPick == null) 0 else 2, columns = 2),
+                IptvStageGroup("examples", AskExamples.size, columns = AskExamples.size),
+            ),
             listOf(IptvStageGroup("why", 0)),
         )
         IptvStage.Lineup -> listOf(
@@ -386,18 +464,32 @@ internal fun IptvStageScreen(
     var focus by remember(current) { mutableStateOf<IptvStageFocus?>(null) }
     val defaultColumn = if (layout.size == 3) 1 else 0
     val at = (focus ?: IptvStageFocusRules.first(layout, defaultColumn))?.let { IptvStageFocusRules.clamp(layout, it) }
-    fun isFocused(group: String, index: Int): Boolean {
-        if (!keyboardActive || onStrip || at == null) return false
-        val g = layout.getOrNull(at.column)?.getOrNull(at.group) ?: return false
-        return g.id == group && at.item == index
-    }
+    val atGroup = at?.let { layout.getOrNull(it.column)?.getOrNull(it.group)?.id }
+    fun isFocused(group: String, index: Int): Boolean =
+        keyboardActive && !onStrip && at != null && atGroup == group && at.item == index
     // The side panels follow the highlighted row of the centre, and stay on it when the highlight moves to them.
     LaunchedEffect(at, onStrip) {
         if (at == null || onStrip) return@LaunchedEffect
-        when (layout.getOrNull(at.column)?.getOrNull(at.group)?.id) {
+        when (atGroup) {
             "departures" -> soonSel = at.item
             "earlier" -> earlierSel = at.item
             "order" -> orderSel = at.item
+        }
+    }
+
+    // What lights the stage from behind: the programme the highlight is on, else the stage's own pick.
+    val ambient: IptvWallProgramme? = m?.let { md ->
+        fun focusedIn(group: String) = at?.item?.takeIf { atGroup == group && !onStrip }
+        when (current) {
+            IptvStage.Three -> listOf(md.three.safe, md.three.soon, md.three.wildcard).let { it.getOrNull(focusedIn("cards") ?: 1) ?: it.firstOrNull { p -> p != null } }
+            IptvStage.Soon -> soonRows.getOrNull(soonSel)
+            IptvStage.Minutes -> (focusedIn("on")?.let { md.board.alreadyOn.getOrNull(it) } ?: focusedIn("catchup")?.let { md.board.catchUp.getOrNull(it) }
+                ?: md.board.starting.getOrNull(focusedIn("starting") ?: 0))?.programme
+            IptvStage.Order -> md.order.getOrNull(orderSel)
+            IptvStage.Earlier -> earlierRows.getOrNull(earlierSel)
+            IptvStage.Following -> md.follows.getOrNull(focusedIn("follows") ?: 0)?.matches?.firstOrNull()
+            IptvStage.Ask -> md.ask?.programme
+            IptvStage.Lineup -> md.lineup.getOrNull(focusedIn("lineup") ?: 0)?.let { item -> item.now?.let { IptvWallProgramme(item.channel, it) } }
         }
     }
 
@@ -415,8 +507,7 @@ internal fun IptvStageScreen(
         when (editing) {
             "ask" -> IptvRepository.rememberAsk(askText)
             "follow" -> if (followText.isNotBlank()) {
-                IptvRepository.follow(followText)
-                NuvioToastController.show(message = "Following ${followText.trim()}", durationMillis = 3000L)
+                follow(followText.trim())
                 followText = ""
             }
         }
@@ -454,8 +545,9 @@ internal fun IptvStageScreen(
                     md.order.forEach { IptvRepository.removeReminder(IptvRunningOrder.reminderId(playlist.id, it)) }
                 } else {
                     val t = System.currentTimeMillis()
-                    md.order.forEach { if (it.entry.startMs > t + 60_000L) remind(it, autoSwitch = true) }
+                    md.order.forEach { if (it.entry.startMs > t + 60_000L) remind(it, autoSwitch = true, quiet = true) }
                     md.order.firstOrNull()?.takeIf { it.onNow(t) }?.let { play(it.channel) }
+                    NuvioToastController.show(message = "Approved: Nuvio changes channel at each start", durationMillis = 3500L)
                 }
                 1 -> md.order.getOrNull(orderSel)?.let { orderExclude = orderExclude + IptvDecide.normalise(it.entry.title) }
                 else -> {
@@ -463,21 +555,19 @@ internal fun IptvStageScreen(
                     pickStage(IptvStage.Three.name)
                 }
             }
+            "from" -> fromChoice = index
             "bed" -> TonightSettingsRepository.setBedtime(BedChoices[index])
             "days" -> {
                 earlierDay = index
                 earlierSel = 0
             }
             "earlier" -> earlierRows.getOrNull(index)?.let(::playFromStart)
-            "earlierActions" -> earlierRows.getOrNull(earlierSel)?.let(::playFromStart)
+            "earlierActions" -> earlierRows.getOrNull(earlierSel)?.let { p -> if (index == 0) playFromStart(p) else follow(p.entry.title) }
             "followInput" -> {
                 editing = "follow"
                 runCatching { followFocus.requestFocus() }
             }
-            "suggest" -> md.followSuggestions.getOrNull(index)?.let {
-                IptvRepository.follow(it.entry.title)
-                NuvioToastController.show(message = "Following ${it.entry.title}", durationMillis = 3000L)
-            }
+            "suggest" -> md.followSuggestions.getOrNull(index)?.let { follow(it.entry.title) }
             "follows" -> md.follows.getOrNull(index)?.let { result ->
                 val first = result.matches.firstOrNull()
                 when {
@@ -494,6 +584,10 @@ internal fun IptvStageScreen(
                 runCatching { askFocus.requestFocus() }
             }
             "askActions" -> askPick?.let { p -> if (index == 0) take(p) else askSkips++ }
+            "examples" -> AskExamples.getOrNull(index)?.let {
+                askText = it
+                IptvRepository.rememberAsk(it)
+            }
             "lineupActions" -> onTriage()
             "lineup" -> md.lineup.getOrNull(index)?.let { item ->
                 if (held) {
@@ -626,20 +720,25 @@ internal fun IptvStageScreen(
                     return@onPreviewKeyEvent true
                 }
                 handleKey(navKey)
-            }
-            .padding(start = 32.dp, end = 32.dp, top = topChromePadding ?: 24.dp, bottom = 24.dp),
+            },
     ) {
-        Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+        AmbientLight(ambient)
+        Column(
+            modifier = Modifier.fillMaxSize().padding(start = 32.dp, end = 32.dp, top = topChromePadding ?: 24.dp, bottom = 22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
             val (title, subtitle) = stageHeading(current, m, settings, now)
             Text(text = title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = tokens.colors.textPrimary, maxLines = 1)
-            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = tokens.colors.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(12.dp))
+            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = tokens.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(10.dp))
             StageStrip(
-                labels = strip.map { name ->
+                items = strip.map { name ->
                     when (name) {
-                        "all" -> "All channels"
-                        IptvStage.Minutes.name -> "${settings.minutes} minutes"
-                        else -> IptvStage.valueOf(name).label
+                        "all" -> "All channels" to Icons.Rounded.ViewList
+                        else -> {
+                            val s = IptvStage.valueOf(name)
+                            (if (s == IptvStage.Minutes) "${settings.minutes} minutes" else s.label) to stageIcon(s)
+                        }
                     }
                 },
                 selected = strip.indexOf(stage),
@@ -652,39 +751,41 @@ internal fun IptvStageScreen(
             Spacer(Modifier.height(14.dp))
             BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 // The side panels are always a pair: the same width, narrower on a narrow window.
-                val side = (maxWidth * 0.24f).coerceIn(200.dp, StageSidePanel)
+                val side = (maxWidth * 0.23f).coerceIn(200.dp, StageSidePanel)
                 if (m == null) {
                     StageMessage("Reading the guide...")
                 } else {
+                    val tap: Act = { group, i -> keyboardActive = false; activate(group, i, false) }
                     when (current) {
-                        IptvStage.Three -> ThreeStage(m, now, ::isFocused) { group, i -> keyboardActive = false; activate(group, i, false) }
-                        IptvStage.Soon -> SoonStage(
-                            m, now, side, soonLists, soonSel, soonKinds, soonLineupOnly, soonWindow, ::isFocused,
-                        ) { group, i -> keyboardActive = false; if (group == "departures") soonSel = i; activate(group, i, false) }
-                        IptvStage.Minutes -> MinutesStage(m, now, settings.minutes, ::isFocused) { group, i -> keyboardActive = false; activate(group, i, false) }
-                        IptvStage.Order -> OrderStage(m, now, side, orderSel, settings.follows, bedMinute, ::isFocused) { group, i ->
-                            keyboardActive = false
-                            if (group == "order") orderSel = i
-                            activate(group, i, false)
+                        IptvStage.Three -> ThreeStage(m, now, ::isFocused, tap)
+                        IptvStage.Soon -> SoonStage(m, now, side, soonLists, soonSel, soonKinds, soonLineupOnly, soonWindow, ::isFocused, ::nextOf) { group, i ->
+                            if (group == "departures") soonSel = i
+                            tap(group, i)
                         }
-                        IptvStage.Earlier -> EarlierStage(m, now, side, earlierDays, earlierDay, earlierRows, earlierSel, ::isFocused) { group, i ->
-                            keyboardActive = false
+                        IptvStage.Minutes -> MinutesStage(m, now, settings.minutes, ::isFocused, tap)
+                        IptvStage.Order -> OrderStage(m, now, side, orderSel, settings.follows, bedMinute, fromChoice, ::isFocused) { group, i ->
+                            if (group == "order") orderSel = i
+                            tap(group, i)
+                        }
+                        IptvStage.Earlier -> EarlierStage(now, side, earlierDays, earlierDay, earlierRows, earlierSel, ::isFocused) { group, i ->
                             if (group == "earlier") earlierSel = i
-                            activate(group, i, false)
+                            tap(group, i)
                         }
                         IptvStage.Following -> FollowingStage(
                             m, now, side, weekRows, followText, { followText = it }, followFocus,
                             onEditing = { editing = "follow" }, isFocused = ::isFocused,
                             onLongClick = { i -> activate("follows", i, true) },
-                        ) { group, i -> keyboardActive = false; activate(group, i, false) }
+                            act = tap,
+                        )
                         IptvStage.Ask -> AskStage(
                             m, now, side, settings.asks, askText, { askText = it }, askFocus,
-                            onEditing = { editing = "ask" }, onSubmit = { leaveEditing() }, isFocused = ::isFocused,
-                        ) { group, i -> keyboardActive = false; activate(group, i, false) }
+                            onEditing = { editing = "ask" }, onSubmit = { leaveEditing() }, isFocused = ::isFocused, act = tap,
+                        )
                         IptvStage.Lineup -> LineupStage(
-                            m, now, side, playlist, settings, content, typed, ::isFocused,
+                            m, now, side, playlist, settings, content, typed, ::isFocused, ::nextOf,
                             onLongClick = { i -> activate("lineup", i, true) },
-                        ) { group, i -> keyboardActive = false; activate(group, i, false) }
+                            act = tap,
+                        )
                     }
                 }
             }
@@ -705,14 +806,37 @@ internal fun IptvStageScreen(
     }
 }
 
+private fun stageIcon(stage: IptvStage): ImageVector = when (stage) {
+    IptvStage.Three -> Icons.Rounded.ViewColumn
+    IptvStage.Soon -> Icons.Rounded.Schedule
+    IptvStage.Minutes -> Icons.Rounded.WatchLater
+    IptvStage.Order -> Icons.Rounded.Bedtime
+    IptvStage.Earlier -> Icons.Rounded.History
+    IptvStage.Following -> Icons.Rounded.Notifications
+    IptvStage.Ask -> Icons.Rounded.AutoAwesome
+    IptvStage.Lineup -> Icons.Rounded.Tv
+}
+
+private fun hiddenLine(m: IptvStageModel): String? {
+    val parts = buildList {
+        if (m.hiddenFiller > 0) add("${count(m.hiddenFiller)} loop, radio and shopping channels")
+        if (m.hiddenShopping > 0) add("${m.hiddenShopping} shopping slots")
+    }
+    return if (parts.isEmpty()) null else "Hidden: " + parts.joinToString(", ") + "."
+}
+
 private fun stageHeading(stage: IptvStage, m: IptvStageModel?, settings: IptvSettings, now: Long): Pair<String, String> {
     val total = m?.total?.let(::count) ?: "all the"
     val clock = IptvStageRules.clock(now)
     return when (stage) {
-        IptvStage.Three -> "Three things" to "Out of $total channels, at $clock. Pick one; there is never a fourth."
+        IptvStage.Three -> "Three things" to "Out of $total channels at $clock. Pick one; there is never a fourth."
         IptvStage.Soon -> "Starting soon" to "Things you can watch from the first minute. It is $clock."
         IptvStage.Minutes -> "I have ${settings.minutes} minutes" to "Only what finishes inside it."
-        IptvStage.Order -> "Tonight" to "One evening from $total channels. Approve it once and Nuvio changes channel for you."
+        IptvStage.Order -> "Tonight" to if (m != null && m.orderFrom > now + 30 * 60_000L) {
+            "It is $clock, so this is the plan from ${IptvStageRules.clock(m.orderFrom)}. Approve it now and Nuvio changes channel for you."
+        } else {
+            "One evening from $total channels. Approve it once and Nuvio changes channel for you."
+        }
         IptvStage.Earlier -> "Earlier today, ready to play" to "Already shown on your channels and still in the provider's catch-up. Each plays from its start."
         IptvStage.Following -> "Following" to "Star a programme once. Nuvio finds it on whichever of the $total channels has it."
         IptvStage.Ask -> "Just ask" to "Typed or spoken. It answers with one thing, not a list."
@@ -727,13 +851,17 @@ private typealias Act = (String, Int) -> Unit
 
 @Composable
 private fun ThreeStage(m: IptvStageModel, now: Long, isFocused: Focused, act: Act) {
-    val tokens = MaterialTheme.nuvio
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            val lineupNumber = { p: IptvWallProgramme -> m.lineup.firstOrNull { it.channel.primary.uid == p.channel.primary.uid }?.number }
             val cards = listOf(
-                Triple("SAFE", m.three.safe, "What you put on at this hour."),
-                Triple("STARTS SOON", m.three.soon, "From the first minute, and done before bedtime."),
-                Triple("WILDCARD", m.three.wildcard, "Off your usual channels."),
+                Triple("SAFE", m.three.safe) { p: IptvWallProgramme ->
+                    "Your usual at this hour" + (lineupNumber(p)?.let { ", $it on Your 40" } ?: "")
+                },
+                Triple("STARTS SOON", m.three.soon) { p: IptvWallProgramme -> "From the first minute, done by ${IptvStageRules.clock(p.entry.endMs)}" },
+                Triple("WILDCARD", m.three.wildcard) { p: IptvWallProgramme ->
+                    if (p.entry.kind == IptvProgrammeKind.FILM) "A film off your usual channels" else "Something off your usual channels"
+                },
             )
             cards.forEachIndexed { index, (label, p, why) ->
                 StageCard(
@@ -745,7 +873,7 @@ private fun ThreeStage(m: IptvStageModel, now: Long, isFocused: Focused, act: Ac
                         1 -> "Nothing starts in the next half hour."
                         else -> "No film to suggest right now."
                     },
-                    reason = why,
+                    reason = p?.let(why).orEmpty(),
                     focused = isFocused("cards", index),
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                     onClick = { act("cards", index) },
@@ -758,10 +886,11 @@ private fun ThreeStage(m: IptvStageModel, now: Long, isFocused: Focused, act: Ac
                 accent = false,
                 enabled = m.canReshuffle,
                 focused = isFocused("deal", 0),
+                icon = Icons.Rounded.SwapHoriz,
                 modifier = Modifier.width(300.dp),
             ) { act("deal", 0) }
             Spacer(Modifier.width(16.dp))
-            Text("There is never a fourth.", style = MaterialTheme.typography.bodySmall, color = tokens.colors.textMuted)
+            StageNoteInline("There is never a fourth." + (hiddenLine(m)?.let { " $it" } ?: ""))
         }
     }
 }
@@ -777,6 +906,7 @@ private fun SoonStage(
     lineupOnly: Boolean,
     window: Int,
     isFocused: Focused,
+    nextOf: (IptvWallProgramme) -> IptvEpgEntry?,
     act: Act,
 ) {
     val rows = lists.first + lists.second
@@ -796,15 +926,18 @@ private fun SoonStage(
                 }
             }
             Spacer(Modifier.weight(1f))
-            StageNote("Nothing here has started. Times are the start, not the end.")
+            hiddenLine(m)?.let { StageInfoRow("Hidden", it.removePrefix("Hidden: ").removeSuffix("."), null, icon = Icons.Rounded.VisibilityOff) }
+            StageNote("Nothing here has started. Times are the start.")
         }
         StagePanel("Departures", "${lists.first.size} in the next $window minutes", Modifier.weight(1f).fillMaxHeight()) {
             StageList(rows.size, focusedIndex = rows.indices.firstOrNull { isFocused("departures", it) }, empty = "Nothing starts in the next hour on these channels.") { i ->
                 val p = rows[i]
                 StageRow(
                     lead = IptvStageRules.untilText(p.entry, now).removePrefix("in "),
+                    thumb = p,
                     title = p.entry.title,
-                    sub = listOfNotNull(p.channel.primary.name, IptvStageRules.length(p.entry.endMs - p.entry.startMs), kindLabel(p.entry)).joinToString(" · "),
+                    badges = rowBadges(p.entry),
+                    sub = listOfNotNull(p.channel.primary.name, kindLabel(p.entry), IptvStageRules.length(p.entry.endMs - p.entry.startMs)).joinToString(" · "),
                     trailing = IptvStageRules.clock(p.entry.startMs),
                     dim = i >= lists.first.size,
                     selected = i == selected,
@@ -813,27 +946,16 @@ private fun SoonStage(
             }
         }
         val p = rows.getOrNull(selected) ?: rows.firstOrNull()
-        StagePanel(p?.entry?.title ?: "Nothing to show", null, Modifier.width(side).fillMaxHeight()) {
-            Column(Modifier.padding(horizontal = 16.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (p != null) {
-                    StageArt(p, 150.dp)
-                    StageMeta(listOfNotNull(kindLabel(p.entry), IptvStageRules.length(p.entry.endMs - p.entry.startMs)).joinToString(" · "))
-                    StageSentence("Starts ${IptvStageRules.clock(p.entry.startMs)} on ${p.channel.primary.name}, ends ${IptvStageRules.clock(p.entry.endMs)}.")
-                    Spacer(Modifier.weight(1f))
-                    StageButton("Tune in at ${IptvStageRules.clock(p.entry.startMs)}", accent = true, focused = isFocused("soonActions", 0), icon = Icons.Rounded.Notifications) { act("soonActions", 0) }
-                    StageButton("Go to ${p.channel.primary.name} now", accent = false, focused = isFocused("soonActions", 1)) { act("soonActions", 1) }
-                    StageNoteInline("Carry on with what is on. Nuvio switches over at the start.")
-                }
-            }
-            Spacer(Modifier.height(16.dp))
+        DetailPanel(p, now, side, nextOf, note = "Carry on with what is on. Nuvio switches over at the start.") { prog ->
+            StageButton("Tune in at ${IptvStageRules.clock(prog.entry.startMs)}", accent = true, focused = isFocused("soonActions", 0), icon = Icons.Rounded.Schedule) { act("soonActions", 0) }
+            StageButton("Go to ${prog.channel.primary.name} now", accent = false, focused = isFocused("soonActions", 1)) { act("soonActions", 1) }
         }
     }
 }
 
 @Composable
 private fun MinutesStage(m: IptvStageModel, now: Long, minutes: Int, isFocused: Focused, act: Act) {
-    val tokens = MaterialTheme.nuvio
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
             IptvDecide.MINUTE_CHOICES.forEachIndexed { i, choice ->
                 StageChip(if (choice == 60) "1 hour" else "$choice min", choice == minutes, isFocused("dial", i)) { act("dial", i) }
@@ -847,10 +969,12 @@ private fun MinutesStage(m: IptvStageModel, now: Long, minutes: Int, isFocused: 
                 StageList(list.size, list.indices.firstOrNull { isFocused("on", it) }, "Nothing on now ends inside $minutes minutes.") { i ->
                     val f = list[i]
                     StageRow(
-                        lead = IptvStageRules.clock(f.programme.entry.endMs),
+                        lead = IptvStageRules.clock(f.programme.entry.endMs), leadWidth = 44.dp,
+                        thumb = f.programme, thumbWidth = 72.dp,
                         title = f.programme.entry.title,
+                        badges = listOf(StageBadge("LIVE", BadgeKind.Live)) + rowBadges(f.programme.entry, live = false),
                         sub = fitSub(f, "${((f.programme.entry.endMs - now) / 60_000L).coerceAtLeast(0)} min left"),
-                        trailing = null, dim = f.overMin > 0, focused = isFocused("on", i),
+                        trailing = null, dim = f.overMin > 0, focused = isFocused("on", i), progress = f.programme.entry.progress(now),
                     ) { act("on", i) }
                 }
             }
@@ -859,9 +983,11 @@ private fun MinutesStage(m: IptvStageModel, now: Long, minutes: Int, isFocused: 
                 StageList(list.size, list.indices.firstOrNull { isFocused("starting", it) }, "Nothing starting soon fits.") { i ->
                     val f = list[i]
                     StageRow(
-                        lead = IptvStageRules.clock(f.programme.entry.startMs),
+                        lead = IptvStageRules.clock(f.programme.entry.startMs), leadWidth = 44.dp,
+                        thumb = f.programme, thumbWidth = 72.dp,
                         title = f.programme.entry.title,
-                        sub = fitSub(f, IptvStageRules.untilText(f.programme.entry, now).let { if (it == "On now") it else "starts $it" }),
+                        badges = rowBadges(f.programme.entry),
+                        sub = fitSub(f, IptvStageRules.length(f.programme.entry.endMs - f.programme.entry.startMs)),
                         trailing = null, dim = f.overMin > 0, focused = isFocused("starting", i),
                     ) { act("starting", i) }
                 }
@@ -871,8 +997,10 @@ private fun MinutesStage(m: IptvStageModel, now: Long, minutes: Int, isFocused: 
                 StageList(list.size, list.indices.firstOrNull { isFocused("catchup", it) }, "No catch-up is short enough, or the provider keeps none.") { i ->
                     val f = list[i]
                     StageRow(
-                        lead = IptvStageRules.length(f.programme.entry.endMs - f.programme.entry.startMs),
+                        lead = (f.programme.entry.endMs - f.programme.entry.startMs).let { "${it / 60_000L}m" }, leadWidth = 44.dp,
+                        thumb = f.programme, thumbWidth = 72.dp,
                         title = f.programme.entry.title,
+                        badges = rowBadges(f.programme.entry),
                         sub = fitSub(f, "shown ${IptvStageRules.clock(f.programme.entry.startMs)}"),
                         trailing = null, dim = f.overMin > 0, focused = isFocused("catchup", i),
                     ) { act("catchup", i) }
@@ -880,10 +1008,11 @@ private fun MinutesStage(m: IptvStageModel, now: Long, minutes: Int, isFocused: 
             }
         }
         Text(
-            text = "It is ${IptvStageRules.clock(now)}. Everything here is over by ${IptvStageRules.clock(now + minutes * 60_000L)}, and nothing plays after it.",
+            text = "It is ${IptvStageRules.clock(now)}. Everything here is over by ${IptvStageRules.clock(now + minutes * 60_000L)}, and nothing plays after it." +
+                (hiddenLine(m)?.let { " $it" } ?: ""),
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.bodySmall,
-            color = tokens.colors.textMuted,
+            color = MaterialTheme.nuvio.colors.textMuted,
             textAlign = TextAlign.Center,
         )
     }
@@ -897,52 +1026,74 @@ private fun OrderStage(
     selected: Int,
     follows: List<String>,
     bedMinute: Int,
+    fromChoice: Int,
     isFocused: Focused,
     act: Act,
 ) {
     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
         StagePanel("Built from", null, Modifier.width(side).fillMaxHeight()) {
-            StageInfoRow("Your usuals", "What you watch at each hour", null)
+            StageInfoRow("Your usuals", "What you watch at each hour", null, icon = Icons.Rounded.Visibility)
             StageDivider()
-            StageInfoRow("Programmes you follow", if (follows.isEmpty()) "None yet" else "${follows.size} followed", null)
+            StageInfoRow("Followed", if (follows.isEmpty()) "Nothing yet" else follows.take(3).joinToString(", "), null, icon = Icons.Rounded.Notifications)
             StageDivider()
-            StageInfoRow("Films in the guide", "Best of the evening", null)
+            StageInfoRow("Films", "The best of the evening", null, icon = Icons.Rounded.Star)
             StageDivider()
-            StageInfoRow("Bedtime", "Nothing may run past ${IptvStageRules.clock(m.bedMs)}", null)
+            StageInfoRow("Bedtime", "Nothing runs past ${IptvStageRules.clock(m.bedMs)}", null, icon = Icons.Rounded.Bedtime)
             Spacer(Modifier.weight(1f))
-            m.orderLeftOut?.let { StageNote("${it.entry.title} runs past ${IptvStageRules.clock(m.bedMs)}, so it is left for another night.") }
-                ?: StageNote("Only your channels are used, so the evening stays yours.")
+            StageNote("No loop channels, no shopping, nothing that runs past bed.")
         }
-        val total = m.order.sumOf { it.entry.endMs - maxOf(it.entry.startMs, now) }
+        val total = m.order.sumOf { it.entry.endMs - maxOf(it.entry.startMs, m.orderFrom) }
         StagePanel(
             "Running order",
-            if (m.order.isEmpty()) null else "${m.order.size} things, ${IptvStageRules.length(total)}",
+            if (m.order.isEmpty()) null else "${m.order.size} things, ${IptvStageRules.length(total)}, all over by ${IptvStageRules.clock(m.bedMs)}",
             Modifier.weight(1f).fillMaxHeight(),
         ) {
-            run {
-                StageList(m.order.size, m.order.indices.firstOrNull { isFocused("order", it) }, "Nothing on your channels fits before bedtime.") { i ->
-                    val p = m.order[i]
+            if (m.order.isNotEmpty()) OrderRibbon(m.order, m.orderFrom, m.bedMs, selected)
+            val leftOut = m.orderLeftOut
+            val rows = m.order.size + if (leftOut != null) 1 else 0
+            StageList(rows, m.order.indices.firstOrNull { isFocused("order", it) }, "Nothing on your channels fits before bedtime.") { i ->
+                val p = m.order.getOrNull(i)
+                if (p != null) {
                     StageRow(
                         lead = IptvStageRules.clock(p.entry.startMs),
+                        thumb = p, thumbWidth = 80.dp,
                         title = p.entry.title,
+                        badges = rowBadges(p.entry),
                         sub = p.channel.primary.name + " · " + IptvRunningOrder.reason(p, follows, m.usualKeys),
-                        trailing = IptvStageRules.length(p.entry.endMs - p.entry.startMs),
+                        trailing = IptvStageRules.length(p.entry.endMs - maxOf(p.entry.startMs, m.orderFrom)),
                         selected = i == selected,
                         focused = isFocused("order", i),
                         live = p.onNow(now),
                     ) { act("order", i) }
+                } else if (leftOut != null) {
+                    StageRow(
+                        lead = IptvStageRules.clock(leftOut.entry.startMs),
+                        thumb = leftOut, thumbWidth = 80.dp,
+                        title = leftOut.entry.title,
+                        sub = "${leftOut.channel.primary.name} · runs to ${IptvStageRules.clock(leftOut.entry.endMs)}, past bedtime: another night",
+                        trailing = null,
+                        dim = true,
+                        focused = false,
+                    ) {}
                 }
-            }
-            m.order.lastOrNull()?.let { last ->
-                StageInfoRow("Ends ${IptvStageRules.clock(last.entry.endMs)}", "Then nothing starts by itself.", null, Modifier.padding(bottom = 8.dp))
             }
         }
         StagePanel("Your call", null, Modifier.width(side).fillMaxHeight()) {
             Column(Modifier.padding(horizontal = 16.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                StageButton(if (m.orderApproved) "Approved: cancel" else "Approve and start", accent = !m.orderApproved, focused = isFocused("orderActions", 0), icon = if (m.orderApproved) Icons.Rounded.Check else null) { act("orderActions", 0) }
-                StageButton("Swap one", accent = false, focused = isFocused("orderActions", 1)) { act("orderActions", 1) }
+                val swapName = m.order.getOrNull(selected)?.entry?.title
+                StageButton(
+                    if (m.orderApproved) "Approved: cancel" else if (m.orderFrom > now + 30 * 60_000L) "Approve for tonight" else "Approve and start",
+                    accent = !m.orderApproved, focused = isFocused("orderActions", 0), icon = Icons.Rounded.Check,
+                ) { act("orderActions", 0) }
+                StageButton(swapName?.let { "Swap $it" } ?: "Swap one", accent = false, focused = isFocused("orderActions", 1), icon = Icons.Rounded.SwapHoriz) { act("orderActions", 1) }
                 StageButton("Not tonight", accent = false, focused = isFocused("orderActions", 2)) { act("orderActions", 2) }
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
+                StageSubheading("Starts")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FromChoices.forEachIndexed { i, minute ->
+                        StageChip(if (minute < 0) "Now" else "%02d:%02d".format(minute / 60, minute % 60), i == fromChoice, isFocused("from", i)) { act("from", i) }
+                    }
+                }
                 StageSubheading("Bedtime")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     BedChoices.forEachIndexed { i, minute ->
@@ -950,16 +1101,67 @@ private fun OrderStage(
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                StageNoteInline("Any key takes over. Swap one replaces the highlighted slot.")
+                StageNoteInline("Any key takes over. At ${IptvStageRules.clock(m.bedMs)} nothing starts by itself.")
             }
             Spacer(Modifier.height(16.dp))
         }
     }
 }
 
+/** The evening as blocks from its start to bedtime, under hour marks. Every block is placed by time, not by content. */
+@Composable
+private fun OrderRibbon(order: List<IptvWallProgramme>, from: Long, bed: Long, selected: Int) {
+    val tokens = MaterialTheme.nuvio
+    val span = (bed - from).coerceAtLeast(60_000L).toFloat()
+    val step = if (bed - from > 8 * 3_600_000L) 2 * 3_600_000L else 3_600_000L
+    Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
+        BoxWithConstraints(Modifier.fillMaxWidth().height(16.dp)) {
+            val firstHour = (from / 3_600_000L + 1) * 3_600_000L
+            var t = firstHour
+            while (t < bed) {
+                val x = maxWidth * ((t - from) / span)
+                Text(IptvStageRules.clock(t), modifier = Modifier.offset(x = x - 14.dp), style = MaterialTheme.typography.labelSmall, color = tokens.colors.textMuted, maxLines = 1)
+                t += step
+            }
+        }
+        BoxWithConstraints(
+            Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.05f))
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(8.dp)),
+        ) {
+            order.forEachIndexed { i, p ->
+                val start = (maxOf(p.entry.startMs, from) - from) / span
+                val end = (minOf(p.entry.endMs, bed) - from) / span
+                val hue = ((p.channel.primary.name.hashCode() % 360) + 360) % 360
+                Box(
+                    Modifier.offset(x = maxWidth * start).width(maxWidth * (end - start).coerceAtLeast(0.01f)).fillMaxHeight().padding(5.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Brush.linearGradient(listOf(Color.hsv(hue.toFloat(), 0.45f, 0.55f), Color.hsv(hue.toFloat(), 0.4f, 0.28f))))
+                        .then(if (i == selected) Modifier.border(1.5.dp, tokens.colors.borderFocus, RoundedCornerShape(6.dp)) else Modifier),
+                ) {
+                    Text(
+                        p.entry.title,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        IptvStageRules.clock(p.entry.startMs),
+                        modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 6.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.7f),
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun EarlierStage(
-    m: IptvStageModel,
     now: Long,
     side: Dp,
     days: List<Pair<String, List<IptvWallProgramme>>>,
@@ -974,14 +1176,17 @@ private fun EarlierStage(
             StageList(days.size, days.indices.firstOrNull { isFocused("days", it) }, "Nothing kept yet.") { i ->
                 StageRow(lead = null, title = days[i].first, sub = "${days[i].second.size} worth watching", trailing = null, selected = i == day, focused = isFocused("days", i)) { act("days", i) }
             }
+            StageNote("Best first: what you follow, films, then new episodes. Repeats, filler and shopping are left out.")
         }
         StagePanel(days.getOrNull(day)?.first ?: "Earlier", "best first, not by the clock", Modifier.weight(1f).fillMaxHeight()) {
             StageList(rows.size, rows.indices.firstOrNull { isFocused("earlier", it) }, "Nothing from earlier is kept for your channels. This needs an Xtream account whose provider keeps catch-up.") { i ->
                 val p = rows[i]
                 StageRow(
                     lead = IptvStageRules.clock(p.entry.startMs),
+                    thumb = p, thumbWidth = 80.dp,
                     title = p.entry.title,
-                    sub = listOfNotNull(p.channel.primary.name, IptvStageRules.length(p.entry.endMs - p.entry.startMs), kindLabel(p.entry)).joinToString(" · "),
+                    badges = rowBadges(p.entry),
+                    sub = listOfNotNull(p.channel.primary.name, kindLabel(p.entry), IptvStageRules.length(p.entry.endMs - p.entry.startMs)).joinToString(" · "),
                     trailing = "Play",
                     trailingIcon = Icons.Rounded.PlayArrow,
                     selected = i == selected,
@@ -989,20 +1194,9 @@ private fun EarlierStage(
                 ) { act("earlier", i) }
             }
         }
-        val p = rows.getOrNull(selected) ?: rows.firstOrNull()
-        StagePanel(p?.entry?.title ?: "Nothing to show", null, Modifier.width(side).fillMaxHeight()) {
-            Column(Modifier.padding(horizontal = 16.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (p != null) {
-                    StageArt(p, 150.dp)
-                    val year = if (p.entry.kind == IptvProgrammeKind.FILM) rememberFilmArt(p.entry.title)?.year else null
-                    StageMeta(listOfNotNull(year, IptvStageRules.length(p.entry.endMs - p.entry.startMs), kindLabel(p.entry)).joinToString(" · "))
-                    StageSentence("Shown ${IptvStageRules.clock(p.entry.startMs)} on ${p.channel.primary.name}.")
-                    Spacer(Modifier.weight(1f))
-                    StageButton("Play from the start", accent = true, focused = isFocused("earlierActions", 0), icon = Icons.Rounded.PlayArrow) { act("earlierActions", 0) }
-                    StageNoteInline("Kept by the provider's catch-up.")
-                }
-            }
-            Spacer(Modifier.height(16.dp))
+        DetailPanel(rows.getOrNull(selected) ?: rows.firstOrNull(), now, side, nextOf = null, note = "Kept by the provider's catch-up.") { prog ->
+            StageButton("Play from the start", accent = true, focused = isFocused("earlierActions", 0), icon = Icons.Rounded.Replay) { act("earlierActions", 0) }
+            StageButton("Follow ${prog.entry.title}", accent = false, focused = isFocused("earlierActions", 1), icon = Icons.Rounded.Notifications) { act("earlierActions", 1) }
         }
     }
 }
@@ -1033,21 +1227,21 @@ private fun FollowingStage(
                 onEditing = onEditing,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
-            Spacer(Modifier.height(8.dp))
-            StageSubheading("On your channels now", Modifier.padding(horizontal = 16.dp))
+            StageSubheading("On your channels", Modifier.padding(start = 16.dp, top = 12.dp, bottom = 2.dp))
             StageList(m.followSuggestions.size, m.followSuggestions.indices.firstOrNull { isFocused("suggest", it) }, "Nothing on your channels to suggest.") { i ->
                 val p = m.followSuggestions[i]
-                StageRow(lead = null, title = p.entry.title, sub = p.channel.primary.name, trailing = "Follow", focused = isFocused("suggest", i)) { act("suggest", i) }
+                StageRow(lead = null, thumb = p, thumbWidth = 64.dp, title = p.entry.title, sub = p.channel.primary.name, trailing = "Follow", trailingIcon = Icons.Rounded.Star, focused = isFocused("suggest", i)) { act("suggest", i) }
             }
         }
-        StagePanel("Programmes", "${m.follows.size} followed · hold OK to stop", Modifier.weight(1f).fillMaxHeight()) {
+        StagePanel("Programmes", "${m.follows.size} followed · hold OK to stop following", Modifier.weight(1f).fillMaxHeight()) {
             StageList(m.follows.size, m.follows.indices.firstOrNull { isFocused("follows", it) }, "Nothing followed yet. Type one on the left, or pick something on your channels.") { i ->
                 val result = m.follows[i]
                 val first = result.matches.firstOrNull()
                 StageRow(
                     lead = null,
-                    leadIcon = Icons.Rounded.Notifications,
+                    thumb = first, thumbWidth = 80.dp,
                     title = result.text,
+                    badges = first?.let { rowBadges(it.entry) }.orEmpty(),
                     sub = first?.let { "Found: " + IptvStageRules.foundText(it, now) + if (!it.entry.title.equals(result.text, true)) ", ${it.entry.title}" else "" }
                         ?: "Nothing in the guide yet",
                     trailing = first?.let { IptvStageRules.untilText(it.entry, now) },
@@ -1059,13 +1253,11 @@ private fun FollowingStage(
             }
         }
         StagePanel("Coming up", null, Modifier.width(side).fillMaxHeight()) {
-            run {
-                StageList(week.size, week.indices.firstOrNull { isFocused("week", it) }, "Nothing followed is in the guide.") { i ->
-                    val p = week[i]
-                    StageRow(lead = IptvStageRules.weekLabel(p.entry.startMs), leadWidth = 76.dp, title = p.entry.title, sub = p.channel.primary.name, trailing = null, focused = isFocused("week", i)) { act("week", i) }
-                }
+            StageList(week.size, week.indices.firstOrNull { isFocused("week", it) }, "Nothing followed is in the guide.") { i ->
+                val p = week[i]
+                StageRow(lead = IptvStageRules.weekLabel(p.entry.startMs), leadWidth = 76.dp, title = p.entry.title, sub = p.channel.primary.name, trailing = null, focused = isFocused("week", i)) { act("week", i) }
             }
-            StageNote("OK on one that has not begun tunes in at its start.")
+            StageNote("When one starts, a card offers it. Where there is catch-up it waits under Earlier today.")
         }
     }
 }
@@ -1091,11 +1283,11 @@ private fun AskStage(
                 StageRow(lead = null, title = asks[i].text, sub = IptvStageRules.dayLabel(asks[i].at, now), trailing = null, focused = isFocused("asked", i)) { act("asked", i) }
             }
         }
-        Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             StageField(
                 value = text,
                 onValueChange = onText,
-                placeholder = "something funny, half an hour",
+                placeholder = "Say or type what you are in the mood for",
                 focusRequester = fieldFocus,
                 voiceOwner = "iptv-ask",
                 focused = isFocused("askInput", 0),
@@ -1104,36 +1296,48 @@ private fun AskStage(
                 height = 52.dp,
             )
             val p = m.ask?.programme
-            Column(
-                Modifier.weight(1f).fillMaxWidth().iptvGlass(NuvioGlass.Shape).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+            Row(
+                Modifier.weight(1f).fillMaxWidth().iptvGlass(NuvioGlass.Shape).clip(NuvioGlass.Shape).padding(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                StageLabel(if (p == null) "ONE ANSWER" else "ONE ANSWER · ${(m.ask?.others ?: 0)} MORE IF YOU SAY NOT THAT")
-                when {
-                    text.isBlank() -> {
-                        StageArt(null, 170.dp)
-                        StageSentence("Say what you are in the mood for and how long you have: \"a film, an hour\", \"the football\", \"news, ten minutes\".")
-                    }
-                    p == null -> {
-                        StageArt(null, 170.dp)
-                        Text("Nothing fits", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = tokens.colors.textPrimary)
-                        StageSentence(m.ask?.why ?: "")
-                    }
-                    else -> {
-                        StageArt(p, 170.dp)
-                        Text(p.entry.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = tokens.colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        StageMeta(IptvProgrammeLine.text(p.channel.primary.name, p.entry, now, 0, IptvStageRules::clock))
-                    }
+                Column(Modifier.width(360.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    StageArt(p, 203.dp, badges = p?.let { topBadges(it, now) }.orEmpty(), caption = true)
+                    if (p != null) MetaChips(p)
                 }
-                Spacer(Modifier.weight(1f))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val primary = when {
-                        p == null -> "Watch"
-                        p.entry.startMs > now + 60_000L -> "Tune in at ${IptvStageRules.clock(p.entry.startMs)}"
-                        else -> "Watch now"
+                Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StageLabel("ONE ANSWER")
+                    when {
+                        text.isBlank() -> {
+                            Text("Ask for one thing", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = tokens.colors.textPrimary)
+                            StageSentence("Say what you are in the mood for and how long you have. Or pick one of the lines below.")
+                        }
+                        p == null -> {
+                            Text("Nothing fits", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = tokens.colors.textPrimary)
+                            StageSentence(m.ask?.why ?: "")
+                        }
+                        else -> {
+                            Text(p.entry.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = tokens.colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            StageMeta(IptvProgrammeLine.text(p.channel.primary.name, p.entry, now, 0, IptvStageRules::clock))
+                            ProgrammeWords(p, lines = 4)
+                        }
                     }
-                    StageButton(primary, accent = true, enabled = p != null, focused = isFocused("askActions", 0), icon = Icons.Rounded.PlayArrow, modifier = Modifier.weight(1f)) { act("askActions", 0) }
-                    StageButton("Not that", accent = false, enabled = p != null && (m.ask?.others ?: 0) > 0, focused = isFocused("askActions", 1), modifier = Modifier.weight(1f)) { act("askActions", 1) }
+                    Spacer(Modifier.weight(1f))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val primary = when {
+                            p == null -> "Watch"
+                            p.entry.startMs > now + 60_000L -> "Tune in at ${IptvStageRules.clock(p.entry.startMs)}"
+                            else -> "Watch now"
+                        }
+                        StageButton(primary, accent = p != null, enabled = p != null, focused = isFocused("askActions", 0), icon = Icons.Rounded.PlayArrow, modifier = Modifier.weight(1f)) { act("askActions", 0) }
+                        StageButton("Not that", accent = false, enabled = p != null && (m.ask?.others ?: 0) > 0, focused = isFocused("askActions", 1), icon = Icons.Rounded.Close, modifier = Modifier.weight(1f)) { act("askActions", 1) }
+                    }
+                    val others = m.ask?.others ?: 0
+                    if (p != null) StageNoteInline(if (others > 0) "$others more fit if you say Not that." else "That is the only one that fits.")
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
+                AskExamples.forEachIndexed { i, line ->
+                    StageChip(line, false, isFocused("examples", i), icon = Icons.Rounded.Search) { act("examples", i) }
                 }
             }
         }
@@ -1144,7 +1348,7 @@ private fun AskStage(
             } else {
                 reasons.forEachIndexed { i, (head, detail) ->
                     if (i > 0) StageDivider()
-                    StageInfoRow(head, detail, null)
+                    StageInfoRow(head, detail, null, icon = Icons.Rounded.Check)
                 }
             }
         }
@@ -1161,6 +1365,7 @@ private fun LineupStage(
     content: IptvPlaylistContent,
     typed: String,
     isFocused: Focused,
+    nextOf: (IptvWallProgramme) -> IptvEpgEntry?,
     onLongClick: (Int) -> Unit,
     act: Act,
 ) {
@@ -1183,48 +1388,60 @@ private fun LineupStage(
             Spacer(Modifier.height(16.dp))
         }
         val focusedIndex = m.lineup.indices.firstOrNull { isFocused("lineup", it) }
-        val shown = focusedIndex?.let { m.lineup[it] }
-        val note = when {
-            typed.isNotEmpty() -> "Channel $typed..."
-            shown != null -> "${shown.channel.primary.name} is on ${shown.number}" + (shown.now?.let { " · ${it.title} until ${IptvStageRules.clock(it.endMs)}" } ?: "")
-            else -> "${m.lineup.size} channels"
-        }
-        StagePanel("Lineup", note, Modifier.weight(1f).fillMaxHeight()) {
+        val shown = m.lineup.getOrNull(focusedIndex ?: 0)
+        StagePanel("Lineup", if (typed.isNotEmpty()) "Channel $typed..." else "Type a number to go straight to it", Modifier.weight(1f).fillMaxHeight()) {
+            // The band: what is on the highlighted channel. Always this tall, whatever it holds.
+            Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp).height(96.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                val p = shown?.now?.let { IptvWallProgramme(shown.channel, it) }
+                Box(Modifier.width(170.dp)) { StageArt(p ?: shown?.let { s -> IptvWallProgramme(s.channel, IptvEpgEntry("", 0, 0)) }, 96.dp) }
+                Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        shown?.let { StageBadgeView(StageBadge("${it.number} · ${it.channel.primary.name}".uppercase(), BadgeKind.Plain)) }
+                        if (p != null) StageBadgeView(StageBadge("LIVE", BadgeKind.Live))
+                        p?.entry?.episode?.let { StageBadgeView(StageBadge(it, BadgeKind.Plain)) }
+                    }
+                    Text(p?.entry?.title ?: "No guide for this channel", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = tokens.colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val then = p?.let(nextOf)
+                    Text(
+                        p?.let { "${IptvStageRules.clock(it.entry.startMs)} to ${IptvStageRules.clock(it.entry.endMs)}" + (then?.let { n -> " · then ${n.title} at ${IptvStageRules.clock(n.startMs)}" } ?: "") }.orEmpty(),
+                        style = MaterialTheme.typography.bodySmall, color = tokens.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                    ProgressLine(p?.entry?.progress(now) ?: 0f, height = 2.dp)
+                }
+            }
             val grid = rememberLazyGridState()
             LaunchedEffect(focusedIndex) {
                 if (focusedIndex != null && grid.layoutInfo.visibleItemsInfo.none { it.index == focusedIndex }) grid.scrollToItem(focusedIndex)
             }
             if (m.lineup.isEmpty()) {
                 StageNote("Your 40 is built from what you watch and star. Watch a few channels, or star them, and they appear here.")
+                Spacer(Modifier.weight(1f))
             } else {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(5),
                     state = grid,
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     itemsIndexed(m.lineup, key = { _, item -> item.channel.primary.uid }) { i, item ->
                         LineupTile(item, now, isFocused("lineup", i), onLongClick = { onLongClick(i) }) { act("lineup", i) }
                     }
                 }
             }
-            Text(
-                text = "OK watches. Hold OK to move or drop a channel. Type a number to go straight to it.",
-                modifier = Modifier.padding(16.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = tokens.colors.textMuted,
-            )
+            StageNote("OK watches. Hold OK to move, take out or never see a channel again.")
         }
         StagePanel("Kept out", null, Modifier.width(side).fillMaxHeight()) {
             val never = settings.never[playlist.id].orEmpty()
             val records = settings.weeds[playlist.id].orEmpty()
             val dead = IptvWeedRules.dead(records)
-            StageInfoRow("Never again", "Channels you threw out", count(never.size))
+            StageInfoRow("Never again", "Channels you threw out", count(never.size), icon = Icons.Rounded.VisibilityOff)
             StageDivider()
-            StageInfoRow("Dead", "Failed three nights running", count(dead.size))
+            StageInfoRow("Dead", "Failed three nights running", count(dead.size), icon = Icons.Rounded.Close)
             StageDivider()
-            StageInfoRow("Unwatched", "On no list, still in search", count((m.mergedCount - m.lineup.size).coerceAtLeast(0)))
+            StageInfoRow("Loops and shopping", "Kept off the picks", count(m.hiddenFiller), icon = Icons.Rounded.Visibility)
+            StageDivider()
+            StageInfoRow("Unwatched", "Still in search", count((m.mergedCount - m.lineup.size).coerceAtLeast(0)), icon = Icons.Rounded.Search)
             if (dead.isNotEmpty()) {
                 StageSubheading("Found dead", Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))
                 val names = content.channels.filter { it.key in dead }.map { it.name }.distinct().take(3)
@@ -1236,6 +1453,10 @@ private fun LineupStage(
 
 // ---- Pieces ---------------------------------------------------------------------------------------------------
 
+private enum class BadgeKind { Live, New, Plain, Dark }
+
+private class StageBadge(val text: String, val kind: BadgeKind)
+
 private fun kindLabel(entry: IptvEpgEntry): String? = when (entry.kind) {
     IptvProgrammeKind.FILM -> "Film"
     IptvProgrammeKind.SPORT -> "Sport"
@@ -1244,11 +1465,100 @@ private fun kindLabel(entry: IptvEpgEntry): String? = when (entry.kind) {
     else -> null
 }
 
+/** The marks a row carries after its title: the episode, New, Live, Film. */
+private fun rowBadges(entry: IptvEpgEntry, live: Boolean = true): List<StageBadge> = buildList {
+    entry.episode?.let { add(StageBadge(it, BadgeKind.Plain)) }
+    if (entry.isNew) add(StageBadge("NEW", BadgeKind.New))
+    if (live && entry.isLive) add(StageBadge("LIVE", BadgeKind.Live))
+    if (entry.kind == IptvProgrammeKind.FILM) add(StageBadge("FILM", BadgeKind.Plain))
+}
+
+/** The marks on a picture: how far in it is, or when it starts. */
+private fun topBadges(p: IptvWallProgramme, now: Long): List<StageBadge> = buildList {
+    if (p.onNow(now)) {
+        add(StageBadge("LIVE", BadgeKind.Live))
+        add(StageBadge("${((now - p.entry.startMs) / 60_000L).coerceAtLeast(0)} MIN IN", BadgeKind.Dark))
+    } else if (p.entry.startMs > now) {
+        add(StageBadge("STARTS ${IptvStageRules.clock(p.entry.startMs)}", BadgeKind.New))
+    }
+    if (p.entry.kind == IptvProgrammeKind.FILM) add(StageBadge("FILM", BadgeKind.New))
+}
+
 @Composable
-private fun StageStrip(labels: List<String>, selected: Int, focused: Int, onPick: (Int) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        labels.forEachIndexed { i, label ->
-            StageChip(label, i == selected, i == focused, check = false) { onPick(i) }
+private fun StageBadgeView(badge: StageBadge) {
+    val tokens = MaterialTheme.nuvio
+    val (bg, fg) = when (badge.kind) {
+        BadgeKind.Live -> tokens.colors.accent to Color.White
+        BadgeKind.New -> Color.White.copy(alpha = 0.92f) to Color(0xFF101014)
+        BadgeKind.Plain -> Color.White.copy(alpha = 0.10f) to Color(0xFFDDE1E5)
+        BadgeKind.Dark -> Color.Black.copy(alpha = 0.55f) to Color.White
+    }
+    Box(
+        Modifier.height(20.dp).clip(RoundedCornerShape(6.dp)).background(bg)
+            .then(if (badge.kind == BadgeKind.Plain) Modifier.border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(6.dp)) else Modifier)
+            .padding(horizontal = 7.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(badge.text, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp, color = fg, maxLines = 1)
+    }
+}
+
+/** Genre, year, length, episode: one row of plain marks under a title. */
+@Composable
+private fun MetaChips(p: IptvWallProgramme) {
+    val art = rememberProgrammeArt(p)
+    val year = p.entry.year ?: art?.year
+    val items = listOfNotNull(
+        kindLabel(p.entry)?.uppercase(),
+        year?.toString(),
+        IptvStageRules.length(p.entry.endMs - p.entry.startMs).uppercase(),
+        p.entry.episode,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        items.forEach { StageBadgeView(StageBadge(it, BadgeKind.Plain)) }
+        if (p.entry.isNew) StageBadgeView(StageBadge("NEW", BadgeKind.New))
+    }
+}
+
+/** The programme's description: the guide's, else TMDB's; a line about it when neither has one. */
+@Composable
+private fun ProgrammeWords(p: IptvWallProgramme, lines: Int) {
+    val art = rememberProgrammeArt(p)
+    val words = p.entry.desc ?: art?.overview
+    if (words != null) {
+        StageSentence(words, lines)
+    } else {
+        StageSentence("${kindLabel(p.entry) ?: "On"} ${p.channel.primary.name}, ${IptvStageRules.clock(p.entry.startMs)} to ${IptvStageRules.clock(p.entry.endMs)}.", lines)
+    }
+}
+
+/** The highlighted programme's picture, blurred, behind the whole stage. The light changes; nothing moves. */
+@Composable
+private fun AmbientLight(programme: IptvWallProgramme?) {
+    val art = rememberProgrammeArt(programme)
+    val picture = art?.picture ?: IptvLogos.good(programme?.channel?.primary?.logo)
+    Crossfade(targetState = picture, animationSpec = tween(700), label = "stage-ambient") { url ->
+        if (url != null) {
+            NuvioAsyncImage(
+                model = url,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize().blur(90.dp).alpha(0.5f),
+                contentScale = ContentScale.Crop,
+            )
+        }
+    }
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.verticalGradient(listOf(Color(0x4D08080C), Color(0x8C08080C), Color(0xD108080C))),
+        ),
+    )
+}
+
+@Composable
+private fun StageStrip(items: List<Pair<String, ImageVector>>, selected: Int, focused: Int, onPick: (Int) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        items.forEachIndexed { i, (label, icon) ->
+            StageChip(label, i == selected, i == focused, check = false, icon = icon, height = 32.dp) { onPick(i) }
         }
     }
 }
@@ -1269,6 +1579,37 @@ private fun StagePanel(title: String, note: String?, modifier: Modifier, content
             }
         }
         content()
+    }
+}
+
+/** A right-hand panel about one programme: picture, marks, words, when, and the actions. */
+@Composable
+private fun DetailPanel(
+    p: IptvWallProgramme?,
+    now: Long,
+    side: Dp,
+    nextOf: ((IptvWallProgramme) -> IptvEpgEntry?)?,
+    note: String,
+    actions: @Composable ColumnScope.(IptvWallProgramme) -> Unit,
+) {
+    StagePanel(p?.entry?.title ?: "Nothing to show", p?.channel?.primary?.name, Modifier.width(side).fillMaxHeight()) {
+        Column(Modifier.padding(horizontal = 16.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (p != null) {
+                StageArt(p, 150.dp, badges = topBadges(p, now), caption = true)
+                MetaChips(p)
+                ProgrammeWords(p, lines = 3)
+                val then = nextOf?.invoke(p)
+                StageNoteInline(
+                    (if (p.entry.endMs <= now) "Shown ${IptvStageRules.clock(p.entry.startMs)} on ${p.channel.primary.name}."
+                    else "${IptvStageRules.clock(p.entry.startMs)} to ${IptvStageRules.clock(p.entry.endMs)} on ${p.channel.primary.name}.") +
+                        (then?.let { " Then ${it.title} at ${IptvStageRules.clock(it.startMs)}." } ?: ""),
+                )
+                Spacer(Modifier.weight(1f))
+                actions(p)
+                StageNoteInline(note)
+            }
+        }
+        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -1300,7 +1641,7 @@ private fun ColumnScope.StageList(size: Int, focusedIndex: Int?, empty: String, 
 
 @Composable
 private fun StageDivider() {
-    Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.10f)))
+    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).background(Color.White.copy(alpha = 0.08f)))
 }
 
 @Composable
@@ -1309,13 +1650,16 @@ private fun StageRow(
     title: String,
     sub: String?,
     trailing: String?,
+    focused: Boolean,
+    thumb: IptvWallProgramme? = null,
+    thumbWidth: Dp = 96.dp,
+    badges: List<StageBadge> = emptyList(),
     dim: Boolean = false,
     selected: Boolean = false,
-    focused: Boolean,
-    leadWidth: Dp = 56.dp,
-    leadIcon: ImageVector? = null,
+    leadWidth: Dp = 52.dp,
     trailingIcon: ImageVector? = null,
     live: Boolean = false,
+    progress: Float? = null,
     onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
@@ -1327,11 +1671,11 @@ private fun StageRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(StageRowHeight)
-            .alpha(if (dim) 0.6f else 1f)
+            .alpha(if (dim) 0.55f else 1f)
             .background(
                 when {
                     focused || hovered -> Color.White.copy(alpha = 0.09f)
-                    selected -> tokens.colors.accent.copy(alpha = 0.18f)
+                    selected -> tokens.colors.accent.copy(alpha = 0.20f)
                     else -> Color.Transparent
                 },
                 if (focused || hovered) shape else RoundedCornerShape(0.dp),
@@ -1342,14 +1686,19 @@ private fun StageRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (leadIcon != null) {
-            Icon(leadIcon, contentDescription = null, tint = tokens.colors.textPrimary, modifier = Modifier.size(16.dp))
-        } else if (lead != null) {
+        if (lead != null) {
             Text(lead, modifier = Modifier.width(leadWidth), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = tokens.colors.textPrimary, maxLines = 1)
         }
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = tokens.colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (thumb != null) {
+            Box(Modifier.width(thumbWidth)) { StageArt(thumb, thumbWidth * 9f / 16f, radius = 7.dp, small = true) }
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(title, modifier = Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = tokens.colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                badges.take(2).forEach { StageBadgeView(it) }
+            }
             if (sub != null) Text(sub, style = MaterialTheme.typography.bodySmall, color = tokens.colors.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (progress != null) ProgressLine(progress, height = 2.dp)
         }
         if (trailing != null) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1363,13 +1712,14 @@ private fun StageRow(
 
 /** A row of words only, for the side panels' facts. */
 @Composable
-private fun StageInfoRow(title: String, sub: String, trailing: String?, modifier: Modifier = Modifier) {
+private fun StageInfoRow(title: String, sub: String, trailing: String?, modifier: Modifier = Modifier, icon: ImageVector? = null) {
     val tokens = MaterialTheme.nuvio
     Row(
         modifier = modifier.fillMaxWidth().height(StageRowHeight).padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        if (icon != null) Icon(icon, contentDescription = null, tint = tokens.colors.textSecondary, modifier = Modifier.size(18.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = tokens.colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(sub, style = MaterialTheme.typography.bodySmall, color = tokens.colors.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1379,14 +1729,22 @@ private fun StageInfoRow(title: String, sub: String, trailing: String?, modifier
 }
 
 @Composable
-private fun StageChip(label: String, on: Boolean, focused: Boolean, check: Boolean = true, onClick: () -> Unit) {
+private fun StageChip(
+    label: String,
+    on: Boolean,
+    focused: Boolean,
+    check: Boolean = true,
+    icon: ImageVector? = null,
+    height: Dp = 36.dp,
+    onClick: () -> Unit,
+) {
     val tokens = MaterialTheme.nuvio
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val shape = RoundedCornerShape(999.dp)
     Row(
         modifier = Modifier
-            .height(36.dp)
+            .height(height)
             .iptvGlass(shape, raised = focused || hovered, selected = on && !hovered, selectedTint = tokens.colors.accent.copy(alpha = 0.42f))
             .then(if (on) Modifier.border(1.dp, tokens.colors.accent.copy(alpha = 0.85f), shape) else Modifier)
             .clip(shape)
@@ -1396,7 +1754,10 @@ private fun StageChip(label: String, on: Boolean, focused: Boolean, check: Boole
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        if (on && check) Icon(Icons.Rounded.Check, contentDescription = null, tint = tokens.colors.textPrimary, modifier = Modifier.size(14.dp))
+        when {
+            icon != null -> Icon(icon, contentDescription = null, tint = if (on) tokens.colors.textPrimary else tokens.colors.textMuted, modifier = Modifier.size(15.dp))
+            on && check -> Icon(Icons.Rounded.Check, contentDescription = null, tint = tokens.colors.textPrimary, modifier = Modifier.size(14.dp))
+        }
         Text(
             label,
             style = MaterialTheme.typography.bodyMedium,
@@ -1440,7 +1801,7 @@ private fun StageButton(
     }
 }
 
-/** One of the Three things: label, artwork, title, when, and why it was picked. All three are the same size. */
+/** One of the Three things: picture with its marks, what it is, words, why, and the action. All three the same size. */
 @Composable
 private fun StageCard(
     label: String,
@@ -1462,48 +1823,113 @@ private fun StageCard(
             .clip(shape)
             .then(if (focused) Modifier.smoothBorder(1.5.dp, tokens.colors.borderFocus, shape) else Modifier)
             .combinedClickable(interactionSource = interaction, indication = null, enabled = programme != null, onClick = onClick)
-            .padding(16.dp),
+            .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        StageLabel(label)
-        StageArt(programme, 190.dp)
+        StageArt(programme, 196.dp, badges = programme?.let { topBadges(it, now) }.orEmpty(), caption = true)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StageLabel(label)
+            Spacer(Modifier.weight(1f))
+            Text(programme?.channel?.primary?.name.orEmpty(), style = MaterialTheme.typography.labelMedium, color = tokens.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
         if (programme == null) {
             StageSentence(empty)
             Spacer(Modifier.weight(1f))
         } else {
-            Text(programme.entry.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = tokens.colors.textPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            StageMeta(IptvProgrammeLine.text(programme.channel.primary.name, programme.entry, now, 0, IptvStageRules::clock))
+            Text(programme.entry.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = tokens.colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            MetaChips(programme)
+            ProgrammeWords(programme, lines = 3)
             Spacer(Modifier.weight(1f))
-            if (programme.onNow(now)) ProgressLine(programme.entry.progress(now))
-            Text(reason, style = MaterialTheme.typography.bodySmall, color = tokens.colors.textMuted, maxLines = 2)
+            if (programme.onNow(now)) ProgressLine(programme.entry.progress(now)) else Spacer(Modifier.height(3.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Rounded.Star, contentDescription = null, tint = tokens.colors.textSecondary, modifier = Modifier.size(14.dp))
+                Text(reason, style = MaterialTheme.typography.bodySmall, color = tokens.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            val begun = programme.entry.startMs <= now + 60_000L
+            StageButton(
+                if (begun) "Watch now" else "Tune in at ${IptvStageRules.clock(programme.entry.startMs)}",
+                accent = focused,
+                focused = false,
+                icon = if (begun) Icons.Rounded.PlayArrow else Icons.Rounded.Schedule,
+                onClick = onClick,
+            )
         }
     }
 }
 
-/** A film's backdrop from TMDB, else the channel's logo on a tint of its own. Always the same height. */
+/**
+ * A programme's picture (film backdrop, the guide's picture, series art), else the channel's logo on a tint of its own,
+ * else the channel's name. Always the same height, with any marks laid over its top corner.
+ */
 @Composable
-private fun StageArt(programme: IptvWallProgramme?, height: Dp) {
+private fun StageArt(
+    programme: IptvWallProgramme?,
+    height: Dp,
+    badges: List<StageBadge> = emptyList(),
+    caption: Boolean = false,
+    radius: Dp = 10.dp,
+    small: Boolean = false,
+) {
     val tokens = MaterialTheme.nuvio
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(radius)
     val name = programme?.channel?.primary?.name.orEmpty()
     val hue = ((name.hashCode() % 360) + 360) % 360
+    val art = if (programme != null && programme.entry.title.isNotEmpty()) rememberProgrammeArt(programme) else null
+    val picture = art?.picture
+    val logo = IptvLogos.good(programme?.channel?.primary?.logo)
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
             .clip(shape)
-            .background(if (programme == null) Color.White.copy(alpha = 0.04f) else Color.hsv(hue.toFloat(), 0.45f, 0.28f))
+            .background(
+                if (programme == null) {
+                    Brush.linearGradient(listOf(Color.White.copy(alpha = 0.05f), Color.White.copy(alpha = 0.03f)))
+                } else {
+                    Brush.radialGradient(listOf(Color.hsv(hue.toFloat(), 0.5f, 0.38f), Color.hsv(hue.toFloat(), 0.35f, 0.14f)))
+                },
+            )
             .border(1.dp, Color.White.copy(alpha = 0.10f), shape),
         contentAlignment = Alignment.Center,
     ) {
-        val art = if (programme?.entry?.kind == IptvProgrammeKind.FILM) rememberFilmArt(programme.entry.title) else null
-        val picture = art?.backdrop ?: art?.poster
-        val logo = programme?.channel?.primary?.logo
         when {
-            picture != null -> NuvioAsyncImage(model = picture, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            logo != null -> NuvioAsyncImage(model = logo, contentDescription = null, modifier = Modifier.fillMaxWidth(0.5f).height(height * 0.5f), contentScale = ContentScale.Fit)
-            programme != null -> Icon(Icons.Rounded.LiveTv, contentDescription = null, tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(40.dp))
-            else -> Icon(Icons.Rounded.Search, contentDescription = null, tint = tokens.colors.textMuted, modifier = Modifier.size(32.dp))
+            picture != null -> {
+                NuvioAsyncImage(model = picture, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                if (!small) {
+                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent, Color.Black.copy(alpha = 0.45f)))))
+                }
+            }
+            logo != null -> NuvioAsyncImage(
+                model = logo,
+                contentDescription = null,
+                modifier = Modifier.fillMaxWidth(if (small) 0.7f else 0.45f).height(height * if (small) 0.6f else 0.45f),
+                contentScale = ContentScale.Fit,
+            )
+            programme != null -> Text(
+                name.ifBlank { "Live TV" },
+                modifier = Modifier.padding(horizontal = 8.dp),
+                style = if (small) MaterialTheme.typography.labelSmall else MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White.copy(alpha = 0.92f),
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            else -> Icon(Icons.Rounded.Mic, contentDescription = null, tint = tokens.colors.textMuted, modifier = Modifier.size(if (small) 16.dp else 32.dp))
+        }
+        if (badges.isNotEmpty()) {
+            Row(Modifier.align(Alignment.TopStart).padding(10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                badges.take(3).forEach { StageBadgeView(it) }
+            }
+        }
+        val captionText = art?.caption
+        if (caption && captionText != null && picture != null) {
+            Text(
+                captionText,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp).clip(RoundedCornerShape(999.dp)).background(Color.Black.copy(alpha = 0.45f)).padding(horizontal = 6.dp, vertical = 1.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.75f),
+            )
         }
     }
 }
@@ -1513,31 +1939,44 @@ private fun LineupTile(item: IptvStageChannel, now: Long, focused: Boolean, onLo
     val tokens = MaterialTheme.nuvio
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    val shape = RoundedCornerShape(8.dp)
+    val shape = RoundedCornerShape(10.dp)
+    val name = item.channel.primary.name.ifBlank { "Channel ${item.channel.primary.num}" }
+    val logo = IptvLogos.good(item.channel.primary.logo)
+    val hue = ((name.hashCode() % 360) + 360) % 360
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(64.dp)
+            .height(70.dp)
             .iptvGlass(shape, raised = focused || hovered)
             .clip(shape)
             .then(if (focused) Modifier.smoothBorder(1.5.dp, tokens.colors.borderFocus, shape) else Modifier)
             .combinedClickable(interactionSource = interaction, indication = null, onLongClick = onLongClick, onClick = onClick)
-            .padding(horizontal = 9.dp, vertical = 6.dp),
+            .padding(horizontal = 9.dp, vertical = 7.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(item.number.toString(), style = MaterialTheme.typography.labelSmall, color = tokens.colors.textMuted, maxLines = 1)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(
+                Modifier.height(20.dp).width(44.dp).clip(RoundedCornerShape(5.dp)).background(Color.hsv(hue.toFloat(), 0.4f, 0.28f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (logo != null) {
+                    NuvioAsyncImage(model = logo, contentDescription = null, modifier = Modifier.fillMaxSize().padding(2.dp), contentScale = ContentScale.Fit)
+                } else {
+                    Text(name, modifier = Modifier.padding(horizontal = 3.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Clip)
+                }
+            }
+            Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = tokens.colors.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.number.toString(), style = MaterialTheme.typography.labelSmall, color = tokens.colors.textSecondary, maxLines = 1)
+        }
         Text(
-            item.channel.primary.name.ifBlank { "Channel ${item.channel.primary.num}" },
+            item.now?.title ?: "No guide",
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.SemiBold,
-            color = tokens.colors.textPrimary,
+            color = if (item.now != null) tokens.colors.textPrimary else tokens.colors.textMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Box(Modifier.fillMaxWidth().height(2.dp).clip(RoundedCornerShape(1.dp)).background(Color.White.copy(alpha = 0.08f))) {
-            val progress = item.now?.progress(now) ?: 0f
-            Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(tokens.colors.accent))
-        }
+        ProgressLine(item.now?.progress(now) ?: 0f, height = 2.dp)
     }
 }
 
@@ -1573,7 +2012,7 @@ private fun StageField(
                 com.nuvio.app.core.ui.VoiceSearchButton(
                     owner = voiceOwner,
                     focusField = { runCatching { focusRequester.requestFocus() } },
-                    tint = tokens.colors.textMuted,
+                    tint = tokens.colors.textSecondary,
                     size = 26.dp,
                     iconSize = 18.dp,
                 )
@@ -1599,8 +2038,8 @@ private fun StageMeta(text: String) {
 }
 
 @Composable
-private fun StageSentence(text: String) {
-    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.nuvio.colors.textPrimary, maxLines = 3, overflow = TextOverflow.Ellipsis)
+private fun StageSentence(text: String, lines: Int = 3) {
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.nuvio.colors.textPrimary.copy(alpha = 0.88f), maxLines = lines, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable
