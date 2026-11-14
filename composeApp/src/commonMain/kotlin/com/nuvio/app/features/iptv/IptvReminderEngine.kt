@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
  */
 object IptvReminderEngine {
     /** A card on the screen. [id] changes with every card so the same text can show twice. */
-    data class Card(val title: String, val line: String, val id: Long)
+    data class Card(val title: String, val line: String, val id: Long, val options: List<String> = emptyList(), val focused: Int = 0)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
@@ -32,6 +32,16 @@ object IptvReminderEngine {
     var playerPill: (String, String, Long) -> Unit = { _, _, _ -> }
 
     private const val CARD_MS = 20_000L
+
+    /**
+     * fork:live-tv-reminder-card - set by the desktop app: draws the card with its answers on a playing video's HUD
+     * (title, line, options, focused, milliseconds before it closes by itself). False when no video is playing.
+     */
+    @Volatile
+    var playerChoice: ((String, String, List<String>, Int, Long) -> Boolean)? = null
+
+    /** The plain reminder whose card is up, waiting for an answer. */
+    private var pending: IptvReminder? = null
     private const val TICK_MS = 15_000L
 
     /** Starts the clock. Safe to call more than once. */
@@ -56,9 +66,40 @@ object IptvReminderEngine {
             // fork:live-tv-brakes - reached through a reminder: chosen, so its end gets the card.
             IptvBrakeEngine.chose(reminder.title, reminder.endMs)
             show(Card("Switching to ${reminder.title}", "${reminder.channelName} · starting now", 0L))
-        } else {
+        } else if (reminder.autoSwitch) {
             show(Card(reminder.title, IptvReminderRules.cardLine(reminder, now), 0L))
+        } else {
+            // fork:live-tv-reminder-card - a card that asks: switch now, at the start, or not now.
+            val line = IptvReminderRules.cardLine(reminder, now)
+            val options = IptvReminderRules.CARD_OPTIONS
+            pending = reminder
+            IptvBrakeEngine.dropCard()
+            val inPlayer = runCatching { playerChoice?.invoke(reminder.title, line, options, IptvReminderRules.CARD_FOCUS, CARD_MS) == true }.getOrDefault(false)
+            // Over a playing video the HUD asks; the overlay would sit under the video and still take the keys.
+            if (!inPlayer) show(Card(reminder.title, line, 0L, options, IptvReminderRules.CARD_FOCUS)) else _showing.value = null
         }
+    }
+
+    /** The answer to the reminder card (from the overlay or the HUD); false when no reminder card was waiting. */
+    fun answer(index: Int, now: Long = System.currentTimeMillis()): Boolean {
+        val reminder = pending ?: return false
+        pending = null
+        _showing.value = null
+        when (IptvReminderRules.answerOf(IptvReminderRules.CARD_OPTIONS, index)) {
+            IptvReminderAnswer.Now -> if (switchTo(reminder)) IptvBrakeEngine.chose(reminder.title, reminder.endMs)
+            IptvReminderAnswer.AtStart -> if (reminder.startMs > now) {
+                IptvRepository.addReminder(IptvReminderRules.atStart(reminder))
+            } else if (switchTo(reminder)) {
+                IptvBrakeEngine.chose(reminder.title, reminder.endMs)
+            }
+            IptvReminderAnswer.Dismiss -> Unit
+        }
+        return true
+    }
+
+    /** Another card took the HUD's place: this one no longer waits for an answer. */
+    fun dropCard() {
+        pending = null
     }
 
     private fun switchTo(reminder: IptvReminder): Boolean {
@@ -74,7 +115,10 @@ object IptvReminderEngine {
         hide?.cancel()
         hide = scope.launch {
             delay(CARD_MS)
-            if (_showing.value?.id == shown.id) _showing.value = null
+            if (_showing.value?.id == shown.id) {
+                _showing.value = null
+                if (shown.options.isNotEmpty()) pending = null
+            }
         }
     }
 }

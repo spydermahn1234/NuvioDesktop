@@ -7323,8 +7323,10 @@ window.nuvioShowScoreCard = card => {
 // Escape dismisses; the answer goes back as "iptvChoice" with the option's index, -1 for dismissed.
 let choiceCardEl = null;
 let choiceCardKeys = null;
+let choiceCardTimer = null;
 const closeChoiceCard = answer => {
   if (!choiceCardEl) return;
+  if (choiceCardTimer) { window.clearTimeout(choiceCardTimer); choiceCardTimer = null; }
   const el = choiceCardEl;
   choiceCardEl = null;
   if (choiceCardKeys) document.removeEventListener("keydown", choiceCardKeys, true);
@@ -7333,8 +7335,10 @@ const closeChoiceCard = answer => {
   window.setTimeout(() => el.remove(), 260);
   send("iptvChoice", answer);
 };
-window.nuvioShowChoice = (title, line, options, focused) => {
+// fork:live-tv-reminder-card - [timeoutMs] (optional) closes the card by itself, answering -1.
+window.nuvioShowChoice = (title, line, options, focused, timeoutMs) => {
   if (isHeroTrailerSurface) return;
+  if (choiceCardTimer) { window.clearTimeout(choiceCardTimer); choiceCardTimer = null; }
   if (choiceCardEl) {
     choiceCardEl.remove();
     if (choiceCardKeys) document.removeEventListener("keydown", choiceCardKeys, true);
@@ -7394,6 +7398,8 @@ window.nuvioShowChoice = (title, line, options, focused) => {
   };
   document.addEventListener("keydown", choiceCardKeys, true);
   window.requestAnimationFrame(() => { el.style.opacity = "1"; });
+  const wait = Number(timeoutMs) || 0;
+  if (wait > 0) choiceCardTimer = window.setTimeout(() => { choiceCardTimer = null; closeChoiceCard(-1); }, wait);
 };
 
 window.nuvioSetPlaybackInfo = payload => {

@@ -98,4 +98,19 @@ class IptvDepartureTest {
         assertEquals("BBC One · starts in 2 min", IptvReminderRules.cardLine(reminder(now + 2 * minute, false), now))
         assertEquals("BBC One · starting now", IptvReminderRules.cardLine(reminder(now, true), now))
     }
+
+    @Test
+    fun `the reminder card asks, with At the start highlighted, and Back is Not now`() {
+        val options = IptvReminderRules.CARD_OPTIONS
+        assertEquals(listOf("Switch now", "At the start", "Not now"), options)
+        assertEquals("At the start", options[IptvReminderRules.CARD_FOCUS])
+        assertEquals(IptvReminderAnswer.Now, IptvReminderRules.answerOf(options, 0))
+        assertEquals(IptvReminderAnswer.AtStart, IptvReminderRules.answerOf(options, 1))
+        assertEquals(IptvReminderAnswer.Dismiss, IptvReminderRules.answerOf(options, 2))
+        assertEquals(IptvReminderAnswer.Dismiss, IptvReminderRules.answerOf(options, -1))
+        val plain = IptvReminder("p", "k", "BBC One", "Doctor Who", 1_000_000L, 4_000_000L, autoSwitch = false)
+        val later = IptvReminderRules.atStart(plain)
+        assertEquals(plain.id, later.id)
+        assertEquals(plain.startMs, IptvReminderRules.fireAt(later), "a switching reminder fires at the start, not two minutes before")
+    }
 }

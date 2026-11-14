@@ -924,6 +924,15 @@ fun main(args: Array<String>) {
                         "${kotlinx.serialization.json.JsonPrimitive(title)},${kotlinx.serialization.json.JsonPrimitive(line)},$durationMs)"
                     handles.forEach { handle -> runCatching { com.nuvio.app.features.player.desktop.NativePlayerBridge.runJavaScript(handle, script) } }
                 }
+                // fork:live-tv-reminder-card - the reminder's question on a playing video's HUD; false with no video.
+                com.nuvio.app.features.iptv.IptvReminderEngine.playerChoice = { title, line, options, focused, timeoutMs ->
+                    val handles = runCatching { com.nuvio.app.features.player.desktop.NativeAudioDuck.liveHandles() }.getOrDefault(emptyList())
+                    val script = "window.nuvioShowChoice&&window.nuvioShowChoice(" +
+                        "${kotlinx.serialization.json.JsonPrimitive(title)},${kotlinx.serialization.json.JsonPrimitive(line)}," +
+                        "${kotlinx.serialization.json.JsonArray(options.map { kotlinx.serialization.json.JsonPrimitive(it) })},$focused,$timeoutMs)"
+                    handles.forEach { handle -> runCatching { com.nuvio.app.features.player.desktop.NativePlayerBridge.runJavaScript(handle, script) } }
+                    handles.isNotEmpty()
+                }
                 com.nuvio.app.features.iptv.IptvReminderEngine.start()
                 com.nuvio.app.features.iptv.IptvWeedEngine.start() // fork:live-tv-weed
                 // fork:live-tv-brakes - the choice card (zap budget, end card) drawn by the player's HUD.

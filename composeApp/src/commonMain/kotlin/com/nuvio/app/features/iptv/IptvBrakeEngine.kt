@@ -29,6 +29,7 @@ object IptvBrakeEngine {
     }
 
     private fun card(kind: Kind, title: String, line: String, choices: List<String>, focused: Int) {
+        IptvReminderEngine.dropCard()
         pending = kind
         options = choices
         showChoice?.invoke(title, line, choices, focused)
@@ -81,6 +82,12 @@ object IptvBrakeEngine {
                 card(Kind.EndCard, entry.title, "That's the end of it.", stops, 0)
             }
         }
+    }
+
+    /** fork:live-tv-reminder-card - the reminder card took the HUD's place. */
+    fun dropCard() {
+        pending = null
+        options = emptyList()
     }
 
     /** The viewer's answer to the card on screen: -1 is dismissed. */

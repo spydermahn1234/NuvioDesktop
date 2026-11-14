@@ -732,6 +732,15 @@ Settings > Live TV > Stage. The first start after updating reads the guide again
 - [ ] Your 40: the band at the top shows the highlighted channel's programme with its picture and what is next; tiles show the logo, what is on and progress; placeholder logos ("Content not viewable") are replaced by the channel name
 - [ ] Just ask: the three example lines under the answer fill in the question; the answer card shows the picture, marks and description
 
+## Live TV: Reminder card (Nov 14)
+
+Set a plain reminder (Remind me, not Tune in at) on something starting in a few minutes.
+- [ ] Two minutes before, away from the player: the card bottom left asks Switch now / At the start / Not now, with At the start highlighted; left and right move, OK picks, Back is Not now; the screen behind keeps its place once it closes
+- [ ] At the start: nothing happens until it starts, then Nuvio switches to the channel
+- [ ] Switch now goes to the channel straight away; Not now (or leaving it 20 seconds) just closes it
+- [ ] While watching something: the same question appears on the player's HUD, and the answers work the same
+- [ ] With Brakes on, a programme reached through Switch now or At the start gets the end card
+
 ## Live TV: Just ask with your AI (Nov 14)
 
 Needs an AI key under Settings > Discover. Settings > Live TV > Let the AI answer Just ask.

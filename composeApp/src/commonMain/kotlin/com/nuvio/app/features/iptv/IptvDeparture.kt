@@ -53,6 +53,9 @@ object IptvDeparture {
     }
 }
 
+/** fork:live-tv-reminder-card - what was picked on the reminder card. */
+enum class IptvReminderAnswer { Now, AtStart, Dismiss }
+
 /** A programme to tell the viewer about, or to switch to, when it starts. */
 @Serializable
 data class IptvReminder(
@@ -93,5 +96,23 @@ object IptvReminderRules {
     }
 
     /** The line of the card: "BBC One · starts in 2 min" or "BBC One · now". */
+    const val SWITCH_NOW = "Switch now"
+    const val AT_START = "At the start"
+    const val NOT_NOW = "Not now"
+
+    /** fork:live-tv-reminder-card - the reminder card's answers; [CARD_FOCUS] is highlighted first. */
+    val CARD_OPTIONS = listOf(SWITCH_NOW, AT_START, NOT_NOW)
+    const val CARD_FOCUS = 1
+
+    /** What an answer on the reminder card means; -1 (Back, or the card timing out) is Not now. */
+    fun answerOf(options: List<String>, index: Int): IptvReminderAnswer = when (options.getOrNull(index)) {
+        SWITCH_NOW -> IptvReminderAnswer.Now
+        AT_START -> IptvReminderAnswer.AtStart
+        else -> IptvReminderAnswer.Dismiss
+    }
+
+    /** "At the start": the same reminder again, now switching by itself (it fires at the start, not before). */
+    fun atStart(reminder: IptvReminder): IptvReminder = reminder.copy(autoSwitch = true)
+
     fun cardLine(reminder: IptvReminder, now: Long): String = "${reminder.channelName} · starts ${IptvDeparture.countdown(reminder.startMs - now)}".replace("starts now", "starting now")
 }
