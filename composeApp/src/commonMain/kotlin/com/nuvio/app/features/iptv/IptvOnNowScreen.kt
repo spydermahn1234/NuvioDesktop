@@ -52,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.NuvioAsyncImage
 import com.nuvio.app.core.ui.NuvioGlass
@@ -295,7 +296,7 @@ internal object IptvFilmArt {
 private fun rememberFilmArt(title: String): IptvFilmArt.Art? =
     produceState<IptvFilmArt.Art?>(IptvFilmArt.peek(title), title) { value = IptvFilmArt.find(title) }.value
 
-private val SportTileHeight = 116.dp
+private val SportTileHeight = 138.dp
 private val FilmTileHeight = 164.dp
 private val ChannelTileHeight = 76.dp
 
@@ -509,36 +510,36 @@ private fun MatchTile(item: IptvWallItem.Match, now: Long) {
 private fun SportProgrammeTile(programme: IptvWallProgramme, now: Long, tag: String? = null, over: Int = 0) {
     val tokens = MaterialTheme.nuvio
     val entry = programme.entry
-    val onNow = programme.onNow(now)
+    // fork:live-tv-stage - every programme tile has the same four lines: a label, the title, one metadata line, a progress bar.
+    val label = (tag ?: entry.kind ?: "Live TV").uppercase()
     Column(
-        modifier = Modifier.fillMaxSize().alpha(if (over > 0) 0.6f else 1f).padding(horizontal = 14.dp, vertical = 11.dp),
+        modifier = Modifier.fillMaxSize().alpha(if (over > 0) 0.6f else 1f).padding(horizontal = 16.dp, vertical = 13.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        // fork:live-tv-departure - inside the hour a coming programme says how long it is to the start.
-        val soonText = if (!onNow && entry.startMs > now && entry.startMs - now <= 60 * 60_000L) IptvDeparture.countdown(entry.startMs - now) else null
-        // fork:live-tv-decide - a Three things card names what it is; a programme over the minutes dialled is dimmed.
-        TileTopLine(
-            if (tag != null) "$tag · ${programme.channel.primary.name}" else programme.channel.primary.name,
-            if (onNow) "On now" else soonText ?: formatTime(entry.startMs),
-            live = false,
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
+            color = tokens.colors.textMuted,
+            maxLines = 1,
         )
         Text(
             text = entry.title,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
             color = tokens.colors.textPrimary,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        if (onNow) {
-            ProgressLine(entry.progress(now))
-        } else {
-            Text(
-                text = "${formatTime(entry.startMs)} to ${formatTime(entry.endMs)}" + if (over > 0) " · $over min over" else "",
-                style = MaterialTheme.typography.bodySmall,
-                color = tokens.colors.textMuted,
-            )
-        }
+        Text(
+            text = IptvProgrammeLine.text(programme.channel.primary.name.ifBlank { "Channel ${programme.channel.primary.num}" }, entry, now, over, ::formatTime),
+            style = MaterialTheme.typography.bodySmall,
+            color = tokens.colors.textMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        ProgressLine(if (programme.onNow(now)) entry.progress(now) else 0f)
     }
 }
 

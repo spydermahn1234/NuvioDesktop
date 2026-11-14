@@ -225,3 +225,19 @@ object IptvEveningRows {
         }
     }
 }
+
+/**
+ * fork:live-tv-stage - the one metadata line every programme tile carries, so tiles read alike whatever the screen:
+ * "Channel 4 · on now, 12 min in · ends 20:00", "ITV4 · starts in 2 min · ends 22:25", "BBC Three · from catch-up · 07:00 to 07:10".
+ */
+object IptvProgrammeLine {
+    fun text(channel: String, entry: IptvEpgEntry, now: Long, over: Int, clock: (Long) -> String): String {
+        val when_ = when {
+            entry.endMs <= now -> "from catch-up · ${clock(entry.startMs)} to ${clock(entry.endMs)}"
+            entry.startMs <= now -> "on now, ${((now - entry.startMs) / 60_000L).coerceAtLeast(0)} min in · ends ${clock(entry.endMs)}"
+            entry.startMs - now <= 60 * 60_000L -> "starts ${IptvDeparture.countdown(entry.startMs - now)} · ends ${clock(entry.endMs)}"
+            else -> "starts ${clock(entry.startMs)} · ends ${clock(entry.endMs)}"
+        }
+        return "$channel · $when_" + if (over > 0) " · $over min over" else ""
+    }
+}

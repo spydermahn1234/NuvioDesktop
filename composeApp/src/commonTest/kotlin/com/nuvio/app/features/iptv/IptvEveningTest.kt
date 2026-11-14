@@ -104,3 +104,19 @@ class IptvEveningTest {
         assertTrue(answer.why.startsWith("Nothing"))
     }
 }
+
+class IptvProgrammeLineTest {
+    private val minute = 60_000L
+    private val now = 10_000_000L
+    private fun clock(ms: Long) = "t${(ms - now) / minute}"
+    private fun e(from: Int, to: Int) = IptvEpgEntry("X", now + from * minute, now + to * minute)
+
+    @Test
+    fun `every state reads in the same shape`() {
+        assertEquals("C4 · on now, 12 min in · ends t30", IptvProgrammeLine.text("C4", e(-12, 30), now, 0, ::clock))
+        assertEquals("C4 · starts in 2 min · ends t40", IptvProgrammeLine.text("C4", e(2, 40), now, 0, ::clock))
+        assertEquals("C4 · starts t120 · ends t150", IptvProgrammeLine.text("C4", e(120, 150), now, 0, ::clock))
+        assertEquals("C4 · from catch-up · t-30 to t-20", IptvProgrammeLine.text("C4", e(-30, -20), now, 0, ::clock))
+        assertEquals("C4 · on now, 0 min in · ends t30 · 5 min over", IptvProgrammeLine.text("C4", e(0, 30), now, 5, ::clock))
+    }
+}
