@@ -65,6 +65,10 @@ queue, and can "sleep" to try Wake. A strip shows what it was sent. This is for 
   on the phone too: the launcher lists all eight; Coin Toss, Knockout and Channel Flick have big buttons for the TV's
   keys, Ends By and The Pile are lists (tap to play, Let go asks first), and The Map is a touchpad that moves the TV's
   lens. The header tag still swaps to the pad. Needs a Nuvio from Nov 11, 2026 or later for the modes.
+- **Live TV:** while the TV shows Live TV's stages (Settings > Live TV > Stage), the Remote tab mirrors the stage on
+  screen: its heading, a chip for every stage (and All channels), its programmes as cards with a picture and progress,
+  and its buttons (Deal again, Approve and start, Not that, the minutes). A tap does what OK does on the TV; the tag in
+  the header swaps to the pad.
 - **Send to Nuvio:** share a YouTube or YouTube Music link from any app and it plays on the TV.
 - **Wake:** when the PC is asleep or off, the app offers to wake it with Wake-on-LAN. The PC sends its network card and
   broadcast addresses while connected. Wake-on-LAN must be on in the PC's BIOS and network adapter settings.
@@ -86,6 +90,7 @@ source lines are built in `PhoneRemoteLibraryLines.kt` and answered in `PhoneRem
 | Music | `PLAY_ALBUM`, `ALBUM_TRACKS`, `PLAY_TRACK`, `ARTIST`, `QUEUE`, `QUEUE_PLAY`, `QUEUE_NEXT`, `QUEUE_REMOVE` | `ALBUM_TRACKS`, `QUEUE` |
 | Sources | `PICK_SOURCE` | `SOURCES` |
 | Tonight | `TONIGHT_DO` | `TONIGHT` (after `SUBSCRIBE`, whenever it changes) |
+| Live TV | `LIVETV_DO` | `LIVETV` (after `SUBSCRIBE`, whenever it changes) |
 | Live scores | (none) | `SCORE <sport> <kind> <title> <text>` (after `SUBSCRIBE`, a favourite team's event; shown as a notification) |
 | Long-press menus | `MENU`, `DO` | `MENU`, `DONE`, `PLAYLISTS`, `RECAP` |
 | Links | `OPEN` | `OPENING`, `CANT_OPEN` |

@@ -105,6 +105,8 @@ sealed interface ServerLine {
     data class Continue(val items: List<ResumeItem>) : ServerLine
     /** The TV's Tonight picker as mirrored on the phone; null while it is not on screen. */
     data class Tonight(val screen: TonightScreenInfo?) : ServerLine
+    /** The TV's Live TV stage as mirrored on the phone; null while none is on screen. */
+    data class LiveTv(val screen: LiveTvScreenInfo?) : ServerLine
     /** The source list on the TV; null once it closes. */
     data class Sources(val list: SourceList?) : ServerLine
     /** The film player's audio tracks (the same row type as subtitles; no Off, no groups). */
@@ -159,6 +161,7 @@ sealed interface ServerLine {
                 "CONTINUE" -> LibraryLines.parseContinue(line) ?: Other
                 "SOURCES" -> LibraryLines.parseSources(line) ?: Other
                 "TONIGHT" -> LibraryLines.parseTonight(line) ?: Other
+                "LIVETV" -> LibraryLines.parseLiveTv(line) ?: Other
                 "SEARCH_RESULTS" -> LibraryLines.parseSearch(line) ?: Other
                 "QUEUE" -> LibraryLines.parseQueue(line) ?: Other
                 "EPISODES" -> LibraryLines.parseEpisodes(line) ?: Other
@@ -350,6 +353,11 @@ class RemoteSession private constructor(private val socket: Socket) : AutoClosea
 
     /** A tap on the phone's mirror of the Tonight picker: [action] as the PC's RemoteTonightAction, [number] a card from 1. */
     fun tonight(action: String, number: Int = 0) = send(if (number > 0) "TONIGHT_DO $action $number" else "TONIGHT_DO $action")
+
+    /** Live TV's stages (Nov 14): another stage, OK on a row or button, or All channels. */
+    fun liveTvStage(name: String) = send("LIVETV_DO stage ${RemoteProtocol.encode(name)}")
+    fun liveTvItem(group: String, index: Int) = send("LIVETV_DO item ${RemoteProtocol.encode(group)} $index")
+    fun liveTvAll() = send("LIVETV_DO all")
 
     /** Plays the source at [number] (from 1) in the list on the TV. The PC answers OPENING or CANT_OPEN. */
     fun pickSource(number: Int) = send("PICK_SOURCE $number")

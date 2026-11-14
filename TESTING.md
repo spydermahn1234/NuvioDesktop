@@ -732,6 +732,17 @@ Settings > Live TV > Stage. The first start after updating reads the guide again
 - [ ] Your 40: the band at the top shows the highlighted channel's programme with its picture and what is next; tiles show the logo, what is on and progress; placeholder logos ("Content not viewable") are replaced by the channel name
 - [ ] Just ask: the three example lines under the answer fill in the question; the answer card shows the picture, marks and description
 
+## Live TV: stages on the phone remote (Nov 14)
+
+Needs the new Nuvio Remote build (android-remote workflow) and Settings > Live TV > Stage on.
+- [ ] Opening Live TV on the TV: the phone's Remote tab shows the same stage (heading, the strip of stages as chips, the programmes as cards with a picture, a LIVE slot and a progress bar)
+- [ ] Tapping a stage chip changes the stage on the TV; changing it on the TV changes it on the phone
+- [ ] Three things: tapping a card does what OK does (watch, or tune in at its start); Deal again works once a night
+- [ ] I have N minutes: the minute chips change the board; Tonight: Approve and start / Not tonight work from the phone
+- [ ] Your 40: tapping a channel plays it; Following: Remind me on something not yet on sets the reminder
+- [ ] The header tag swaps to the pad and back; All channels opens the classic list and the mirror goes away
+- [ ] Leaving Live TV (or starting something) puts the phone back on its usual screens
+
 ## Live TV: Reminder card (Nov 14)
 
 Set a plain reminder (Remind me, not Tune in at) on something starting in a few minutes.

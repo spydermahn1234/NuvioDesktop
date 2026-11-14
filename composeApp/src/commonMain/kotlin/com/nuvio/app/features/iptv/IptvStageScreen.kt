@@ -59,6 +59,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -107,6 +109,11 @@ import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import com.nuvio.app.features.remote.RemoteLiveTv
+import com.nuvio.app.features.remote.RemoteLiveTvButton
+import com.nuvio.app.features.remote.RemoteLiveTvDo
+import com.nuvio.app.features.remote.RemoteLiveTvItem
+import com.nuvio.app.features.remote.RemoteLiveTvScreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -671,6 +678,24 @@ internal fun IptvStageScreen(
         }
     }
 
+    // fork:phone-remote live-tv - the stage on the phone; a tap there is OK on that row here.
+    val remoteOwner = remember { Any() }
+    DisposableEffect(remoteOwner) { onDispose { RemoteLiveTv.clear(remoteOwner) } }
+    val remoteAct = rememberUpdatedState { action: RemoteLiveTvDo ->
+        keyboardActive = false
+        when (action) {
+            is RemoteLiveTvDo.Stage -> if (shownStages.any { it.name == action.name }) pickStage(action.name)
+            is RemoteLiveTvDo.Item -> activate(action.group, action.index, false)
+            RemoteLiveTvDo.All -> onAllChannels()
+        }
+    }
+    val remoteScreen = remember(m, current, soonRows, earlierRows, earlierDay, now / 60_000L, shownStages, settings.minutes) {
+        m?.let { remoteLiveTvScreen(current, it, settings, now, shownStages, soonRows, earlierRows, earlierDays.getOrNull(earlierDay)?.first) }
+    }
+    LaunchedEffect(remoteScreen) {
+        remoteScreen?.let { screen -> RemoteLiveTv.publish(remoteOwner, screen) { remoteAct.value(it) } }
+    }
+
     var enterDownAt by remember { mutableLongStateOf(0L) }
     fun handleKey(key: Key): Boolean {
         if (onStrip) {
@@ -954,6 +979,124 @@ private fun WeekStage(settings: IptvSettings, now: Long, side: Dp) {
             StageInfoRow("Stopped when asked", "on a brake card", week.stopped.toString(), icon = Icons.Rounded.Bedtime)
         }
     }
+}
+
+/** fork:phone-remote live-tv - what the phone shows of [stage]: its rows with the group and index OK would act on. */
+private fun remoteLiveTvScreen(
+    stage: IptvStage,
+    m: IptvStageModel,
+    settings: IptvSettings,
+    now: Long,
+    stages: List<IptvStage>,
+    soonRows: List<IptvWallProgramme>,
+    earlierRows: List<IptvWallProgramme>,
+    earlierDay: String?,
+): RemoteLiveTvScreen {
+    fun clock(ms: Long) = IptvStageRules.clock(ms)
+    fun progress(p: IptvWallProgramme): Int {
+        if (!p.onNow(now)) return -1
+        val length = (p.entry.endMs - p.entry.startMs).coerceAtLeast(1L)
+        return (((now - p.entry.startMs) * 1000L) / length).toInt().coerceIn(0, 1000)
+    }
+    fun takeLabel(p: IptvWallProgramme) = when {
+        p.entry.endMs <= now -> "Play from the start"
+        p.entry.startMs > now + 60_000L -> "Tune in at ${clock(p.entry.startMs)}"
+        else -> "Watch"
+    }
+    fun item(group: String, index: Int, slot: String, p: IptvWallProgramme, action: String? = takeLabel(p)) = RemoteLiveTvItem(
+        group = group,
+        index = index,
+        slot = slot,
+        title = p.entry.title,
+        sub = IptvProgrammeLine.text(p.channel.primary.name, p.entry, now, 0, IptvStageRules::clock),
+        picture = p.entry.image ?: p.channel.primary.logo,
+        live = p.onNow(now),
+        progress = progress(p),
+        action = action,
+    )
+    val (heading, sub) = stageHeading(stage, m, settings, now)
+    val items = ArrayList<RemoteLiveTvItem>()
+    val buttons = ArrayList<RemoteLiveTvButton>()
+    var empty: String? = null
+    when (stage) {
+        IptvStage.Three -> {
+            listOf("SAFE" to m.three.safe, "STARTS SOON" to m.three.soon, "WILDCARD" to m.three.wildcard)
+                .forEachIndexed { i, (slot, p) -> if (p != null) items += item("cards", i, slot, p) }
+            if (m.canReshuffle) buttons += RemoteLiveTvButton("deal", 0, "Deal again")
+            empty = "Nothing to pick right now."
+        }
+        IptvStage.Soon -> {
+            soonRows.forEachIndexed { i, p -> items += item("departures", i, clock(p.entry.startMs), p, "Tune in at ${clock(p.entry.startMs)}") }
+            empty = "Nothing starts soon."
+        }
+        IptvStage.Minutes -> {
+            m.board.alreadyOn.forEachIndexed { i, f -> items += item("on", i, "ON NOW", f.programme) }
+            m.board.starting.forEachIndexed { i, f -> items += item("starting", i, "STARTS ${clock(f.programme.entry.startMs)}", f.programme) }
+            m.board.catchUp.forEachIndexed { i, f -> items += item("catchup", i, "FROM EARLIER", f.programme, "Play from the start") }
+            IptvDecide.MINUTE_CHOICES.forEachIndexed { i, minutes -> buttons += RemoteLiveTvButton("dial", i, "$minutes min", accent = minutes == settings.minutes) }
+            empty = "Nothing fits in ${settings.minutes} minutes."
+        }
+        IptvStage.Order -> {
+            m.order.forEachIndexed { i, p -> items += item("order", i, clock(p.entry.startMs), p) }
+            if (m.order.isNotEmpty()) {
+                buttons += RemoteLiveTvButton("orderActions", 0, if (m.orderApproved) "Approved: cancel" else "Approve and start", accent = !m.orderApproved)
+                buttons += RemoteLiveTvButton("orderActions", 2, "Not tonight")
+            }
+            empty = "Nothing fits before bedtime."
+        }
+        IptvStage.Earlier -> {
+            earlierRows.forEachIndexed { i, p -> items += item("earlier", i, earlierDay?.uppercase() ?: "EARLIER", p, "Play from the start") }
+            empty = "Nothing kept from earlier."
+        }
+        IptvStage.Following -> {
+            m.follows.forEachIndexed { i, result ->
+                val first = result.matches.firstOrNull()
+                items += if (first != null) {
+                    item("follows", i, "FOLLOWING", first, if (first.onNow(now)) "Watch" else "Remind me")
+                        .copy(title = result.text, sub = IptvStageRules.foundText(first, now))
+                } else {
+                    RemoteLiveTvItem("-", i, "FOLLOWING", result.text, "Nothing in the guide yet", null)
+                }
+            }
+            m.followSuggestions.forEachIndexed { i, p ->
+                items += item("suggest", i, if (m.suggestionWhy.getOrNull(i) != null) "YOU KEEP WATCHING" else "ON YOUR CHANNELS", p, "Follow")
+            }
+            empty = "Nothing followed yet."
+        }
+        IptvStage.Ask -> {
+            m.ask?.programme?.let { p -> items += item("askActions", 0, if (m.askByAi) "FROM YOUR AI" else "ONE ANSWER", p).copy(sub = m.ask?.why ?: "") }
+            if ((m.ask?.others ?: 0) > 0) buttons += RemoteLiveTvButton("askActions", 1, "Not that")
+            AskExamples.forEachIndexed { i, line -> buttons += RemoteLiveTvButton("examples", i, line) }
+            empty = m.ask?.why ?: "Type on the phone's keyboard, or pick a line below."
+        }
+        IptvStage.Lineup -> {
+            m.lineup.forEach { c ->
+                val on = c.now
+                items += RemoteLiveTvItem(
+                    group = "lineup",
+                    index = c.number - 1,
+                    slot = c.number.toString(),
+                    title = c.channel.primary.name.ifBlank { "Channel ${c.channel.primary.num}" },
+                    sub = on?.title ?: "No guide",
+                    picture = c.channel.primary.logo,
+                    live = on != null,
+                    progress = on?.let { e -> (((now - e.startMs) * 1000L) / (e.endMs - e.startMs).coerceAtLeast(1L)).toInt().coerceIn(0, 1000) } ?: -1,
+                    action = "Watch",
+                )
+            }
+            empty = "Your 40 is empty."
+        }
+        IptvStage.Week -> empty = IptvBrakeRules.weekLine(IptvBrakeRules.week(settings.tally, IptvDecide.nightOf(now))) + "."
+    }
+    return RemoteLiveTvScreen(
+        stage = stage.name,
+        heading = heading,
+        sub = sub,
+        stages = stages.map { it.name to it.label },
+        items = items,
+        buttons = buttons,
+        empty = empty,
+    )
 }
 
 private fun stageIcon(stage: IptvStage): ImageVector = when (stage) {

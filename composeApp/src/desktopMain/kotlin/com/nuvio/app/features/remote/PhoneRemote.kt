@@ -76,6 +76,7 @@ internal object PhoneRemote {
     private var themeWatch: Job? = null
     private var sourcesWatch: Job? = null
     private var tonightWatch: Job? = null // fork:phone-remote tonight
+    private var liveTvWatch: Job? = null // fork:phone-remote live-tv
     private var scoreWatch: Job? = null // fork:live-scores
 
     @Synchronized
@@ -141,6 +142,7 @@ internal object PhoneRemote {
         watchTheme(created)
         watchSources(created)
         watchTonight(created)
+        watchLiveTv(created)
         watchScores(created)
         _state.update { it.copy(listening = created.port != null, port = created.port, addresses = localAddresses()) }
     }
@@ -154,6 +156,8 @@ internal object PhoneRemote {
         sourcesWatch = null
         tonightWatch?.cancel()
         tonightWatch = null
+        liveTvWatch?.cancel()
+        liveTvWatch = null
         scoreWatch?.cancel()
         scoreWatch = null
         server?.stop()
@@ -256,6 +260,9 @@ internal object PhoneRemote {
             PhoneRemoteActions.act(target, code, args, reply)
         override fun onAlbumTracks(browseId: String, reply: (String) -> Unit) = PhoneRemoteMusic.albumTracks(browseId, reply)
         override fun onPlayTrack(browseId: String, index: Int): String? = PhoneRemoteMusic.playTrack(browseId, index)
+        override fun onLiveTv(action: com.nuvio.app.features.remote.RemoteLiveTvDo) {
+            mainScope.launch { com.nuvio.app.features.remote.RemoteLiveTv.act(action) }
+        }
         override fun onTonight(action: RemoteTonightAction, number: Int) {
             mainScope.launch {
                 // "What to watch?" on the phone: the same as the button beside Search on the TV.
@@ -387,6 +394,17 @@ internal object PhoneRemote {
                 if (!settings.enabled || !settings.phoneNotifications || !event.favourite) return@collect
                 target.publishScore(com.nuvio.app.features.livescores.phoneScoreLine(event))
             }
+        }
+    }
+
+    /** fork:phone-remote live-tv: the Live TV stage as the phone mirrors it, whenever it changes. */
+    private fun watchLiveTv(target: PhoneRemoteServer) {
+        liveTvWatch?.cancel()
+        liveTvWatch = CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+            com.nuvio.app.features.remote.RemoteLiveTv.current
+                .map(PhoneRemoteLibraryLines::liveTvLine)
+                .distinctUntilChanged()
+                .collect(target::publishLiveTv)
         }
     }
 
