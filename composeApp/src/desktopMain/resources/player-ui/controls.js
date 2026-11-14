@@ -7346,7 +7346,10 @@ window.nuvioShowChoice = (title, line, options, focused) => {
   let at = Math.min(Math.max(Number(focused) || 0, 0), labels.length - 1);
   const el = document.createElement("div");
   el.style.cssText = [
-    "position:fixed", "left:50%", "top:50%", "width:560px", "margin:-120px 0 0 -280px", "padding:28px 32px",
+    // fork:live-tv-brakes - three answers get a wider card, so every button keeps one line.
+    "position:fixed", "left:50%", "top:50%",
+    labels.length > 2 ? "width:720px" : "width:560px", labels.length > 2 ? "margin:-120px 0 0 -360px" : "margin:-120px 0 0 -280px",
+    "padding:28px 32px",
     "z-index:2147483002", "box-sizing:border-box", "color:#fff", "text-align:center",
     "background:rgba(14,14,20,0.82)", "border:1px solid rgba(255,255,255,0.16)", "border-radius:24px",
     "backdrop-filter:blur(22px)", "-webkit-backdrop-filter:blur(22px)",

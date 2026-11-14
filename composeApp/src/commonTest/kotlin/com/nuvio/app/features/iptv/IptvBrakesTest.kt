@@ -69,4 +69,45 @@ class IptvBrakesTest {
         assertEquals("1 h 5 min", IptvBrakeRules.hoursText(65))
         assertEquals("1 h 5 min watching, 14 channel changes, 3 programmes seen to the end", IptvBrakeRules.weekLine(IptvNight(65, 14, 3, 0)))
     }
+
+    @Test
+    fun `the zap card offers a pick with the stage on, and answers by label`() {
+        val three = IptvBrakeRules.zapOptions(stageOn = true)
+        assertEquals(listOf("Keep flicking", "Pick something for me", "Turn Live TV off"), three)
+        assertEquals(2, IptvBrakeRules.zapOptions(stageOn = false).size)
+        assertEquals(IptvBrakeAnswer.KeepGoing, IptvBrakeRules.answerOf(three, 0))
+        assertEquals(IptvBrakeAnswer.PickForMe, IptvBrakeRules.answerOf(three, 1))
+        assertEquals(IptvBrakeAnswer.TurnOff, IptvBrakeRules.answerOf(three, 2))
+        assertEquals(IptvBrakeAnswer.Dismissed, IptvBrakeRules.answerOf(three, -1))
+        val end = listOf(IptvBrakeRules.STOP_HERE, IptvBrakeRules.ONE_MORE)
+        assertEquals(IptvBrakeAnswer.TurnOff, IptvBrakeRules.answerOf(end, 0))
+        assertEquals(IptvBrakeAnswer.KeepGoing, IptvBrakeRules.answerOf(end, 1))
+    }
+
+    @Test
+    fun `only a chosen programme gets the end card`() {
+        val min = 60_000L
+        val start = 1_000_000L
+        assertTrue(IptvBrakeRules.chosen(start - 2 * min, start, picked = false), "tuned in before it began")
+        assertTrue(IptvBrakeRules.chosen(start + 9 * min, start, picked = false), "within ten minutes")
+        assertFalse(IptvBrakeRules.chosen(start + 25 * min, start, picked = false), "landed on it while flicking")
+        assertTrue(IptvBrakeRules.chosen(start + 25 * min, start, picked = true), "picked on a stage")
+    }
+
+    @Test
+    fun `your week is seven nights, oldest first, with labels`() {
+        val tonight = 20_000L
+        val tally = mapOf(IptvBrakeRules.nightKey(tonight) to IptvNight(minutes = 90, changes = 30), IptvBrakeRules.nightKey(tonight - 6) to IptvNight(minutes = 30))
+        val nights = IptvBrakeRules.nights(tally, tonight)
+        assertEquals(7, nights.size)
+        assertEquals(tonight - 6, nights.first().first)
+        assertEquals(30, nights.first().second.minutes)
+        assertEquals(90, nights.last().second.minutes)
+        assertEquals(0, nights[3].second.minutes)
+        assertEquals("Tonight", IptvBrakeRules.nightLabel(tonight, tonight))
+        assertEquals("Last night", IptvBrakeRules.nightLabel(tonight - 1, tonight))
+        assertEquals(3, IptvBrakeRules.nightLabel(tonight - 3, tonight).length)
+        assertEquals(15, IptvBrakeRules.changesPerHour(IptvBrakeRules.week(tally, tonight)))
+        assertEquals(null, IptvBrakeRules.changesPerHour(IptvNight(minutes = 30, changes = 9)))
+    }
 }

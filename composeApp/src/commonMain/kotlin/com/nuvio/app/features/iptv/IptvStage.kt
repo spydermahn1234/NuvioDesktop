@@ -25,6 +25,8 @@ enum class IptvStage(val label: String) {
     Following("Following"),
     Ask("Just ask"),
     Lineup("Your 40"),
+    /** fork:live-tv-brakes - the honest tally; on the strip only with Brakes on. */
+    Week("Your week"),
 }
 
 /** What the departure board can be narrowed to. */

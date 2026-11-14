@@ -13,6 +13,26 @@ object IptvBrakeEngine {
 
     private var zaps = emptyList<Long>()
     private var pending: Kind? = null
+    private var options: List<String> = emptyList()
+    /** fork:live-tv-brakes - the programme last picked (normalised title, end), and the approved running order's end. */
+    private var picked: Pair<String, Long>? = null
+    private var orderEndMs: Long? = null
+
+    /** A programme picked on a stage or reached through a reminder: its end gets the card. */
+    fun chose(title: String, endMs: Long) {
+        picked = IptvDecide.normalise(title) to endMs
+    }
+
+    /** The running order was approved (its last slot's end) or cancelled (null). */
+    fun orderApproved(lastEndMs: Long?) {
+        orderEndMs = lastEndMs
+    }
+
+    private fun card(kind: Kind, title: String, line: String, choices: List<String>, focused: Int) {
+        pending = kind
+        options = choices
+        showChoice?.invoke(title, line, choices, focused)
+    }
     private var endShownFor: Long? = null
     private var stayKey: String? = null
     private var stayStartMs = 0L
@@ -30,8 +50,7 @@ object IptvBrakeEngine {
         if (IptvBrakeRules.overBudget(zaps, settings.brakeOffered, night(now)) && pending == null) {
             IptvRepository.brakeOffered(night(now))
             zaps = emptyList()
-            pending = Kind.ZapBudget
-            showChoice?.invoke("That's a lot of flicking", "Nothing has held you for a while.", listOf("Keep flicking", "Turn Live TV off"), 0)
+            card(Kind.ZapBudget, "That's a lot of flicking", "Nothing has held you for a while.", IptvBrakeRules.zapOptions(settings.stage), 0)
         }
     }
 
@@ -48,24 +67,29 @@ object IptvBrakeEngine {
         if (pending != null) return
         // Stay counts from the later of tuning in and the programme's start.
         val stayed = now - maxOf(stayStartMs, entry.startMs)
-        if (IptvBrakeRules.endCardDue(entry.endMs, now, stayed, endShownFor)) {
+        val lastOfOrder = orderEndMs == entry.endMs
+        val wasPicked = picked?.let { it.first == IptvDecide.normalise(entry.title) && it.second == entry.endMs } == true
+        val chosen = lastOfOrder || IptvBrakeRules.chosen(stayStartMs, entry.startMs, wasPicked)
+        if (chosen && IptvBrakeRules.endCardDue(entry.endMs, now, stayed, endShownFor)) {
             endShownFor = entry.endMs
-            pending = Kind.EndCard
             IptvRepository.tally(night(now)) { it.copy(finished = it.finished + 1) }
-            showChoice?.invoke(entry.title, "That's the end of it.", listOf("Stop here", "One more"), 0)
+            val stops = listOf(IptvBrakeRules.STOP_HERE, IptvBrakeRules.ONE_MORE)
+            if (lastOfOrder) {
+                orderEndMs = null
+                card(Kind.EndCard, "That's tonight", "${entry.title} was the last of the running order.", stops, 0)
+            } else {
+                card(Kind.EndCard, entry.title, "That's the end of it.", stops, 0)
+            }
         }
     }
 
     /** The viewer's answer to the card on screen: -1 is dismissed. */
     fun answer(index: Int, now: Long = System.currentTimeMillis()): IptvBrakeAnswer {
-        val kind = pending ?: return IptvBrakeAnswer.Dismissed
+        pending ?: return IptvBrakeAnswer.Dismissed
         pending = null
-        val stops = when (kind) {
-            Kind.ZapBudget -> index == 1
-            Kind.EndCard -> index == 0
-        }
-        if (!stops) return IptvBrakeAnswer.KeepGoing.takeIf { index >= 0 } ?: IptvBrakeAnswer.Dismissed
-        IptvRepository.tally(night(now)) { it.copy(stopped = it.stopped + 1) }
-        return IptvBrakeAnswer.TurnOff
+        val answer = IptvBrakeRules.answerOf(options, index)
+        options = emptyList()
+        if (answer == IptvBrakeAnswer.TurnOff) IptvRepository.tally(night(now)) { it.copy(stopped = it.stopped + 1) }
+        return answer
     }
 }

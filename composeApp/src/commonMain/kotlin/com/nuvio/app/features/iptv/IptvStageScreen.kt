@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -106,6 +107,9 @@ import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 /**
@@ -310,7 +314,14 @@ internal fun IptvStageScreen(
 ) {
     val tokens = MaterialTheme.nuvio
     var stage by rememberSaveable(playlist.id) { mutableStateOf(IptvStage.Three.name) }
-    val current = IptvStage.entries.firstOrNull { it.name == stage } ?: IptvStage.Three
+    // fork:live-tv-brakes - "Pick something for me" on the zap card opens a stage.
+    val requested by IptvStageNav.requested.collectAsStateWithLifecycle()
+    LaunchedEffect(requested) {
+        requested?.let { stage = it.name }
+        IptvStageNav.consume()
+    }
+    val shownStages = IptvStage.entries.filter { it != IptvStage.Week || settings.brakes }
+    val current = shownStages.firstOrNull { it.name == stage } ?: IptvStage.Three
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -377,6 +388,8 @@ internal fun IptvStageScreen(
     /** The one thing OK does with a programme: on now plays, not begun tunes in at its start, over plays from the start. */
     fun take(p: IptvWallProgramme) {
         val t = System.currentTimeMillis()
+        // fork:live-tv-brakes - a programme picked here gets the end card.
+        if (p.entry.endMs > t) IptvBrakeEngine.chose(p.entry.title, p.entry.endMs)
         when {
             p.entry.endMs <= t -> playFromStart(p)
             p.entry.startMs > t + 60_000L -> remind(p, autoSwitch = true)
@@ -475,8 +488,9 @@ internal fun IptvStageScreen(
             listOf(IptvStageGroup("lineup", m?.lineup?.size ?: 0, columns = 5)),
             listOf(IptvStageGroup("keptOut", 0)),
         )
+        IptvStage.Week -> listOf(listOf(IptvStageGroup("weekTonight", 0)), listOf(IptvStageGroup("weekBars", 0)), listOf(IptvStageGroup("weekTotals", 0)))
     }
-    val strip = IptvStage.entries.map { it.name } + "all"
+    val strip = shownStages.map { it.name } + "all"
     var onStrip by remember { mutableStateOf(false) }
     var stripIndex by remember { mutableIntStateOf(0) }
     var keyboardActive by remember { mutableStateOf(false) }
@@ -509,6 +523,7 @@ internal fun IptvStageScreen(
             IptvStage.Following -> md.follows.getOrNull(focusedIn("follows") ?: 0)?.matches?.firstOrNull()
             IptvStage.Ask -> md.ask?.programme
             IptvStage.Lineup -> md.lineup.getOrNull(focusedIn("lineup") ?: 0)?.let { item -> item.now?.let { IptvWallProgramme(item.channel, it) } }
+            IptvStage.Week -> null
         }
     }
 
@@ -553,7 +568,14 @@ internal fun IptvStageScreen(
             }
             "window" -> soonWindow = IptvStageRules.SOON_WINDOWS[index]
             "departures" -> soonRows.getOrNull(index)?.let { remind(it, autoSwitch = true) }
-            "soonActions" -> soonRows.getOrNull(soonSel)?.let { p -> if (index == 0) remind(p, autoSwitch = true) else play(p.channel) }
+            "soonActions" -> soonRows.getOrNull(soonSel)?.let { p ->
+                if (index == 0) {
+                    remind(p, autoSwitch = true)
+                } else {
+                    IptvBrakeEngine.chose(p.entry.title, p.entry.endMs)
+                    play(p.channel)
+                }
+            }
             "on" -> md.board.alreadyOn.getOrNull(index)?.let { take(it.programme) }
             "starting" -> md.board.starting.getOrNull(index)?.let { take(it.programme) }
             "catchup" -> md.board.catchUp.getOrNull(index)?.let { playFromStart(it.programme) }
@@ -562,7 +584,10 @@ internal fun IptvStageScreen(
             "orderActions" -> when (index) {
                 0 -> if (md.orderApproved) {
                     md.order.forEach { IptvRepository.removeReminder(IptvRunningOrder.reminderId(playlist.id, it)) }
+                    IptvBrakeEngine.orderApproved(null)
                 } else {
+                    // fork:live-tv-brakes - the last slot's end gets "That's tonight".
+                    IptvBrakeEngine.orderApproved(md.order.lastOrNull()?.entry?.endMs)
                     val t = System.currentTimeMillis()
                     md.order.forEach { if (it.entry.startMs > t + 60_000L) remind(it, autoSwitch = true, quiet = true) }
                     md.order.firstOrNull()?.takeIf { it.onNow(t) }?.let { play(it.channel) }
@@ -571,6 +596,7 @@ internal fun IptvStageScreen(
                 1 -> md.order.getOrNull(orderSel)?.let { orderExclude = orderExclude + IptvDecide.normalise(it.entry.title) }
                 else -> {
                     md.order.forEach { IptvRepository.removeReminder(IptvRunningOrder.reminderId(playlist.id, it)) }
+                    IptvBrakeEngine.orderApproved(null)
                     pickStage(IptvStage.Three.name)
                 }
             }
@@ -805,6 +831,7 @@ internal fun IptvStageScreen(
                             onLongClick = { i -> activate("lineup", i, true) },
                             act = tap,
                         )
+                        IptvStage.Week -> WeekStage(settings, now, side)
                     }
                 }
             }
@@ -825,6 +852,83 @@ internal fun IptvStageScreen(
     }
 }
 
+/** fork:live-tv-brakes - a stage asked for from outside (the zap card's "Pick something for me"). */
+object IptvStageNav {
+    private val _requested = MutableStateFlow<IptvStage?>(null)
+    val requested: StateFlow<IptvStage?> = _requested.asStateFlow()
+
+    fun open(stage: IptvStage) {
+        _requested.value = stage
+    }
+
+    fun consume() {
+        _requested.value = null
+    }
+}
+
+/** fork:live-tv-brakes - Your week: tonight on the left, seven equal bars in the middle, the week's totals on the right. */
+@Composable
+private fun WeekStage(settings: IptvSettings, now: Long, side: Dp) {
+    val tokens = MaterialTheme.nuvio
+    val tonight = IptvDecide.nightOf(now)
+    val nights = IptvBrakeRules.nights(settings.tally, tonight)
+    val week = IptvBrakeRules.week(settings.tally, tonight)
+    val today = nights.last().second
+    val most = nights.maxOf { it.second.minutes }.coerceAtLeast(1)
+    Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+        StagePanel("Tonight", null, Modifier.width(side).fillMaxHeight()) {
+            StageInfoRow("Watching", "since 05:00", IptvBrakeRules.hoursText(today.minutes), icon = Icons.Rounded.Tv)
+            StageInfoRow("Channel changes", "every zap counts", today.changes.toString(), icon = Icons.Rounded.ViewColumn)
+            StageInfoRow("Seen to the end", "programmes you stayed with", today.finished.toString(), icon = Icons.Rounded.Check)
+            StageInfoRow("Stopped when asked", "on a brake card", today.stopped.toString(), icon = Icons.Rounded.Bedtime)
+        }
+        StagePanel("Seven nights", "minutes watched", Modifier.weight(1f).fillMaxHeight()) {
+            Row(
+                Modifier.weight(1f).fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                nights.forEach { (night, n) ->
+                    val isTonight = night == tonight
+                    Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            if (n.minutes == 0) "-" else IptvBrakeRules.hoursText(n.minutes),
+                            style = MaterialTheme.typography.bodySmall, color = tokens.colors.textSecondary, maxLines = 1,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        // Every bar sits in the same box; only its fill changes.
+                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+                            Box(
+                                Modifier.fillMaxWidth().fillMaxHeight((n.minutes.toFloat() / most).coerceIn(0.02f, 1f))
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isTonight) tokens.colors.accent else tokens.colors.textPrimary.copy(alpha = 0.22f)),
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            IptvBrakeRules.nightLabel(night, tonight),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (isTonight) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (isTonight) tokens.colors.textPrimary else tokens.colors.textMuted,
+                            maxLines = 1,
+                        )
+                        Text("${n.changes} changes", style = MaterialTheme.typography.bodySmall, color = tokens.colors.textMuted, maxLines = 1)
+                    }
+                }
+            }
+        }
+        StagePanel("The week", null, Modifier.width(side).fillMaxHeight()) {
+            StageInfoRow("Watching", "seven nights", IptvBrakeRules.hoursText(week.minutes), icon = Icons.Rounded.Tv)
+            StageInfoRow(
+                "Channel changes",
+                IptvBrakeRules.changesPerHour(week)?.let { "$it an hour" } ?: "under an hour watched",
+                week.changes.toString(), icon = Icons.Rounded.ViewColumn,
+            )
+            StageInfoRow("Seen to the end", "programmes you chose", week.finished.toString(), icon = Icons.Rounded.Check)
+            StageInfoRow("Stopped when asked", "on a brake card", week.stopped.toString(), icon = Icons.Rounded.Bedtime)
+        }
+    }
+}
+
 private fun stageIcon(stage: IptvStage): ImageVector = when (stage) {
     IptvStage.Three -> Icons.Rounded.ViewColumn
     IptvStage.Soon -> Icons.Rounded.Schedule
@@ -834,6 +938,7 @@ private fun stageIcon(stage: IptvStage): ImageVector = when (stage) {
     IptvStage.Following -> Icons.Rounded.Notifications
     IptvStage.Ask -> Icons.Rounded.AutoAwesome
     IptvStage.Lineup -> Icons.Rounded.Tv
+    IptvStage.Week -> Icons.Rounded.BarChart
 }
 
 private fun hiddenLine(m: IptvStageModel): String? {
@@ -860,6 +965,7 @@ private fun stageHeading(stage: IptvStage, m: IptvStageModel?, settings: IptvSet
         IptvStage.Following -> "Following" to "Star a programme once. Nuvio finds it on whichever of the $total channels has it."
         IptvStage.Ask -> "Just ask" to "Typed or spoken. It answers with one thing, not a list."
         IptvStage.Lineup -> "Your 40" to "The whole of Live TV, numbered like a television. The other ${m?.let { count((it.mergedCount - it.lineup.size).coerceAtLeast(0)) } ?: ""} are in search."
+        IptvStage.Week -> "Your week" to "Counted on the player for seven nights. Plain numbers, not a score."
     }
 }
 

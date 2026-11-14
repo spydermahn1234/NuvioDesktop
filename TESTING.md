@@ -732,6 +732,16 @@ Settings > Live TV > Stage. The first start after updating reads the guide again
 - [ ] Your 40: the band at the top shows the highlighted channel's programme with its picture and what is next; tiles show the logo, what is on and progress; placeholder logos ("Content not viewable") are replaced by the channel name
 - [ ] Just ask: the three example lines under the answer fill in the question; the answer card shows the picture, marks and description
 
+## Live TV: Brakes finished (Nov 14)
+
+Settings > Live TV > Brakes and Stage on.
+- [ ] Five channel changes inside two minutes: the card has three answers (Keep flicking, Pick something for me, Turn Live TV off) on one line each; Pick something for me leaves the player for Live TV's Three things stage
+- [ ] With Stage off, the zap card still has two answers
+- [ ] A programme picked on a stage (or switched to by a reminder, or tuned in to before it was 10 minutes in) and watched 15 minutes: the end card shows as it ends
+- [ ] Landing on something half-way through while flicking and staying: no end card at its end
+- [ ] Approve Tonight's running order and watch it through: as the last slot ends the card says "That's tonight" with Stop here focused
+- [ ] Your week is on the strip of stages (only with Brakes on): tonight's numbers on the left, seven equal bars (tonight highlighted) with changes under each, the week's totals with changes an hour on the right; nothing moves or changes size
+
 ## Live TV: smarter picks (Nov 14)
 
 Settings > Live TV > Stage. Watch a few programmes on Live TV first (each one at least 5 minutes; some to the end).

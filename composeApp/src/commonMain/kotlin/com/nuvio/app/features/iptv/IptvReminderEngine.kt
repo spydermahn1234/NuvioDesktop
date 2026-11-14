@@ -53,6 +53,8 @@ object IptvReminderEngine {
 
     private fun fire(reminder: IptvReminder, now: Long) {
         if (reminder.autoSwitch && switchTo(reminder)) {
+            // fork:live-tv-brakes - reached through a reminder: chosen, so its end gets the card.
+            IptvBrakeEngine.chose(reminder.title, reminder.endMs)
             show(Card("Switching to ${reminder.title}", "${reminder.channelName} · starting now", 0L))
         } else {
             show(Card(reminder.title, IptvReminderRules.cardLine(reminder, now), 0L))

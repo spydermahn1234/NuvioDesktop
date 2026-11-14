@@ -218,6 +218,9 @@ fun IptvScreen(
     var triageOpen by rememberSaveable(playlist.id) { mutableStateOf(false) }
     // fork:live-tv-stage - with Stage on, Live TV opens on the stages; "All channels" there comes here, "Stages" goes back.
     var stageOpen by rememberSaveable(playlist.id) { mutableStateOf(true) }
+    // fork:live-tv-brakes - the zap card's "Pick something for me" comes back to the stages.
+    val stageRequested by IptvStageNav.requested.collectAsStateWithLifecycle()
+    LaunchedEffect(stageRequested) { if (stageRequested != null) stageOpen = true }
 
     // fork:live-tv-on-now - copies of one channel folded into one row; null with the setting off.
     // fork:live-tv-stage - the stages read merged channels and the lineup too.

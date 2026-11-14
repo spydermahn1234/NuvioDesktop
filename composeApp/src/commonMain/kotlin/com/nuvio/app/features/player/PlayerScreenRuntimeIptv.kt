@@ -17,6 +17,8 @@ import com.nuvio.app.features.iptv.IptvRepository
 import com.nuvio.app.features.iptv.IptvBrakeAnswer
 import com.nuvio.app.features.iptv.IptvBrakeEngine
 import com.nuvio.app.features.iptv.IptvTasteEngine
+import com.nuvio.app.features.iptv.IptvStage
+import com.nuvio.app.features.iptv.IptvStageNav
 import com.nuvio.app.features.iptv.IptvPlaybackSession
 import com.nuvio.app.features.iptv.redactIptvCredentials
 import com.nuvio.app.features.iptv.requestHeaders
@@ -320,7 +322,15 @@ internal fun PlayerScreenRuntime.handleIptvControlsEvent(type: String, value: Do
         "iptvChannel" -> switchIptvChannel(if (value < 0) -1 else 1)
         "iptvChannelNumber" -> switchIptvChannelNumber(value.toInt())
         // fork:live-tv-brakes - the answer to the HUD's choice card.
-        "iptvChoice" -> if (IptvBrakeEngine.answer(value.toInt()) == IptvBrakeAnswer.TurnOff) args.onBack()
+        "iptvChoice" -> when (IptvBrakeEngine.answer(value.toInt())) {
+            IptvBrakeAnswer.TurnOff -> args.onBack()
+            // Back to Live TV, on the Three things stage.
+            IptvBrakeAnswer.PickForMe -> {
+                IptvStageNav.open(IptvStage.Three)
+                args.onBack()
+            }
+            else -> Unit
+        }
         "iptvPanelOpen" -> {
             iptvPanelOpen = value > 0
             if (!iptvPanelOpen) iptvPanelQuery = ""
