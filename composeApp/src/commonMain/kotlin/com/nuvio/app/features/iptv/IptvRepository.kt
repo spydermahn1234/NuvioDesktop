@@ -72,6 +72,8 @@ data class IptvSettings(
     val follows: List<String> = emptyList(),
     /** fork:live-tv-stage - Live TV as full-screen stages; off by default. */
     val stage: Boolean = false,
+    /** fork:live-tv-on-demand - offer a programme under way from the start through the add-ons; off by default. */
+    val onDemand: Boolean = false,
     /** fork:live-tv-stage - what was asked on Just ask, newest first. */
     val asks: List<IptvAsked> = emptyList(),
     /** fork:live-tv-weed - overnight checks of the lineup's channels; off by default. */
@@ -310,6 +312,11 @@ object IptvRepository {
     fun setDecide(enabled: Boolean) {
         ensureLoaded()
         mutate { it.copy(decide = enabled) }
+    }
+
+    fun setOnDemand(enabled: Boolean) {
+        ensureLoaded()
+        mutate { it.copy(onDemand = enabled) }
     }
 
     fun setStage(enabled: Boolean) {

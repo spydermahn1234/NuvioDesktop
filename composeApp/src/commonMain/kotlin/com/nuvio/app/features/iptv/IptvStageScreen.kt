@@ -412,8 +412,35 @@ internal fun IptvStageScreen(
         }
     }
     /** The one thing OK does with a programme: on now plays, not begun tunes in at its start, over plays from the start. */
+    // fork:live-tv-on-demand - a programme under way can be played from the start through the add-ons instead.
+    var onDemandFor by remember { mutableStateOf<IptvWallProgramme?>(null) }
+    var onDemandIndex by remember { mutableIntStateOf(0) }
+    val onDemandTarget by produceState<IptvOnDemandTarget?>(null, onDemandFor) {
+        value = onDemandFor?.let { IptvOnDemand.peek(it.entry) ?: IptvOnDemand.find(it.entry) }
+    }
+    var onDemandLooked by remember(onDemandFor) { mutableStateOf(false) }
+    LaunchedEffect(onDemandFor) {
+        val p = onDemandFor ?: return@LaunchedEffect
+        IptvOnDemand.find(p.entry)
+        onDemandLooked = true
+    }
+    /** The choice's buttons: from the start (once found), join live, close. */
+    val onDemandOptions = remember(onDemandFor, onDemandTarget, now / 60_000L) {
+        val p = onDemandFor ?: return@remember emptyList()
+        buildList {
+            onDemandTarget?.let { add("demand" to IptvOnDemandRules.playLabel(it)) }
+            add("live" to "Join live, ${((now - p.entry.startMs) / 60_000L).coerceAtLeast(1)} min in")
+            add("close" to "Close")
+        }
+    }
+    LaunchedEffect(onDemandOptions.size) { onDemandIndex = 0 }
+
     fun take(p: IptvWallProgramme) {
         val t = System.currentTimeMillis()
+        if (settings.onDemand && p.onNow(t) && IptvOnDemandRules.worth(p.entry, t)) {
+            onDemandFor = p
+            return
+        }
         // fork:live-tv-brakes - a programme picked here gets the end card.
         if (p.entry.endMs > t) IptvBrakeEngine.chose(p.entry.title, p.entry.endMs)
         when {
@@ -696,6 +723,27 @@ internal fun IptvStageScreen(
         remoteScreen?.let { screen -> RemoteLiveTv.publish(remoteOwner, screen) { remoteAct.value(it) } }
     }
 
+    fun onDemandChoose(code: String) {
+        val p = onDemandFor ?: return
+        onDemandFor = null
+        when (code) {
+            "demand" -> onDemandTarget?.let(IptvOnDemand::play)
+            "live" -> {
+                IptvBrakeEngine.chose(p.entry.title, p.entry.endMs)
+                play(p.channel)
+            }
+        }
+    }
+    // fork:live-tv-on-demand - looked up ahead: the highlighted programme and the three cards, so the choice is ready.
+    LaunchedEffect(m, ambient?.entry, settings.onDemand) {
+        if (!settings.onDemand) return@LaunchedEffect
+        val t = System.currentTimeMillis()
+        (listOfNotNull(ambient, m?.three?.safe, m?.three?.soon, m?.three?.wildcard))
+            .filter { it.onNow(t) && IptvOnDemandRules.worth(it.entry, t) }
+            .distinctBy { it.entry.title }
+            .forEach { IptvOnDemand.find(it.entry) }
+    }
+
     var enterDownAt by remember { mutableLongStateOf(0L) }
     fun handleKey(key: Key): Boolean {
         if (onStrip) {
@@ -757,12 +805,13 @@ internal fun IptvStageScreen(
                     }
                     return@onPreviewKeyEvent false
                 }
-                val menuOpen = menuChannel != null
+                val menuOpen = menuChannel != null || onDemandFor != null
                 if (event.key in StageBackKeys) {
                     if (!menuOpen && onStrip) return@onPreviewKeyEvent false
                     // Back acts as the key comes up, as it does across the app.
                     if (event.type == KeyEventType.KeyUp) {
                         when {
+                            onDemandFor != null -> onDemandFor = null
                             menuOpen -> menuChannel = null
                             else -> {
                                 onStrip = true
@@ -780,6 +829,17 @@ internal fun IptvStageScreen(
                 }
                 val navKey = event.navigationKey()
                 val enter = navKey == Key.Enter || navKey == Key.NumPadEnter
+                if (onDemandFor != null) {
+                    if (event.type == KeyEventType.KeyDown) {
+                        when (navKey) {
+                            Key.DirectionUp -> onDemandIndex = (onDemandIndex - 1).coerceAtLeast(0)
+                            Key.DirectionDown -> onDemandIndex = (onDemandIndex + 1).coerceAtMost(onDemandOptions.lastIndex)
+                            Key.Enter, Key.NumPadEnter -> onDemandOptions.getOrNull(onDemandIndex)?.first?.let(::onDemandChoose)
+                            else -> Unit
+                        }
+                    }
+                    return@onPreviewKeyEvent navKey in StageKeys
+                }
                 if (menuOpen) {
                     if (event.type == KeyEventType.KeyDown) {
                         when (navKey) {
@@ -888,6 +948,23 @@ internal fun IptvStageScreen(
                 }
             }
         }
+        val demandFor = onDemandFor
+        if (demandFor != null) {
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.TopCenter) {
+                IptvOnDemandChoice(
+                    programme = demandFor,
+                    line = IptvOnDemandRules.lateLine(demandFor.entry, now, IptvStageRules::clock),
+                    note = when {
+                        onDemandTarget != null -> "Found on TMDB as ${onDemandTarget?.name}. Your add-ons pick the source."
+                        !onDemandLooked -> "Looking it up on TMDB…"
+                        else -> "Not found on TMDB, so it can only be joined live."
+                    },
+                    options = onDemandOptions.map { it.second },
+                    focused = onDemandIndex,
+                    onChoose = { i -> onDemandOptions.getOrNull(i)?.first?.let(::onDemandChoose) },
+                )
+            }
+        }
         val menuFor = menuChannel
         if (menuFor != null) {
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.TopCenter) {
@@ -900,6 +977,31 @@ internal fun IptvStageScreen(
                     onBack = { menuChannel = null },
                 )
             }
+        }
+    }
+}
+
+/** fork:live-tv-on-demand - join live, or play it from the start through the add-ons. A fixed width; buttons stack. */
+@Composable
+private fun IptvOnDemandChoice(
+    programme: IptvWallProgramme,
+    line: String,
+    note: String,
+    options: List<String>,
+    focused: Int,
+    onChoose: (Int) -> Unit,
+) {
+    val tokens = MaterialTheme.nuvio
+    Box(modifier = Modifier.fillMaxWidth().padding(top = 24.dp), contentAlignment = Alignment.TopCenter) {
+        Column(
+            modifier = Modifier.width(480.dp).iptvGlass(NuvioGlass.Shape).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(programme.entry.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = tokens.colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("${programme.channel.primary.name} · $line", style = MaterialTheme.typography.bodyMedium, color = tokens.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(note, style = MaterialTheme.typography.bodySmall, color = tokens.colors.textMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            options.forEachIndexed { i, label -> LineupMenuButton(label = label, focused = i == focused, danger = false, onClick = { onChoose(i) }) }
         }
     }
 }

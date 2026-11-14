@@ -188,6 +188,19 @@ internal fun LazyListScope.iptvSettingsContent(
                     modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-stage")),
                     onCheckedChange = IptvRepository::setStage,
                 )
+                // fork:live-tv-on-demand
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSwitchRow(
+                    title = "From the start, on demand",
+                    description = "Needs Stage. OK on a film or episode that started a few minutes ago asks first: join live, or " +
+                        "play it from the beginning through your add-ons (your TorBox cache and the like), found by its title " +
+                        "on TMDB. Episodes need the guide's series and episode numbers; without them the series' page opens to " +
+                        "pick one. News, sport and anything marked Live are always joined live.",
+                    checked = settings.onDemand,
+                    isTablet = isTablet,
+                    modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-on-demand")),
+                    onCheckedChange = IptvRepository::setOnDemand,
+                )
                 // fork:live-tv-weed
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(

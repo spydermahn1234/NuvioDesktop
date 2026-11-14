@@ -74,7 +74,7 @@ internal fun IptvLineupMenu(
 }
 
 @Composable
-private fun LineupMenuButton(label: String, focused: Boolean, danger: Boolean, onClick: () -> Unit) {
+internal fun LineupMenuButton(label: String, focused: Boolean, danger: Boolean, onClick: () -> Unit) {
     val tokens = MaterialTheme.nuvio
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()

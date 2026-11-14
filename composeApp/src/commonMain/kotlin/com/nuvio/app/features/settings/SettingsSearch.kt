@@ -634,6 +634,13 @@ private fun settingsSearchEntries(
             "Live TV as full-screen stages: Three things, Starting soon, I have N minutes, Tonight, Earlier today, Following, Just ask, Your 40.",
             "General",
         ),
+        // fork:live-tv-on-demand
+        PlaybackSearchRow(
+            "iptv-on-demand",
+            "From the start, on demand",
+            "A Live TV film or episode already under way can be played from the beginning through your add-ons, found on TMDB.",
+            "General",
+        ),
         // fork:live-tv-weed
         PlaybackSearchRow(
             "iptv-weed",

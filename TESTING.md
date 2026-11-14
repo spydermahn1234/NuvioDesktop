@@ -743,6 +743,15 @@ Needs the new Nuvio Remote build (android-remote workflow) and Settings > Live T
 - [ ] The header tag swaps to the pad and back; All channels opens the classic list and the mirror goes away
 - [ ] Leaving Live TV (or starting something) puts the phone back on its usual screens
 
+## Live TV: From the start, on demand (Nov 14)
+
+Settings > Live TV > From the start, on demand (and Stage) on; add-ons with TorBox (or another source) set up.
+- [ ] OK on a film that started more than 3 minutes ago asks: From the start, on demand / Join live, N min in / Close; it says what TMDB found
+- [ ] From the start plays the film from 0:00 through your add-ons (the source they pick), not the live channel
+- [ ] An episode with S/E numbers in the guide plays that episode from the start; one without opens the series' page
+- [ ] A programme TMDB doesn't know says so and offers only Join live; news, sport and Live-marked programmes join live straight away
+- [ ] Up/Down, OK and Back work on the choice; tapping a card on the phone mirror opens the same choice on the TV
+
 ## Live TV: Just ask finds more (Nov 14)
 
 - [ ] "news, ten minutes" answers with a news programme on now (Live: dip in), even when the guide has no categories

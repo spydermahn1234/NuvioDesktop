@@ -117,6 +117,7 @@ jobs:
           --tests "com.nuvio.app.features.iptv.IptvGuideTextTest"
           --tests "com.nuvio.app.features.iptv.IptvTasteTest"
           --tests "com.nuvio.app.features.iptv.IptvAskAiTest"
+          --tests "com.nuvio.app.features.iptv.IptvOnDemandTest"
           "-Pnuvio.innertubex=true"
           "-Pnuvio.webview2.dir=C:/libs/webview2"
           "-Pnuvio.windows.libmpv.runtimeDir=C:/msys64/ucrt64/bin"
