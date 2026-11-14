@@ -743,6 +743,13 @@ Needs the new Nuvio Remote build (android-remote workflow) and Settings > Live T
 - [ ] The header tag swaps to the pad and back; All channels opens the classic list and the mirror goes away
 - [ ] Leaving Live TV (or starting something) puts the phone back on its usual screens
 
+## Live TV: Just ask finds more (Nov 14)
+
+- [ ] "news, ten minutes" answers with a news programme on now (Live: dip in), even when the guide has no categories
+- [ ] "the football" answers with sport, a football match first when there is one
+- [ ] Asking for more time than anything fits ("a film, 15 minutes") gives the closest and says "Nothing fits 15 minutes, so this is the closest"
+- [ ] When truly nothing fits, Why this shows what it looked for
+
 ## Live TV: Reminder card (Nov 14)
 
 Set a plain reminder (Remind me, not Tune in at) on something starting in a few minutes.

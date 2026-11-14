@@ -102,7 +102,14 @@ object IptvRunningOrder {
 }
 
 /** What a typed line asks for: how long, what kind, and the words a title or channel must contain. */
-data class IptvAskQuery(val minutes: Int?, val kinds: Set<String>, val words: List<String>, val comedy: Boolean)
+data class IptvAskQuery(
+    val minutes: Int?,
+    val kinds: Set<String>,
+    val words: List<String>,
+    val comedy: Boolean,
+    /** Words that rank an answer higher without being required ("football" in "the football"). */
+    val prefer: List<String> = emptyList(),
+)
 
 class IptvAskAnswer(
     val programme: IptvWallProgramme?,
@@ -140,7 +147,10 @@ object IptvAsk {
                 else -> NUMBER_WORDS.entries.firstOrNull { Regex("\\b${it.key}\\s*(minutes?|mins?)\\b").containsMatchIn(lower) }?.let { minutes = it.value }
             }
         }
+        // A sport's name asks for sport; the name itself only ranks (the guide rarely says "football" in the title).
+        val sportNames = SPORT_NAMES.filter { Regex("\\b$it\\b").containsMatchIn(lower) }
         val kinds = buildSet {
+            if (sportNames.isNotEmpty()) add(IptvProgrammeKind.SPORT)
             if (Regex("\\b(film|films|movie|movies)\\b").containsMatchIn(lower)) add(IptvProgrammeKind.FILM)
             if (Regex("\\b(sport|sports|match|game)\\b").containsMatchIn(lower)) add(IptvProgrammeKind.SPORT)
             if (Regex("\\bnews\\b").containsMatchIn(lower)) add(IptvProgrammeKind.NEWS)
@@ -149,18 +159,34 @@ object IptvAsk {
         val comedy = Regex("\\b(funny|comedy|laugh|laughs|sitcom)\\b").containsMatchIn(lower)
         val kindWords = setOf("film", "films", "movie", "movies", "sport", "sports", "match", "game", "news", "kids", "children", "cartoon", "cartoons", "funny", "comedy", "laugh", "laughs", "sitcom")
         val words = lower.split(Regex("\\s+")).filter {
-            it.length >= 3 && it !in STOP && it !in kindWords && it.toIntOrNull() == null && it !in NUMBER_WORDS && !Regex("\\d+(h|m|hr|hrs|min|mins)").matches(it)
+            it.length >= 3 && it !in STOP && it !in kindWords && it !in sportNames && it.toIntOrNull() == null && it !in NUMBER_WORDS && !Regex("\\d+(h|m|hr|hrs|min|mins)").matches(it)
         }
-        return IptvAskQuery(minutes, kinds, words, comedy)
+        return IptvAskQuery(minutes, kinds, words, comedy, prefer = sportNames)
     }
 
-    private fun matches(p: IptvWallProgramme, q: IptvAskQuery, now: Long): Boolean {
+    private val SPORT_NAMES = listOf(
+        "football", "soccer", "rugby", "cricket", "tennis", "golf", "boxing", "darts", "snooker", "f1", "formula",
+        "basketball", "nfl", "nba", "hockey", "cycling", "racing", "wrestling", "ufc", "mma",
+    )
+
+    /**
+     * Whether [p] is of [kind]: the guide's category, else its title or channel name ("BBC News", "Sky Sports",
+     * "Film4"), since many guides carry no categories.
+     */
+    private fun isKind(p: IptvWallProgramme, kind: String): Boolean =
+        p.entry.kind == kind || IptvProgrammeKind.of(p.entry.title) == kind || IptvProgrammeKind.of(p.channel.primary.name) == kind
+
+    /** News and sport on now are live: a viewer can dip in for ten minutes, so their length is no bar. */
+    private fun live(p: IptvWallProgramme, now: Long) =
+        p.onNow(now) && (isKind(p, IptvProgrammeKind.NEWS) || isKind(p, IptvProgrammeKind.SPORT))
+
+    private fun matches(p: IptvWallProgramme, q: IptvAskQuery, now: Long, useMinutes: Boolean = true, useWords: Boolean = true): Boolean {
         val title = p.entry.title.lowercase()
         val channel = p.channel.primary.name.lowercase()
-        if (q.kinds.isNotEmpty() && p.entry.kind !in q.kinds) return false
+        if (q.kinds.isNotEmpty() && q.kinds.none { isKind(p, it) }) return false
         if (q.comedy && COMEDY.none { title.contains(it) } && p.entry.kind != "comedy") return false
-        if (q.words.any { !title.contains(it) && !channel.contains(it) }) return false
-        q.minutes?.let { limit ->
+        if (useWords && q.words.any { !title.contains(it) && !channel.contains(it) }) return false
+        if (useMinutes && !live(p, now)) q.minutes?.let { limit ->
             val length = (p.entry.endMs - maxOf(now, p.entry.startMs)) / 60_000L
             if (length > limit + IptvDecide.MAX_OVER_MIN || length < 5) return false
         }
@@ -183,10 +209,33 @@ object IptvAsk {
     ): IptvAskAnswer {
         fun stat(p: IptvWallProgramme) = IptvTasteRules.statOf(taste, p.entry.title)
         val q = parse(text)
-        val pool = guide.filter { (it.onNow(now) || (it.entry.startMs > now && it.entry.startMs <= now + IptvOnNow.SOON_MS)) && matches(it, q, now) }
-        if (pool.isEmpty()) return IptvAskAnswer(null, "Nothing on now or starting soon fits that.", 0)
+        val window = guide.filter { it.onNow(now) || (it.entry.startMs > now && it.entry.startMs <= now + IptvOnNow.SOON_MS) }
+        // Strict first; then without the time, then without the words, so a close answer beats "nothing fits".
+        var relaxed: String? = null
+        var pool = window.filter { matches(it, q, now) }
+        if (pool.isEmpty() && q.minutes != null) {
+            pool = window.filter { matches(it, q, now, useMinutes = false) }
+            if (pool.isNotEmpty()) relaxed = "Nothing fits ${q.minutes} minutes, so this is the closest"
+        }
+        if (pool.isEmpty() && q.words.isNotEmpty()) {
+            pool = window.filter { matches(it, q, now, useMinutes = false, useWords = false) }
+            if (pool.isNotEmpty()) relaxed = "Nothing matches \"${q.words.joinToString(" ")}\", so this is the nearest"
+        }
+        if (pool.isEmpty()) {
+            // What was understood, so the viewer can see why nothing came back.
+            val understood = buildList {
+                if (q.kinds.isNotEmpty()) add(q.kinds.joinToString(" or "))
+                if (q.comedy) add("funny")
+                q.minutes?.let { add("$it minutes") }
+                if (q.words.isNotEmpty()) add("\"${q.words.joinToString(" ")}\" in the title or channel")
+            }
+            val reasons = if (understood.isEmpty()) emptyList() else listOf("Looked for" to understood.joinToString(", "))
+            return IptvAskAnswer(null, "Nothing on now or starting soon fits that.", 0, reasons)
+        }
         val ranked = pool.sortedWith(
             compareByDescending<IptvWallProgramme> { IptvDecide.isFollowed(follows, it.entry.title) }
+                .thenByDescending { p -> q.prefer.any { p.entry.title.lowercase().contains(it) || p.channel.primary.name.lowercase().contains(it) } }
+                .thenByDescending { live(it, now) }
                 .thenByDescending { IptvTasteRules.score(it.entry, stat(it), followed = false) / 10 }
                 .thenByDescending { it.entry.kind == IptvProgrammeKind.FILM }
                 .thenByDescending { it.channel.primary.key in usualKeys }
@@ -204,7 +253,8 @@ object IptvAsk {
             if (pick.channel.primary.key in usualKeys) add("a channel you usually watch")
             q.minutes?.let { add("fits $it minutes") }
         }
-        val why = if (because.isEmpty()) timing else "$timing; ${because.joinToString(", ")}"
+        val said = if (because.isEmpty()) timing else "$timing; ${because.joinToString(", ")}"
+        val why = relaxed?.let { "$it. $said" } ?: said
         val reasons = buildList {
             val kind = when {
                 q.comedy -> "Comedy"
@@ -221,7 +271,9 @@ object IptvAsk {
             if (pick.entry.isNew) add("A new one" to "Not a repeat")
             else if (IptvTasteRules.isRepeat(pick.entry, stat(pick))) add("Seen this one" to (pick.entry.episode ?: "A repeat"))
             if (pick.channel.primary.key in usualKeys) add("A channel you watch" to pick.channel.primary.name)
-            if (q.words.isNotEmpty()) add("Matches \"${q.words.joinToString(" ")}\"" to "In the title or channel")
+            if (q.words.isNotEmpty() && relaxed == null) add("Matches \"${q.words.joinToString(" ")}\"" to "In the title or channel")
+            if (live(pick, now)) add("Live" to "Dip in for as long as you like")
+            relaxed?.let { add("The closest there is" to it) }
         }
         return IptvAskAnswer(pick, why, ranked.size - 1, reasons)
     }

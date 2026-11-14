@@ -99,9 +99,33 @@ class IptvEveningTest {
 
     @Test
     fun `nothing that fits says so`() {
-        val answer = IptvAsk.answer("a film, 15 minutes", listOf(p(1, "Epic", -5, 180, IptvProgrammeKind.FILM)), emptyList(), emptySet(), now, 0)
+        val answer = IptvAsk.answer("a film, 15 minutes", listOf(p(1, "Quiz", -5, 180)), emptyList(), emptySet(), now, 0)
         assertNull(answer.programme)
         assertTrue(answer.why.startsWith("Nothing"))
+    }
+
+    @Test
+    fun `too long for the time gives the closest, and says so`() {
+        val answer = IptvAsk.answer("a film, 15 minutes", listOf(p(1, "Epic", -5, 180, IptvProgrammeKind.FILM)), emptyList(), emptySet(), now, 0)
+        assertEquals("Epic", answer.programme?.entry?.title)
+        assertTrue(answer.why.startsWith("Nothing fits 15 minutes"), answer.why)
+    }
+
+    @Test
+    fun `news on now is live, so ten minutes of it fits, and channels named news count without categories`() {
+        val guide = listOf(p(1, "Quiz", -5, 25), p(2, "BBC News at Nine", -10, 50), p(3, "Weather", -2, 8))
+        val answer = IptvAsk.answer("news, ten minutes", guide, emptyList(), emptySet(), now, 0)
+        assertEquals("BBC News at Nine", answer.programme?.entry?.title)
+        assertTrue(answer.reasons.any { it.first == "Live" })
+    }
+
+    @Test
+    fun `the football asks for sport and prefers football`() {
+        val q = IptvAsk.parse("the football")
+        assertEquals(setOf(IptvProgrammeKind.SPORT), q.kinds)
+        assertTrue(q.words.isEmpty())
+        val guide = listOf(p(1, "Live Darts", -5, 90, IptvProgrammeKind.SPORT), p(2, "Premier League Football", -5, 90, IptvProgrammeKind.SPORT), p(3, "Quiz", -5, 30))
+        assertEquals("Premier League Football", IptvAsk.answer("the football", guide, emptyList(), emptySet(), now, 0).programme?.entry?.title)
     }
 }
 
