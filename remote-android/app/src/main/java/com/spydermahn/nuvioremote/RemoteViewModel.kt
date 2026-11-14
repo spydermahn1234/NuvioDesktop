@@ -733,7 +733,7 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
     fun liveTvItem(group: String, index: Int) = sendOrReconnect { it.liveTvItem(group, index) }
     fun liveTvAll() = sendOrReconnect { it.liveTvAll() }
 
-    /** A tap on the Tonight mirror; see RemoteSession.tonight.
+    /** A tap on the Tonight mirror; see RemoteSession.tonight. */
     fun tonight(action: String, number: Int = 0) = sendOrReconnect { it.tonight(action, number) }
 
     fun resume(item: ResumeItem) = sendOrReconnect { it.resume(item.parentId, item.videoId) }
