@@ -82,6 +82,8 @@ data class IptvSettings(
     val evening: Boolean = false,
     /** fork:live-tv-brakes - zap budget and end card; off by default. */
     val brakes: Boolean = false,
+    /** fork:live-tv-taste - what was watched and finished, per programme title (see IptvTasteRules). */
+    val titles: Map<String, IptvTitleStat> = emptyMap(),
     /** fork:live-tv-brakes - the honest tally, one entry per night (key: the night's number). */
     val tally: Map<String, IptvNight> = emptyMap(),
     /** fork:live-tv-brakes - the night the zap-budget card was last offered. */
@@ -346,6 +348,19 @@ object IptvRepository {
     fun tally(night: Long, change: (IptvNight) -> IptvNight) {
         ensureLoaded()
         mutate { it.copy(tally = IptvBrakeRules.add(it.tally, night, change)) }
+    }
+
+    /** fork:live-tv-taste - a programme seen or finished. */
+    fun noteWatch(entry: IptvEpgEntry, event: IptvWatchEvent, now: Long = System.currentTimeMillis()) {
+        if (event == IptvWatchEvent.None) return
+        ensureLoaded()
+        mutate { it.copy(titles = IptvTasteRules.note(it.titles, entry, event, now)) }
+    }
+
+    /** fork:live-tv-taste - forget what was watched. */
+    fun forgetWatched() {
+        ensureLoaded()
+        mutate { it.copy(titles = emptyMap()) }
     }
 
     fun brakeOffered(night: Long) {

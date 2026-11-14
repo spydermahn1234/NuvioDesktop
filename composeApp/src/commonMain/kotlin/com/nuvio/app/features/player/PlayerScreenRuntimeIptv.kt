@@ -16,6 +16,7 @@ import com.nuvio.app.features.iptv.IptvGroups
 import com.nuvio.app.features.iptv.IptvRepository
 import com.nuvio.app.features.iptv.IptvBrakeAnswer
 import com.nuvio.app.features.iptv.IptvBrakeEngine
+import com.nuvio.app.features.iptv.IptvTasteEngine
 import com.nuvio.app.features.iptv.IptvPlaybackSession
 import com.nuvio.app.features.iptv.redactIptvCredentials
 import com.nuvio.app.features.iptv.requestHeaders
@@ -84,7 +85,11 @@ internal fun PlayerScreenRuntime.BindIptvLiveEffects() {
         while (true) {
             delay(60_000L)
             val active = IptvPlaybackSession.active.value ?: continue
-            if (playbackSnapshot.isPlaying && active.catchup == null) IptvBrakeEngine.tick(active.playlist, active.channel)
+            if (playbackSnapshot.isPlaying && active.catchup == null) {
+                IptvBrakeEngine.tick(active.playlist, active.channel)
+                // fork:live-tv-taste - what was watched and finished, for the Stage's picks.
+                IptvTasteEngine.tick(active.playlist, active.channel)
+            }
         }
     }
     BindIptvBufferTelemetry()

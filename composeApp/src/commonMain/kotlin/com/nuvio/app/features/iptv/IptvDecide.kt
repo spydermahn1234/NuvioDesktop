@@ -71,24 +71,28 @@ object IptvDecide {
         now: Long,
         rotation: Int,
         endsBy: Long? = null,
+        /** fork:live-tv-taste - higher first within each card's candidates; stable, so equal ranks keep their order. */
+        rank: ((IptvWallProgramme) -> Int)? = null,
     ): IptvThree {
+        fun List<IptvWallProgramme>.ranked() = if (rank == null) this else sortedByDescending(rank)
         fun okEnd(programme: IptvWallProgramme) = endsBy == null || programme.entry.endMs <= endsBy
         val byUid = channels.associateBy { it.channel.primary.uid }
         val usualUids = usuals.mapTo(HashSet()) { it.primary.uid }
 
-        val safeList = usuals.mapNotNull { usual -> byUid[usual.primary.uid]?.current(now)?.let { IptvWallProgramme(usual, it) } }.filter(::okEnd)
+        val safeList = usuals.mapNotNull { usual -> byUid[usual.primary.uid]?.current(now)?.let { IptvWallProgramme(usual, it) } }.filter(::okEnd).ranked()
         val safe = safeList.rotated(rotation)
         val taken = HashSet<Int>().apply { safe?.let { add(it.channel.primary.uid) } }
 
         val soonList = IptvDeparture.buckets(channels, now, only = lineup, perBucket = 99)
             .flatMap { it.programmes }
             .filter { it.entry.startMs - now <= SOON_WINDOW_MIN * 60_000L && it.channel.primary.uid !in taken && okEnd(it) }
+            .ranked()
         val soon = soonList.rotated(rotation)
         soon?.let { taken.add(it.channel.primary.uid) }
 
         val films = IptvOnNow.films(channels, now).filter { it.channel.primary.uid !in taken && okEnd(it) }
         val outside = films.filter { it.channel.primary.uid !in usualUids && (lineup == null || !lineup(it.channel)) }
-        val wildcard = (outside.ifEmpty { films }).rotated(rotation)
+        val wildcard = (outside.ifEmpty { films }).ranked().rotated(rotation)
         return IptvThree(safe, soon, wildcard)
     }
 
@@ -142,12 +146,20 @@ object IptvDecide {
         }
 
     /** Earlier today, best first: followed, then films, then the latest; dull short ones dropped; at most [limit]. */
-    fun earlier(past: List<IptvWallProgramme>, follows: List<String>, now: Long, limit: Int = 9): List<IptvWallProgramme> =
+    fun earlier(
+        past: List<IptvWallProgramme>,
+        follows: List<String>,
+        now: Long,
+        limit: Int = 9,
+        /** fork:live-tv-taste - after follows and films, the better-liked first. */
+        rank: ((IptvWallProgramme) -> Int)? = null,
+    ): List<IptvWallProgramme> =
         past.filter { it.entry.endMs <= now && it.entry.endMs - it.entry.startMs >= MIN_LENGTH_MIN * 60_000L }
             .distinctBy { it.channel.primary.uid to it.entry.startMs }
             .sortedWith(
                 compareByDescending<IptvWallProgramme> { isFollowed(follows, it.entry.title) }
                     .thenByDescending { it.entry.kind == IptvProgrammeKind.FILM }
+                    .thenByDescending { rank?.invoke(it) ?: 0 }
                     .thenByDescending { it.entry.endMs },
             )
             .take(limit)

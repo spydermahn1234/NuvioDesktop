@@ -180,7 +180,9 @@ internal fun LazyListScope.iptvSettingsContent(
                     title = "Stage",
                     description = "Live TV opens on full-screen stages, one decision each: Three things, Starting soon, " +
                         "I have N minutes, Tonight's running order, Earlier today, Following, Just ask and Your 40. " +
-                        "Left and right on the strip at the top change stage; All channels opens the classic list.",
+                        "Left and right on the strip at the top change stage; All channels opens the classic list. " +
+                        "The picks learn from what you watch to the end, put new episodes above repeats and prefer " +
+                        "programmes with a picture and a description.",
                     checked = settings.stage,
                     isTablet = isTablet,
                     modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-stage")),
@@ -250,6 +252,16 @@ internal fun LazyListScope.iptvSettingsContent(
                     modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-lineup")),
                     onCheckedChange = IptvRepository::setLineupOn,
                 )
+                // fork:live-tv-taste
+                if (settings.titles.isNotEmpty()) {
+                    SettingsGroupDivider(isTablet = isTablet)
+                    SettingsNavigationRow(
+                        title = "Forget what I watched",
+                        description = "Clears the ${settings.titles.size} programmes the Stage's picks learned from. Channels you usually watch are kept.",
+                        isTablet = isTablet,
+                        onClick = IptvRepository::forgetWatched,
+                    )
+                }
                 if (settings.never.values.any { it.isNotEmpty() }) {
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsNavigationRow(

@@ -131,6 +131,10 @@ internal class IptvStageModel(
     val earlier: List<IptvWallProgramme>,
     val follows: List<IptvFollowResult>,
     val followSuggestions: List<IptvWallProgramme>,
+    /** fork:live-tv-taste - why each suggestion is there ("You keep watching", or null for "on your channels"). */
+    val suggestionWhy: List<String?>,
+    /** fork:live-tv-taste - what was watched and finished, per title. */
+    val taste: Map<String, IptvTitleStat>,
     val order: List<IptvWallProgramme>,
     val orderApproved: Boolean,
     val orderLeftOut: IptvWallProgramme?,
@@ -188,29 +192,42 @@ internal fun buildIptvStage(
     }.filter { IptvCatchup.available(playlist, it.channel, it.entry, now) }
     val night = IptvDecide.nightOf(now)
     val bedMs = IptvRunningOrder.bedtimeMs(now, TonightSettingsRepository.state.value.bedMinuteOfDay)
-    val three = IptvDecide.three(picks, usuals, inLineup, now, IptvDecide.rotationFor(settings.shuffle, night), endsBy = bedMs)
+    // fork:live-tv-taste - followed, finished before, new rather than a repeat, with a picture and words.
+    val taste = settings.titles
+    val rank = { p: IptvWallProgramme ->
+        IptvTasteRules.score(p.entry, IptvTasteRules.statOf(taste, p.entry.title), IptvDecide.isFollowed(settings.follows, p.entry.title))
+    }
+    val three = IptvDecide.three(picks, usuals, inLineup, now, IptvDecide.rotationFor(settings.shuffle, night), endsBy = bedMs, rank = rank)
     val board = IptvDecide.minutes(picks, past, now, settings.minutes, perColumn = 6)
     val upcoming = picks.flatMap { on ->
         on.entries.filter { it.startMs > now && it.startMs <= now + 60 * 60_000L }.map { IptvWallProgramme(on.channel, it) }
     }.sortedBy { it.entry.startMs }.take(400)
-    val earlier = IptvDecide.earlier(past, settings.follows, now, limit = 40)
+    val earlier = IptvDecide.earlier(past, settings.follows, now, limit = 40, rank = rank)
     val ahead = if (settings.follows.isEmpty()) emptyList() else merged.flatMap { channel ->
         iptvGuideEntries(playlist, channel).filter { it.endMs > now }.map { IptvWallProgramme(channel, it) }
     }
     val follows = IptvDecide.follows(settings.follows, ahead, inLineup, limit = 3)
     val ownNow = picks.filter { it.channel.primary.uid in ownUids }
-    val suggestions = ownNow.mapNotNull { on -> on.current(now)?.let { IptvWallProgramme(on.channel, it) } }
+    // fork:live-tv-taste - what the viewer keeps coming back to comes first, at its next airing; then what is on now.
+    val kept = IptvTasteRules.keepWatching(taste, settings.follows, now).mapNotNull { stat ->
+        picks.flatMap { on -> on.entries.filter { it.endMs > now && IptvTasteRules.key(it.title) == IptvTasteRules.key(stat.title) }.map { IptvWallProgramme(on.channel, it) } }
+            .minByOrNull { it.entry.startMs }
+            ?.let { it to "You keep watching · seen ${stat.seen} times" }
+    }
+    val onYours = ownNow.mapNotNull { on -> on.current(now)?.let { IptvWallProgramme(on.channel, it) } }
         .filter { !IptvDecide.isFollowed(settings.follows, it.entry.title) && it.entry.endMs - it.entry.startMs >= 20 * 60_000L }
-        .distinctBy { IptvDecide.normalise(it.entry.title) }
-        .take(5)
+        .sortedByDescending(rank)
+        .map { it to null }
+    val suggestionPairs = (kept + onYours).distinctBy { IptvDecide.normalise(it.first.entry.title) }.take(6)
+    val suggestions = suggestionPairs.map { it.first }
     // The evening reads the whole guide of the viewer's channels, so a plan made in the morning reaches the night.
     val ownGuide = own.flatMap { channel ->
         iptvGuideEntries(playlist, channel).filter { it.endMs > orderFrom && it.startMs < bedMs + 3 * 3_600_000L && !IptvGuideText.isShopping(it.title) }
             .map { IptvWallProgramme(channel, it) }
     }
-    val order = IptvRunningOrder.build(ownGuide, settings.follows, usualKeys, orderFrom, bedMs, orderExclude)
+    val order = IptvRunningOrder.build(ownGuide, settings.follows, usualKeys, orderFrom, bedMs, orderExclude, taste)
     val allGuide = picks.flatMap { on -> on.entries.filter { it.startMs <= now + IptvOnNow.SOON_MS && it.endMs > now }.map { IptvWallProgramme(on.channel, it) } }
-    val ask = if (askText.isBlank()) null else IptvAsk.answer(askText, allGuide, settings.follows, usualKeys + lineup.map { it.primary.key }, now, askSkips)
+    val ask = if (askText.isBlank()) null else IptvAsk.answer(askText, allGuide, settings.follows, usualKeys + lineup.map { it.primary.key }, now, askSkips, taste)
     val guideByUid = channels.associateBy { it.channel.primary.uid }
     return IptvStageModel(
         total = content.channels.size,
@@ -228,6 +245,8 @@ internal fun buildIptvStage(
         earlier = earlier,
         follows = follows,
         followSuggestions = suggestions,
+        suggestionWhy = suggestionPairs.map { it.second },
+        taste = taste,
         order = order,
         orderApproved = IptvRunningOrder.approved(playlist.id, order, settings.reminders),
         orderLeftOut = IptvRunningOrder.pastBedtime(ownGuide, settings.follows, usualKeys, orderFrom, bedMs),
@@ -856,7 +875,9 @@ private fun ThreeStage(m: IptvStageModel, now: Long, isFocused: Focused, act: Ac
             val lineupNumber = { p: IptvWallProgramme -> m.lineup.firstOrNull { it.channel.primary.uid == p.channel.primary.uid }?.number }
             val cards = listOf(
                 Triple("SAFE", m.three.safe) { p: IptvWallProgramme ->
-                    "Your usual at this hour" + (lineupNumber(p)?.let { ", $it on Your 40" } ?: "")
+                    // fork:live-tv-taste - "You finished 4 of the last 5" when there is a history to go on.
+                    (IptvTasteRules.finishText(IptvTasteRules.statOf(m.taste, p.entry.title))?.let { "$it · " } ?: "") +
+                        "Your usual at this hour" + (lineupNumber(p)?.let { ", $it on Your 40" } ?: "")
                 },
                 Triple("STARTS SOON", m.three.soon) { p: IptvWallProgramme -> "From the first minute, done by ${IptvStageRules.clock(p.entry.endMs)}" },
                 Triple("WILDCARD", m.three.wildcard) { p: IptvWallProgramme ->
@@ -1227,10 +1248,18 @@ private fun FollowingStage(
                 onEditing = onEditing,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
-            StageSubheading("On your channels", Modifier.padding(start = 16.dp, top = 12.dp, bottom = 2.dp))
+            StageSubheading(
+                if (m.suggestionWhy.firstOrNull() != null) "You keep watching" else "On your channels",
+                Modifier.padding(start = 16.dp, top = 12.dp, bottom = 2.dp),
+            )
             StageList(m.followSuggestions.size, m.followSuggestions.indices.firstOrNull { isFocused("suggest", it) }, "Nothing on your channels to suggest.") { i ->
                 val p = m.followSuggestions[i]
-                StageRow(lead = null, thumb = p, thumbWidth = 64.dp, title = p.entry.title, sub = p.channel.primary.name, trailing = "Follow", trailingIcon = Icons.Rounded.Star, focused = isFocused("suggest", i)) { act("suggest", i) }
+                val why = m.suggestionWhy.getOrNull(i)
+                StageRow(
+                    lead = null, thumb = p, thumbWidth = 64.dp, title = p.entry.title,
+                    sub = why?.let { "$it · ${p.channel.primary.name}" } ?: p.channel.primary.name,
+                    trailing = "Follow", trailingIcon = Icons.Rounded.Star, focused = isFocused("suggest", i),
+                ) { act("suggest", i) }
             }
         }
         StagePanel("Programmes", "${m.follows.size} followed · hold OK to stop following", Modifier.weight(1f).fillMaxHeight()) {

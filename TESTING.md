@@ -731,3 +731,12 @@ Settings > Live TV > Stage. The first start after updating reads the guide again
 - [ ] Tonight, opened in the morning: plans from 18:00, the ribbon shows the evening up to bedtime, Starts chips (Now, 18:00, 20:00) change it, and something that runs past bed is shown dimmed as left for another night
 - [ ] Your 40: the band at the top shows the highlighted channel's programme with its picture and what is next; tiles show the logo, what is on and progress; placeholder logos ("Content not viewable") are replaced by the channel name
 - [ ] Just ask: the three example lines under the answer fill in the question; the answer card shows the picture, marks and description
+
+## Live TV: smarter picks (Nov 14)
+
+Settings > Live TV > Stage. Watch a few programmes on Live TV first (each one at least 5 minutes; some to the end).
+- [ ] After watching the same programme a few times, mostly to the end, Three things' SAFE card says "You finished 4 of the last 5" (or similar) before "Your usual at this hour"
+- [ ] Following: a programme you watched 3 or more times in three weeks (and do not follow) is listed under "You keep watching" with how often you saw it, at its next airing
+- [ ] Just ask: a programme you usually finish comes first and says "you usually finish it"; its reasons include "You usually finish it"
+- [ ] Where the guide marks a new episode it is picked above an episode you have already seen; Tonight and Earlier today favour programmes with a picture and a description
+- [ ] Settings > Live TV > Forget what I watched clears it (the row says how many programmes it learned from, and goes away after)

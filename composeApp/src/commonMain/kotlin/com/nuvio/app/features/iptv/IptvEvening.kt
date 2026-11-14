@@ -27,8 +27,9 @@ object IptvRunningOrder {
         return now + gap * MINUTE
     }
 
-    private fun score(p: IptvWallProgramme, follows: List<String>, usualKeys: Set<String>): Int {
-        var s = 0
+    private fun score(p: IptvWallProgramme, follows: List<String>, usualKeys: Set<String>, taste: Map<String, IptvTitleStat> = emptyMap()): Int {
+        // fork:live-tv-taste - finished before, new rather than a repeat, with a picture and words to go on.
+        var s = if (taste.isEmpty()) 0 else IptvTasteRules.score(p.entry, IptvTasteRules.statOf(taste, p.entry.title), followed = false)
         if (IptvDecide.isFollowed(follows, p.entry.title)) s += 100
         if (p.entry.kind == IptvProgrammeKind.FILM) s += 30
         if (p.channel.primary.key in usualKeys) s += 20
@@ -49,6 +50,7 @@ object IptvRunningOrder {
         bedMs: Long,
         /** fork:live-tv-stage - titles swapped out with "Swap one". */
         exclude: Set<String> = emptySet(),
+        taste: Map<String, IptvTitleStat> = emptyMap(),
     ): List<IptvWallProgramme> {
         val pool = guide.filter {
             val length = (it.entry.endMs - it.entry.startMs) / MINUTE
@@ -68,7 +70,7 @@ object IptvRunningOrder {
                 }
             }
             val pick = options.sortedWith(
-                compareByDescending<IptvWallProgramme> { score(it, follows, usualKeys) }.thenBy { it.entry.startMs },
+                compareByDescending<IptvWallProgramme> { score(it, follows, usualKeys, taste) }.thenBy { it.entry.startMs },
             ).firstOrNull() ?: break
             slots.add(pick)
             seen.add(IptvDecide.normalise(pick.entry.title))
@@ -176,12 +178,16 @@ object IptvAsk {
         usualKeys: Set<String>,
         now: Long,
         skips: Int,
+        /** fork:live-tv-taste - what was watched and finished. */
+        taste: Map<String, IptvTitleStat> = emptyMap(),
     ): IptvAskAnswer {
+        fun stat(p: IptvWallProgramme) = IptvTasteRules.statOf(taste, p.entry.title)
         val q = parse(text)
         val pool = guide.filter { (it.onNow(now) || (it.entry.startMs > now && it.entry.startMs <= now + IptvOnNow.SOON_MS)) && matches(it, q, now) }
         if (pool.isEmpty()) return IptvAskAnswer(null, "Nothing on now or starting soon fits that.", 0)
         val ranked = pool.sortedWith(
             compareByDescending<IptvWallProgramme> { IptvDecide.isFollowed(follows, it.entry.title) }
+                .thenByDescending { IptvTasteRules.score(it.entry, stat(it), followed = false) / 10 }
                 .thenByDescending { it.entry.kind == IptvProgrammeKind.FILM }
                 .thenByDescending { it.channel.primary.key in usualKeys }
                 .thenBy { kotlin.math.abs(((it.entry.endMs - maxOf(now, it.entry.startMs)) / 60_000L) - (q.minutes ?: 0)) }
@@ -192,6 +198,8 @@ object IptvAsk {
         val timing = if (pick.onNow(now)) "On now, $left min left" else "Starts in ${(pick.entry.startMs - now) / 60_000L} min, $left min long"
         val because = buildList {
             if (IptvDecide.isFollowed(follows, pick.entry.title)) add("you follow it")
+            if (IptvTasteRules.usuallyFinishes(stat(pick))) add("you usually finish it")
+            if (pick.entry.isNew) add("a new one")
             if (pick.entry.kind == IptvProgrammeKind.FILM) add("a film")
             if (pick.channel.primary.key in usualKeys) add("a channel you usually watch")
             q.minutes?.let { add("fits $it minutes") }
@@ -209,6 +217,9 @@ object IptvAsk {
             if (kind != null) add(kind to "From the guide")
             add("$left minutes ${if (pick.onNow(now)) "left" else "long"}" to (q.minutes?.let { "Inside your $it minutes" } ?: timing))
             if (IptvDecide.isFollowed(follows, pick.entry.title)) add("You follow it" to pick.entry.title)
+            IptvTasteRules.finishText(stat(pick))?.takeIf { IptvTasteRules.usuallyFinishes(stat(pick)) }?.let { add("You usually finish it" to it) }
+            if (pick.entry.isNew) add("A new one" to "Not a repeat")
+            else if (IptvTasteRules.isRepeat(pick.entry, stat(pick))) add("Seen this one" to (pick.entry.episode ?: "A repeat"))
             if (pick.channel.primary.key in usualKeys) add("A channel you watch" to pick.channel.primary.name)
             if (q.words.isNotEmpty()) add("Matches \"${q.words.joinToString(" ")}\"" to "In the title or channel")
         }
