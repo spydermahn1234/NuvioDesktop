@@ -703,3 +703,18 @@ Settings > Live TV > Overnight weeding. It works only between 02:00 and 05:00 wi
 - [ ] "Bring back channels thrown out" returns it
 - [ ] Starting a channel in the night stops the weeding until the next quiet check
 - [ ] With the switch off nothing is opened at night
+
+## Live TV: Stage (Nov 14)
+
+Settings > Live TV > Stage. Live TV opens on Three things with a strip of stages under the heading.
+- [ ] Every stage has the centred heading, the strip, and either two equal side panels round a centre or three equal columns; nothing changes size as you move or as the guide loads
+- [ ] Up from the top of a stage goes to the strip; left and right there change stage as you go; down comes back; Back goes to the strip
+- [ ] All channels (end of the strip, OK) opens the classic Live TV; its "Stages" sidebar item brings the stages back
+- [ ] Three things: three cards the same size, films with a backdrop, others with the channel logo; OK plays one that is on, tunes in for one that starts soon; Deal again works once a night
+- [ ] Starting soon: the chips narrow the departures; the right panel follows the highlighted row; Tune in at switches to the channel at the start; Go to ... now plays it
+- [ ] I have N minutes: the dial changes the three columns; nothing runs over except dimmed rows that say how far
+- [ ] Tonight: the running order ends before the bedtime chip; Swap one replaces the highlighted slot; Approve and start switches at each start; Approved: cancel and Not tonight undo it
+- [ ] Earlier today: OK or Play from the start plays a programme from its beginning (Xtream catch-up)
+- [ ] Following: type a name in the box and press Enter to follow it; Follow on a suggestion; hold OK on a followed one to stop; one on now plays, one later sets a reminder
+- [ ] Just ask: type "something funny, half an hour" (or use the mic): one answer with artwork, why this on the right, Not that for the next; the line is kept under Asked before
+- [ ] Your 40: the numbered grid with a progress bar per channel; OK plays; type 1 2 to go to 12; hold OK for move / take out / Never again; Redo the triage opens the questions

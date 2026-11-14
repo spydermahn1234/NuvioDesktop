@@ -174,6 +174,18 @@ internal fun LazyListScope.iptvSettingsContent(
                     modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-decide")),
                     onCheckedChange = IptvRepository::setDecide,
                 )
+                // fork:live-tv-stage
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSwitchRow(
+                    title = "Stage",
+                    description = "Live TV opens on full-screen stages, one decision each: Three things, Starting soon, " +
+                        "I have N minutes, Tonight's running order, Earlier today, Following, Just ask and Your 40. " +
+                        "Left and right on the strip at the top change stage; All channels opens the classic list.",
+                    checked = settings.stage,
+                    isTablet = isTablet,
+                    modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-stage")),
+                    onCheckedChange = IptvRepository::setStage,
+                )
                 // fork:live-tv-weed
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(

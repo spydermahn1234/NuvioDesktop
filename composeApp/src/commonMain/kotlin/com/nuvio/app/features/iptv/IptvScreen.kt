@@ -216,10 +216,14 @@ fun IptvScreen(
         if (content == null || triage == null) null else IptvTriageRules.keptCategories(content, triage, categoryRegions)
     }
     var triageOpen by rememberSaveable(playlist.id) { mutableStateOf(false) }
+    // fork:live-tv-stage - with Stage on, Live TV opens on the stages; "All channels" there comes here, "Stages" goes back.
+    var stageOpen by rememberSaveable(playlist.id) { mutableStateOf(true) }
 
     // fork:live-tv-on-now - copies of one channel folded into one row; null with the setting off.
-    val merged = remember(content, onNow, lineupOn, categoryRegions) {
-        if ((onNow || lineupOn) && content != null) IptvChannelMerge.merge(content.channels) { categoryRegions[it.categoryId] } else null
+    // fork:live-tv-stage - the stages read merged channels and the lineup too.
+    val stageOn = settings.stage
+    val merged = remember(content, onNow, lineupOn, stageOn, categoryRegions) {
+        if ((onNow || lineupOn || stageOn) && content != null) IptvChannelMerge.merge(content.channels) { categoryRegions[it.categoryId] } else null
     }
     // Every copy's uid to the merged channel it belongs to.
     val mergedByUid = remember(merged) {
@@ -233,13 +237,13 @@ fun IptvScreen(
     val never = settings.never[playlist.id].orEmpty() + IptvWeedRules.dead(settings.weeds[playlist.id].orEmpty())
     val storedLineup = settings.lineup[playlist.id]
     val keyIndex = remember(merged) { merged?.let(IptvLineupRules::keyIndex).orEmpty() }
-    val lineupChannels = remember(storedLineup, keyIndex, never) {
-        if (!lineupOn || storedLineup == null) emptyList()
+    val lineupChannels = remember(storedLineup, keyIndex, never, lineupOn, stageOn) {
+        if (!(lineupOn || stageOn) || storedLineup == null) emptyList()
         else IptvLineupRules.resolve(storedLineup, keyIndex).filterNot { IptvLineupRules.isNever(it, never) }
     }
     // The first lineup is built once, from what is watched and starred and then from the triage; after that only the viewer changes it.
-    LaunchedEffect(lineupOn, merged, playlist.id, storedLineup == null) {
-        if (lineupOn && merged != null && storedLineup == null) {
+    LaunchedEffect(lineupOn, stageOn, merged, playlist.id, storedLineup == null) {
+        if ((lineupOn || stageOn) && merged != null && storedLineup == null) {
             IptvRepository.setLineup(
                 playlist.id,
                 IptvLineupRules.seed(
@@ -265,11 +269,12 @@ fun IptvScreen(
     val soonOn = onNow && settings.departure
     val decideOn = onNow && settings.decide
     val eveningOn = onNow && settings.evening
-    val sidebarItems = remember(playlists, content, region, categoryRegions, other, favouritesLabel, recentLabel, allLabel, onNow, soonOn, decideOn, eveningOn, settings.minutes, settings.follows, lineupOn, lineupChannels, merged, wall, keptCategories) {
+    val sidebarItems = remember(playlists, content, region, categoryRegions, other, favouritesLabel, recentLabel, allLabel, onNow, soonOn, decideOn, eveningOn, stageOn, settings.minutes, settings.follows, lineupOn, lineupChannels, merged, wall, keptCategories) {
         buildList {
             if (playlists.size > 1) {
                 playlists.forEach { add(IptvSidebarItem("playlist:${it.id}", it.name.ifBlank { it.id.take(8) }, playlist = it)) }
             }
+            if (stageOn) add(IptvSidebarItem("section:$STAGE_SECTION", "Stages", section = STAGE_SECTION))
             if (lineupOn) {
                 add(IptvSidebarItem("section:${IptvLineupRules.SECTION}", "Your 40", count = lineupChannels.size.takeIf { it > 0 }, section = IptvLineupRules.SECTION))
             }
@@ -674,6 +679,14 @@ fun IptvScreen(
         return true
     }
 
+    // fork:live-tv-stage - picking "Stages" in the sidebar goes back to them.
+    LaunchedEffect(section) {
+        if (section == STAGE_SECTION) {
+            stageOpen = true
+            section = home
+        }
+    }
+
     // fork:live-tv-triage - the questions take the whole tab while they are open.
     if (triageOpen && content != null) {
         IptvTriageScreen(
@@ -684,6 +697,24 @@ fun IptvScreen(
             modifier = modifier,
             topChromePadding = topChromePadding,
             onClose = { triageOpen = false },
+        )
+        return
+    }
+
+    // fork:live-tv-stage
+    if (stageOn && stageOpen && content != null && merged != null) {
+        IptvStageScreen(
+            playlist = playlist,
+            content = content,
+            merged = wallMerged ?: merged,
+            lineup = lineupChannels,
+            settings = settings,
+            alternates = alternates,
+            guideVersion = guideVersion,
+            modifier = modifier,
+            topChromePadding = topChromePadding,
+            onAllChannels = { stageOpen = false },
+            onTriage = { triageOpen = true },
         )
         return
     }
@@ -905,6 +936,9 @@ fun IptvScreen(
 }
 
 /** Keys that close the programme page. */
+/** fork:live-tv-stage - the sidebar item that goes back to the stages. */
+private const val STAGE_SECTION = "__stage__"
+
 private val IptvBackKeys = setOf(Key.Escape, Key.Back, Key.Backspace)
 
 private val IptvNavigationKeys = setOf(

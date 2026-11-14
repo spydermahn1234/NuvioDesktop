@@ -41,10 +41,18 @@ object IptvRunningOrder {
      * One evening, in order: from now to [bedMs], each slot the best programme starting within a quarter of an hour of
      * the last one's end. Whatever would run past bedtime is left out (it is for tomorrow, not trimmed).
      */
-    fun build(guide: List<IptvWallProgramme>, follows: List<String>, usualKeys: Set<String>, now: Long, bedMs: Long): List<IptvWallProgramme> {
+    fun build(
+        guide: List<IptvWallProgramme>,
+        follows: List<String>,
+        usualKeys: Set<String>,
+        now: Long,
+        bedMs: Long,
+        /** fork:live-tv-stage - titles swapped out with "Swap one". */
+        exclude: Set<String> = emptySet(),
+    ): List<IptvWallProgramme> {
         val pool = guide.filter {
             val length = (it.entry.endMs - it.entry.startMs) / MINUTE
-            length >= MIN_LENGTH_MIN && it.entry.endMs <= bedMs && it.entry.endMs > now
+            IptvDecide.normalise(it.entry.title) !in exclude && length >= MIN_LENGTH_MIN && it.entry.endMs <= bedMs && it.entry.endMs > now
         }
         val slots = ArrayList<IptvWallProgramme>()
         var cursor = now
@@ -69,6 +77,21 @@ object IptvRunningOrder {
         return slots
     }
 
+    /** fork:live-tv-stage - the best thing the order left out because it runs past bedtime: offered for tomorrow. */
+    fun pastBedtime(guide: List<IptvWallProgramme>, follows: List<String>, usualKeys: Set<String>, now: Long, bedMs: Long): IptvWallProgramme? =
+        guide.filter { it.entry.startMs in now until bedMs && it.entry.endMs > bedMs && (it.entry.endMs - it.entry.startMs) / MINUTE >= MIN_LENGTH_MIN }
+            .maxWithOrNull(compareBy<IptvWallProgramme> { score(it, follows, usualKeys) }.thenByDescending { it.entry.startMs })
+            ?.takeIf { score(it, follows, usualKeys) >= 30 }
+
+    /** Why a slot is in the order, in a few words. */
+    fun reason(p: IptvWallProgramme, follows: List<String>, usualKeys: Set<String>): String = when {
+        IptvDecide.isFollowed(follows, p.entry.title) -> "followed"
+        p.entry.kind == IptvProgrammeKind.FILM -> "a film"
+        p.entry.kind == IptvProgrammeKind.SPORT -> "sport"
+        p.channel.primary.key in usualKeys -> "your usual at this hour"
+        else -> "on your channels"
+    }
+
     fun reminderId(playlistId: String, p: IptvWallProgramme) = "$playlistId:${p.channel.primary.key}:${p.entry.startMs}"
 
     /** Every slot has an auto-switch reminder: the order is approved. */
@@ -79,7 +102,13 @@ object IptvRunningOrder {
 /** What a typed line asks for: how long, what kind, and the words a title or channel must contain. */
 data class IptvAskQuery(val minutes: Int?, val kinds: Set<String>, val words: List<String>, val comedy: Boolean)
 
-class IptvAskAnswer(val programme: IptvWallProgramme?, val why: String, val others: Int)
+class IptvAskAnswer(
+    val programme: IptvWallProgramme?,
+    val why: String,
+    val others: Int,
+    /** fork:live-tv-stage - the reasons as heading and detail lines, for the Why this panel. */
+    val reasons: List<Pair<String, String>> = emptyList(),
+)
 
 object IptvAsk {
     const val SECTION = "__ask__"
@@ -168,7 +197,22 @@ object IptvAsk {
             q.minutes?.let { add("fits $it minutes") }
         }
         val why = if (because.isEmpty()) timing else "$timing; ${because.joinToString(", ")}"
-        return IptvAskAnswer(pick, why, ranked.size - 1)
+        val reasons = buildList {
+            val kind = when {
+                q.comedy -> "Comedy"
+                pick.entry.kind == IptvProgrammeKind.FILM -> "A film"
+                pick.entry.kind == IptvProgrammeKind.SPORT -> "Sport"
+                pick.entry.kind == IptvProgrammeKind.NEWS -> "News"
+                pick.entry.kind == IptvProgrammeKind.KIDS -> "For children"
+                else -> null
+            }
+            if (kind != null) add(kind to "From the guide")
+            add("$left minutes ${if (pick.onNow(now)) "left" else "long"}" to (q.minutes?.let { "Inside your $it minutes" } ?: timing))
+            if (IptvDecide.isFollowed(follows, pick.entry.title)) add("You follow it" to pick.entry.title)
+            if (pick.channel.primary.key in usualKeys) add("A channel you watch" to pick.channel.primary.name)
+            if (q.words.isNotEmpty()) add("Matches \"${q.words.joinToString(" ")}\"" to "In the title or channel")
+        }
+        return IptvAskAnswer(pick, why, ranked.size - 1, reasons)
     }
 }
 

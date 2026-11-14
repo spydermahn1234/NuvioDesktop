@@ -96,7 +96,7 @@ object IptvDecide {
      * What fits [budgetMin] minutes starting now: [channels] gives what is on and what follows; [past] the finished
      * programmes the provider still has. Nothing runs over, except a programme up to [MAX_OVER_MIN] over, marked.
      */
-    fun minutes(channels: List<IptvChannelNow>, past: List<IptvWallProgramme>, now: Long, budgetMin: Int): IptvMinutesBoard {
+    fun minutes(channels: List<IptvChannelNow>, past: List<IptvWallProgramme>, now: Long, budgetMin: Int, perColumn: Int = PER_COLUMN): IptvMinutesBoard {
         val budget = budgetMin * 60_000L
         fun fit(programme: IptvWallProgramme, spanMs: Long): IptvFit? {
             val over = ((spanMs - budget + 59_999L) / 60_000L).toInt()
@@ -104,14 +104,14 @@ object IptvDecide {
         }
         val on = channels.mapNotNull { c ->
             c.current(now)?.takeIf { it.endMs - now >= 5 * 60_000L }?.let { IptvWallProgramme(c.channel, it) }?.let { fit(it, it.entry.endMs - now) }
-        }.sortedWith(compareBy({ it.overMin > 0 }, { it.programme.entry.endMs })).take(PER_COLUMN)
+        }.sortedWith(compareBy({ it.overMin > 0 }, { it.programme.entry.endMs })).take(perColumn)
         val starting = channels.mapNotNull { c ->
             c.next(now)?.takeIf { it.startMs - now <= 60 * 60_000L && it.endMs - it.startMs >= MIN_LENGTH_MIN * 60_000L }
                 ?.let { IptvWallProgramme(c.channel, it) }?.let { fit(it, it.entry.endMs - now) }
-        }.sortedWith(compareBy({ it.overMin > 0 }, { it.programme.entry.startMs })).take(PER_COLUMN)
+        }.sortedWith(compareBy({ it.overMin > 0 }, { it.programme.entry.startMs })).take(perColumn)
         val earlier = past.filter { it.entry.endMs <= now && it.entry.endMs - it.entry.startMs >= MIN_LENGTH_MIN * 60_000L }
             .mapNotNull { fit(it, it.entry.endMs - it.entry.startMs) }
-            .sortedWith(compareBy({ it.overMin > 0 }, { -it.programme.entry.endMs })).take(PER_COLUMN)
+            .sortedWith(compareBy({ it.overMin > 0 }, { -it.programme.entry.endMs })).take(perColumn)
         return IptvMinutesBoard(on, starting, earlier)
     }
 

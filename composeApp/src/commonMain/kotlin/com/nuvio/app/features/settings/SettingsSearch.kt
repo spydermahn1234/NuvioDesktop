@@ -627,6 +627,13 @@ private fun settingsSearchEntries(
             "Three things, I have 25 minutes, Earlier today and Following: Live TV views that offer very little.",
             "General",
         ),
+        // fork:live-tv-stage
+        PlaybackSearchRow(
+            "iptv-stage",
+            "Live TV stage",
+            "Live TV as full-screen stages: Three things, Starting soon, I have N minutes, Tonight, Earlier today, Following, Just ask, Your 40.",
+            "General",
+        ),
         // fork:live-tv-weed
         PlaybackSearchRow(
             "iptv-weed",

@@ -293,7 +293,7 @@ internal object IptvFilmArt {
 }
 
 @Composable
-private fun rememberFilmArt(title: String): IptvFilmArt.Art? =
+internal fun rememberFilmArt(title: String): IptvFilmArt.Art? =
     produceState<IptvFilmArt.Art?>(IptvFilmArt.peek(title), title) { value = IptvFilmArt.find(title) }.value
 
 private val SportTileHeight = 138.dp

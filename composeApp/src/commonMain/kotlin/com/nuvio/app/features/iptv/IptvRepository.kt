@@ -70,6 +70,10 @@ data class IptvSettings(
     val shuffle: IptvShuffle = IptvShuffle(),
     /** fork:live-tv-decide - what is followed: programme titles, teams, "any Bond film". */
     val follows: List<String> = emptyList(),
+    /** fork:live-tv-stage - Live TV as full-screen stages; off by default. */
+    val stage: Boolean = false,
+    /** fork:live-tv-stage - what was asked on Just ask, newest first. */
+    val asks: List<IptvAsked> = emptyList(),
     /** fork:live-tv-weed - overnight checks of the lineup's channels; off by default. */
     val weed: Boolean = false,
     /** fork:live-tv-weed - what the checks found, per playlist and channel key. */
@@ -302,6 +306,19 @@ object IptvRepository {
     fun setDecide(enabled: Boolean) {
         ensureLoaded()
         mutate { it.copy(decide = enabled) }
+    }
+
+    fun setStage(enabled: Boolean) {
+        ensureLoaded()
+        mutate { it.copy(stage = enabled) }
+    }
+
+    /** fork:live-tv-stage - keeps the last eight asks, the same line once. */
+    fun rememberAsk(text: String, at: Long = System.currentTimeMillis()) {
+        val clean = text.trim()
+        if (clean.isEmpty()) return
+        ensureLoaded()
+        mutate { s -> s.copy(asks = (listOf(IptvAsked(clean, at)) + s.asks.filterNot { it.text.equals(clean, ignoreCase = true) }).take(8)) }
     }
 
     fun setWeed(enabled: Boolean) {
