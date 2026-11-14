@@ -751,6 +751,8 @@ Settings > Live TV > From the start, on demand (and Stage) on; add-ons with TorB
 - [ ] An episode with S/E numbers in the guide plays that episode from the start; one without opens the series' page
 - [ ] A programme TMDB doesn't know says so and offers only Join live; news, sport and Live-marked programmes join live straight away
 - [ ] Up/Down, OK and Back work on the choice; tapping a card on the phone mirror opens the same choice on the TV
+- [ ] On Now (stages off): a film or episode well under way opens its page with "From the start, on demand" (it says what TMDB found) above Watch live
+- [ ] The classic channel list, Your 40 and the guide: picking a channel whose programme is well under way opens the same page; a channel with news, sport or nothing worth it just plays
 
 ## Live TV: Just ask finds more (Nov 14)
 

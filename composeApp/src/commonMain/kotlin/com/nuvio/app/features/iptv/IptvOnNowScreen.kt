@@ -86,6 +86,9 @@ internal sealed interface IptvDetailAction {
     data class StartOver(val entry: IptvEpgEntry) : IptvDetailAction
     data object WatchLive : IptvDetailAction
 
+    /** fork:live-tv-on-demand - play it from the start through the add-ons, found on TMDB. */
+    data class OnDemand(val entry: IptvEpgEntry) : IptvDetailAction
+
     /** fork:live-tv-departure - tell me when [entry] starts; or [Switch] to the channel by itself; or take the reminder away. */
     data class Remind(val entry: IptvEpgEntry) : IptvDetailAction
     data class Switch(val entry: IptvEpgEntry) : IptvDetailAction
@@ -114,6 +117,8 @@ internal fun iptvDetailActions(
     reminders: List<IptvReminder>? = null,
     /** fork:live-tv-decide - null with the switch off. */
     follows: List<String>? = null,
+    /** fork:live-tv-on-demand - Settings > Live TV > From the start, on demand. */
+    onDemand: Boolean = false,
 ): List<IptvDetailAction> = buildList {
     val entry = detail.entry
     if (reminders != null && entry != null && entry.startMs > now) {
@@ -125,7 +130,9 @@ internal fun iptvDetailActions(
             add(IptvDetailAction.Switch(entry))
         }
     }
-    if (entry != null && IptvCatchup.available(playlist, detail.channel, entry, now)) add(IptvDetailAction.StartOver(entry))
+    val catchup = entry != null && IptvCatchup.available(playlist, detail.channel, entry, now)
+    if (catchup && entry != null) add(IptvDetailAction.StartOver(entry))
+    if (onDemand && entry != null && IptvOnDemandRules.worth(entry, now, catchup)) add(IptvDetailAction.OnDemand(entry))
     add(IptvDetailAction.WatchLive)
     if (follows != null && entry != null) {
         add(if (IptvDecide.isFollowed(follows, entry.title)) IptvDetailAction.Unfollow(entry.title) else IptvDetailAction.Follow(entry.title))
@@ -765,7 +772,12 @@ internal fun IptvProgrammeDetail(
         else -> entry.title
     }
     val onNow = entry != null && entry.startMs <= now && entry.endMs > now
-    val canStartOver = actions.any { it is IptvDetailAction.StartOver }
+    val canStartOver = actions.any { it is IptvDetailAction.StartOver || it is IptvDetailAction.OnDemand }
+    // fork:live-tv-on-demand - looked up as the page opens, so the row can say what TMDB found.
+    val demandEntry = actions.firstNotNullOfOrNull { (it as? IptvDetailAction.OnDemand)?.entry }
+    val demand = produceState<Pair<Boolean, IptvOnDemandTarget?>>(false to demandEntry?.let(IptvOnDemand::peek), demandEntry) {
+        if (demandEntry != null) value = true to IptvOnDemand.find(demandEntry)
+    }.value
 
     Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -885,6 +897,18 @@ internal fun IptvProgrammeDetail(
                             label = "Cancel the ${if (action.reminder.autoSwitch) "switch" else "reminder"} for ${formatTime(action.reminder.startMs)}",
                             note = if (action.reminder.autoSwitch) "set to switch by itself" else "set to remind you",
                             accent = true,
+                            focused = focused,
+                            onClick = { onAction(action) },
+                        )
+                        is IptvDetailAction.OnDemand -> DetailActionRow(
+                            icon = Icons.Rounded.Replay,
+                            label = demand.second?.let(IptvOnDemandRules::playLabel)?.replaceFirstChar { it.uppercase() } ?: "From the start, on demand",
+                            note = when {
+                                demand.second != null -> "${demand.second?.name} on TMDB · your add-ons pick the source"
+                                !demand.first -> "Looking it up on TMDB…"
+                                else -> "Not found on TMDB"
+                            },
+                            accent = demand.second != null,
                             focused = focused,
                             onClick = { onAction(action) },
                         )

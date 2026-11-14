@@ -63,6 +63,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.launch
+import com.nuvio.app.core.ui.NuvioToastController
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -365,9 +368,12 @@ fun IptvScreen(
     wallCol = wallCol.coerceIn(0, ((wallRows.getOrNull(wallRow)?.items?.size ?: 1) - 1).coerceAtLeast(0))
     var detail by remember(playlist.id, onNow) { mutableStateOf<IptvWallDetail?>(null) }
     var detailIndex by remember { mutableIntStateOf(0) }
-    val detailActions = remember(detail, settings.reminders, soonOn, settings.follows, decideOn) {
+    val detailActions = remember(detail, settings.reminders, soonOn, settings.follows, decideOn, settings.onDemand) {
         detail?.let {
-            iptvDetailActions(playlist, it, System.currentTimeMillis(), reminders = settings.reminders.takeIf { soonOn }, follows = settings.follows.takeIf { decideOn })
+            iptvDetailActions(
+                playlist, it, System.currentTimeMillis(), reminders = settings.reminders.takeIf { soonOn }, follows = settings.follows.takeIf { decideOn },
+                onDemand = settings.onDemand,
+            )
         }.orEmpty()
     }
     detailIndex = detailIndex.coerceIn(0, (detailActions.size - 1).coerceAtLeast(0))
@@ -435,6 +441,20 @@ fun IptvScreen(
     fun play(channel: IptvChannel): Boolean =
         IptvPlaybackRequests.play(playlist, channel, zapList = if (wallSection) mergedPrimaries else channels, alternates = alternates)
 
+    // fork:live-tv-on-demand - a channel picked in the list (or Your 40, or the guide) whose programme is well under way
+    // opens that programme's page first: From the start, on demand, or Watch live.
+    val onDemandScope = rememberCoroutineScope()
+    fun playOrOffer(channel: IptvChannel) {
+        val t = System.currentTimeMillis()
+        val entry = if (settings.onDemand) IptvEpgRepository.guideEntries(playlist, channel).firstOrNull { it.startMs <= t && it.endMs > t } else null
+        if (entry != null && IptvOnDemandRules.worth(entry, t)) {
+            detail = IptvWallDetail(mergedByUid[channel.uid] ?: IptvMergedChannel(listOf(channel)), entry, entry.kind == IptvProgrammeKind.FILM, null)
+            detailIndex = 0
+        } else {
+            play(channel)
+        }
+    }
+
     fun isFavourite(channel: IptvChannel): Boolean {
         val copies = mergedByUid[channel.uid]?.sources ?: listOf(channel)
         return copies.any { IptvRepository.channelRef(playlist.id, it.key) in settings.favourites }
@@ -450,7 +470,9 @@ fun IptvScreen(
         val startOver = entry != null && IptvCatchup.available(playlist, channel, entry, System.currentTimeMillis())
         // fork:live-tv-departure - a programme that has not begun opens its page, which offers the reminder.
         val notBegun = soonOn && entry != null && entry.startMs > System.currentTimeMillis() + 60_000L
-        if (film || startOver || notBegun) {
+        // fork:live-tv-on-demand - something well under way opens its page too, which offers it from the start.
+        val demand = settings.onDemand && entry != null && IptvOnDemandRules.worth(entry, System.currentTimeMillis())
+        if (film || startOver || notBegun || demand) {
             detail = IptvWallDetail(channel, entry, film, match)
             detailIndex = 0
         } else {
@@ -503,6 +525,10 @@ fun IptvScreen(
             is IptvDetailAction.Remind -> setReminder(open.channel, action.entry, autoSwitch = false)
             is IptvDetailAction.Switch -> setReminder(open.channel, action.entry, autoSwitch = true)
             is IptvDetailAction.CancelReminder -> IptvRepository.removeReminder(action.reminder.id)
+            is IptvDetailAction.OnDemand -> onDemandScope.launch {
+                val target = IptvOnDemand.find(action.entry)
+                if (target != null) IptvOnDemand.play(target) else NuvioToastController.show(message = "${action.entry.title} isn't on TMDB, so it can only be joined live", durationMillis = 3500L)
+            }
             is IptvDetailAction.Follow -> IptvRepository.follow(action.title)
             is IptvDetailAction.Unfollow -> IptvRepository.unfollow(action.title)
         }
@@ -671,7 +697,7 @@ fun IptvScreen(
                         when {
                             moreFocused && !guideView -> openMenu(channel)
                             starFocused && !guideView -> toggleFavourite(channel)
-                            else -> play(channel)
+                            else -> playOrOffer(channel)
                         }
                     }
                 }
@@ -914,7 +940,7 @@ fun IptvScreen(
                     guideVersion = guideVersion,
                     listState = channelState,
                     focusedIndex = if (keyboardActive && zone == IptvZone.Channels) channelIndex else -1,
-                    onPlay = { play(it) },
+                    onPlay = { playOrOffer(it) },
                 )
                 else -> IptvChannelList(
                     playlist = playlist,
@@ -930,7 +956,7 @@ fun IptvScreen(
                     showMore = lineupOn,
                     numberOf = if (lineupSection) ({ index: Int -> index + 1 }) else null,
                     onMore = { openMenu(it) },
-                    onPlay = { play(it) },
+                    onPlay = { playOrOffer(it) },
                     onToggleFavourite = { toggleFavourite(it) },
                 )
             }
