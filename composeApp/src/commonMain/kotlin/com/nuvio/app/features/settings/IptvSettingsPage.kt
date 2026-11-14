@@ -215,6 +215,28 @@ internal fun LazyListScope.iptvSettingsContent(
                     modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-evening")),
                     onCheckedChange = IptvRepository::setEvening,
                 )
+                // fork:live-tv-ask-ai
+                var askConsentFor by remember { mutableStateOf<AiConsentTarget?>(null) }
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSwitchRow(
+                    title = "Let the AI answer Just ask",
+                    description = "Just ask sends your question, the time, and the titles, channels and descriptions of what is on " +
+                        "now or within the hour (60 at most) to the AI under Settings > Discover, with your key; it picks up " +
+                        "to three and says why. Without a key, or when it fails, the rules answer as before. At most 40 " +
+                        "questions a day.",
+                    checked = settings.askAi,
+                    isTablet = isTablet,
+                    modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-ask-ai")),
+                    onCheckedChange = { on ->
+                        val ai = com.nuvio.app.features.discover.DiscoverAiSettingsRepository.snapshot()
+                        when {
+                            !on -> IptvRepository.setAskAi(false)
+                            ai.apiKey.isNotBlank() && !ai.consentGiven -> askConsentFor = AiConsentTarget.LiveTvAsk
+                            else -> IptvRepository.setAskAi(true)
+                        }
+                    },
+                )
+                AiConsentDialog(target = askConsentFor, onDismiss = { askConsentFor = null })
                 // fork:live-tv-brakes
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(

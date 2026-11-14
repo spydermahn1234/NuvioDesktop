@@ -145,6 +145,9 @@ internal class IptvStageModel(
     val orderFrom: Long,
     val bedMs: Long,
     val ask: IptvAskAnswer?,
+    /** fork:live-tv-ask-ai - what would go to the AI for this question, and whether the answer shown is the AI's. */
+    val askCandidates: List<IptvWallProgramme>,
+    val askByAi: Boolean,
     /** Channels kept off the picks: 24/7 loops, radio, shopping, adult, religious (unless on the lineup). */
     val hiddenFiller: Int,
     /** Shopping slots on now or within the hour, kept off the picks. */
@@ -163,6 +166,8 @@ internal fun buildIptvStage(
     askSkips: Int,
     orderExclude: Set<String>,
     orderFrom: Long,
+    /** fork:live-tv-ask-ai - the AI's answer to [askText], when there is one. */
+    aiPick: IptvAiPick? = null,
 ): IptvStageModel {
     IptvLogos.placeholders = IptvLogos.placeholdersOf(content.channels)
     val categoryNames = content.categoryNames
@@ -231,7 +236,13 @@ internal fun buildIptvStage(
     }
     val order = IptvRunningOrder.build(ownGuide, settings.follows, usualKeys, orderFrom, bedMs, orderExclude, taste)
     val allGuide = picks.flatMap { on -> on.entries.filter { it.startMs <= now + IptvOnNow.SOON_MS && it.endMs > now }.map { IptvWallProgramme(on.channel, it) } }
-    val ask = if (askText.isBlank()) null else IptvAsk.answer(askText, allGuide, settings.follows, usualKeys + lineup.map { it.primary.key }, now, askSkips, taste)
+    // fork:live-tv-ask-ai - the AI's picks first, then the rules carry on with the presses of Not that left over.
+    val askCandidates = if (askText.isBlank() || !settings.askAi) emptyList() else IptvAskAiRules.candidates(allGuide, now, rank)
+    val aiAnswer = if (askText.isBlank()) null else aiPick?.let { IptvAskAiRules.answer(it, allGuide, askSkips, now) }
+    val ask = if (askText.isBlank()) null else aiAnswer ?: IptvAsk.answer(
+        askText, allGuide, settings.follows, usualKeys + lineup.map { it.primary.key }, now,
+        IptvAskAiRules.rulesSkips(aiPick, allGuide, askSkips, now), taste,
+    )
     val guideByUid = channels.associateBy { it.channel.primary.uid }
     return IptvStageModel(
         total = content.channels.size,
@@ -257,6 +268,8 @@ internal fun buildIptvStage(
         orderFrom = orderFrom,
         bedMs = bedMs,
         ask = ask,
+        askCandidates = askCandidates,
+        askByAi = aiAnswer != null,
         hiddenFiller = hiddenFiller,
         hiddenShopping = hiddenShopping,
     )
@@ -349,13 +362,19 @@ internal fun IptvStageScreen(
     val bedMinute = tonightSettings.bedMinuteOfDay
     val orderFrom = startAt(now, FromChoices[fromChoice])
 
+    // fork:live-tv-ask-ai
+    val aiPicked by IptvAskAiEngine.pick.collectAsStateWithLifecycle()
+    val aiState by IptvAskAiEngine.state.collectAsStateWithLifecycle()
+    val aiPick = aiPicked?.takeIf { settings.askAi && it.question.trim().equals(askText.trim(), ignoreCase = true) }
+
     val model by produceState<IptvStageModel?>(
         null,
         playlist.id, merged, lineup, guideVersion, now / 60_000L, settings.plays.size, settings.favourites, settings.recents,
         settings.follows, settings.shuffle, settings.minutes, settings.reminders, askText, askSkips, orderExclude, bedMinute, fromChoice,
+        aiPick, settings.askAi,
     ) {
         value = withContext(Dispatchers.Default) {
-            buildIptvStage(playlist, content, merged, lineup, settings, System.currentTimeMillis(), askText, askSkips, orderExclude, orderFrom)
+            buildIptvStage(playlist, content, merged, lineup, settings, System.currentTimeMillis(), askText, askSkips, orderExclude, orderFrom, aiPick)
         }
     }
 
@@ -536,6 +555,13 @@ internal fun IptvStageScreen(
             if (runCatching { rootFocus.requestFocus() }.isSuccess) return@LaunchedEffect
             delay(48)
         }
+    }
+    // fork:live-tv-ask-ai - the question goes to the AI once typing has stopped (not on every key).
+    val askCandidates = model?.askCandidates.orEmpty()
+    LaunchedEffect(askText, editing == "ask", askCandidates.isNotEmpty(), settings.askAi) {
+        if (!settings.askAi || askText.isBlank() || editing == "ask" || askCandidates.isEmpty()) return@LaunchedEffect
+        delay(400)
+        IptvAskAiEngine.ask(askText, askCandidates)
     }
     fun leaveEditing() {
         when (editing) {
@@ -824,6 +850,7 @@ internal fun IptvStageScreen(
                         )
                         IptvStage.Ask -> AskStage(
                             m, now, side, settings.asks, askText, { askText = it }, askFocus,
+                            aiState = if (settings.askAi && askText.isNotBlank()) aiState else IptvAskAiState.Off,
                             onEditing = { editing = "ask" }, onSubmit = { leaveEditing() }, isFocused = ::isFocused, act = tap,
                         )
                         IptvStage.Lineup -> LineupStage(
@@ -1406,6 +1433,7 @@ private fun AskStage(
     text: String,
     onText: (String) -> Unit,
     fieldFocus: FocusRequester,
+    aiState: IptvAskAiState,
     onEditing: () -> Unit,
     onSubmit: () -> Unit,
     isFocused: Focused,
@@ -1440,7 +1468,7 @@ private fun AskStage(
                     if (p != null) MetaChips(p)
                 }
                 Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StageLabel("ONE ANSWER")
+                    StageLabel(if (m.askByAi) "ONE ANSWER · FROM YOUR AI" else "ONE ANSWER")
                     when {
                         text.isBlank() -> {
                             Text("Ask for one thing", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = tokens.colors.textPrimary)
@@ -1467,7 +1495,11 @@ private fun AskStage(
                         StageButton("Not that", accent = false, enabled = p != null && (m.ask?.others ?: 0) > 0, focused = isFocused("askActions", 1), icon = Icons.Rounded.Close, modifier = Modifier.weight(1f)) { act("askActions", 1) }
                     }
                     val others = m.ask?.others ?: 0
-                    if (p != null) StageNoteInline(if (others > 0) "$others more fit if you say Not that." else "That is the only one that fits.")
+                    when {
+                        aiState == IptvAskAiState.Asking -> StageNoteInline("Asking your AI. The rules' answer is shown until it replies.")
+                        aiState == IptvAskAiState.Failed && !m.askByAi -> StageNoteInline("Your AI did not answer, so this is the rules' answer.")
+                        p != null -> StageNoteInline(if (others > 0) "$others more fit if you say Not that." else "That is the only one that fits.")
+                    }
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {

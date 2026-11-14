@@ -648,6 +648,13 @@ private fun settingsSearchEntries(
             "Live TV proposes one evening up to bedtime and changes channel at each start, or answers a typed line like \"something funny, half an hour\" with one programme.",
             "General",
         ),
+        // fork:live-tv-ask-ai
+        PlaybackSearchRow(
+            "iptv-ask-ai",
+            "Let the AI answer Just ask",
+            "Live TV's Just ask sends your question and what is on to your own AI key, which picks up to three programmes and says why.",
+            "General",
+        ),
         // fork:live-tv-brakes
         PlaybackSearchRow(
             "iptv-brakes",

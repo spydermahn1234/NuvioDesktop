@@ -732,6 +732,15 @@ Settings > Live TV > Stage. The first start after updating reads the guide again
 - [ ] Your 40: the band at the top shows the highlighted channel's programme with its picture and what is next; tiles show the logo, what is on and progress; placeholder logos ("Content not viewable") are replaced by the channel name
 - [ ] Just ask: the three example lines under the answer fill in the question; the answer card shows the picture, marks and description
 
+## Live TV: Just ask with your AI (Nov 14)
+
+Needs an AI key under Settings > Discover. Settings > Live TV > Let the AI answer Just ask.
+- [ ] Turning the switch on without having agreed before shows the AI privacy dialog; agreeing turns on only this switch
+- [ ] Just ask: type "something to cheer me up" and leave the box: "Asking your AI" shows under the answer, then the label reads ONE ANSWER · FROM YOUR AI with the AI's reason in Why this
+- [ ] Not that steps through the AI's picks (up to three), then on to the rules' answers
+- [ ] With no key (or the switch off) Just ask answers by the rules as before; if the AI fails, it says so and shows the rules' answer
+- [ ] Nothing on the Ask stage moves or changes size while the AI is asked
+
 ## Live TV: Brakes finished (Nov 14)
 
 Settings > Live TV > Brakes and Stage on.

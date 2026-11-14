@@ -82,6 +82,8 @@ data class IptvSettings(
     val evening: Boolean = false,
     /** fork:live-tv-brakes - zap budget and end card; off by default. */
     val brakes: Boolean = false,
+    /** fork:live-tv-ask-ai - let the viewer's own AI answer Just ask; off by default, needs the shared AI consent. */
+    val askAi: Boolean = false,
     /** fork:live-tv-taste - what was watched and finished, per programme title (see IptvTasteRules). */
     val titles: Map<String, IptvTitleStat> = emptyMap(),
     /** fork:live-tv-brakes - the honest tally, one entry per night (key: the night's number). */
@@ -337,6 +339,11 @@ object IptvRepository {
     fun setEvening(enabled: Boolean) {
         ensureLoaded()
         mutate { it.copy(evening = enabled) }
+    }
+
+    fun setAskAi(enabled: Boolean) {
+        ensureLoaded()
+        mutate { it.copy(askAi = enabled) }
     }
 
     fun setBrakes(enabled: Boolean) {
