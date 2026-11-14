@@ -425,7 +425,7 @@ internal fun IptvStageScreen(
         onDemandLooked = true
     }
     /** The choice's buttons: from the start (once found), join live, close. */
-    val onDemandOptions = remember(onDemandFor, onDemandTarget, now / 60_000L) {
+    val onDemandOptions = remember<List<Pair<String, String>>>(onDemandFor, onDemandTarget, now / 60_000L) {
         val p = onDemandFor ?: return@remember emptyList()
         buildList {
             onDemandTarget?.let { add("demand" to IptvOnDemandRules.playLabel(it)) }
