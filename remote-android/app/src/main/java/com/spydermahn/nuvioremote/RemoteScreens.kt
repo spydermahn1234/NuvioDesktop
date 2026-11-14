@@ -1335,6 +1335,8 @@ private fun MoreSheet(state: UiState, viewModel: RemoteViewModel, onType: () -> 
                 Spacer(Modifier.size(60.dp))
             }
 
+            LockScreenSection()
+
             GlassLabel("Device")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 GlassKey(Icons.Rounded.Keyboard, "Type", onPress = onType)

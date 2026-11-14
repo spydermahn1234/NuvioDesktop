@@ -38,6 +38,11 @@ queue, and can "sleep" to try Wake. A strip shows what it was sent. This is for 
 - **Dark** turns the phone black and dims it (Low / Medium / High) so it does not light up the room. Tap for play or
   pause, swipe left and right to seek, swipe up and down for volume.
 - Lock-screen and notification controls while something plays.
+- **Poster wallpaper** (More › Lock screen, off until turned on): while the TV plays, the phone's lock screen shows
+  the film or show's poster, or the album cover for music, whole and centred over a blurred copy of itself. The home
+  screen is not touched. About 20 seconds after playback stops your normal lock-screen picture goes back: choose it
+  once with **My picture** (Android does not let apps read the current wallpaper, so it cannot simply undo); without
+  one, the lock screen goes back to matching the home screen. Pausing keeps the poster.
 - The app takes the TV's theme colours and follows them when they change.
 
 **Watch tab**

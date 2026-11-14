@@ -800,3 +800,15 @@ Settings > Live TV > Stage. Watch a few programmes on Live TV first (each one at
 - [ ] Just ask: a programme you usually finish comes first and says "you usually finish it"; its reasons include "You usually finish it"
 - [ ] Where the guide marks a new episode it is picked above an episode you have already seen; Tonight and Earlier today favour programmes with a picture and a description
 - [ ] Settings > Live TV > Forget what I watched clears it (the row says how many programmes it learned from, and goes away after)
+
+## Phone remote: poster wallpaper (Nov 14)
+
+- [ ] Remote › More shows a Lock screen row: Poster off/on, My picture, and a line saying what it does
+- [ ] With Poster on, start a film on the TV: within a few seconds the phone's lock screen shows its poster, whole and centred on a blurred copy (home screen unchanged)
+- [ ] An episode of a show: the lock screen shows the show's poster; the next episode does not make it flicker
+- [ ] Music on the TV: the lock screen shows the album cover; a new album changes it
+- [ ] Pausing keeps the poster
+- [ ] My picture: pick a photo; about 20 seconds after stopping playback on the TV, that photo is back on the lock screen
+- [ ] Without My picture: after stopping, the lock screen goes back to matching the home screen
+- [ ] Turning Poster off while something plays puts the normal picture back straight away
+- [ ] The poster is sharp, not blurry, on the phone's screen
