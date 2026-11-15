@@ -2,6 +2,8 @@ name: Android remote
 
 # fork:phone-remote - builds the Nuvio Remote app in remote-android/ and publishes the APK as the
 # rolling "NuvioRemote" prerelease, so the phone can download it straight from the Releases page.
+# The app updates itself from it (AppUpdater.kt): it reads "Build <n>." from the notes and compares it with its
+# versionCode, which is the same run number. Keep that line in the notes.
 
 on:
   workflow_dispatch:
@@ -68,4 +70,4 @@ jobs:
             --latest=false \
             --target "$GITHUB_SHA" \
             --title "Nuvio Remote (Spyder $sha)" \
-            --notes "Android remote for Nuvio HTPC. Download NuvioRemote.apk on the phone and open it to install. On the PC, turn on Settings > Keyboard shortcuts > Phone remote."
+            --notes "Android remote for Nuvio HTPC. Build ${{ github.run_number }}. Download NuvioRemote.apk on the phone and open it to install. On the PC, turn on Settings > Keyboard shortcuts > Phone remote."

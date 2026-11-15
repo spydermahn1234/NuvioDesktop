@@ -1344,8 +1344,9 @@ private fun MoreSheet(state: UiState, viewModel: RemoteViewModel, onType: () -> 
                     onDismiss()
                     viewModel.showPicker()
                 }
-                Spacer(Modifier.size(60.dp))
+                UpdateKey()
             }
+            UpdateStatusLine()
             if (DemoTv.isDemo(state.current)) {
                 GlassLabel("Demo TV")
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

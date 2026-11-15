@@ -227,6 +227,16 @@ Needs the new NuvioRemote app (no change on the PC).
   - [~] Re-check: on a show the card lays out sideways: "ENDS AT" and a big time on the left, Next episode on the right (Skip stacked above it during an intro or credits); nothing scrolls, and the time keeps its size when Skip comes and goes (2026-11-11): works, but the time was cut off ("00:1" for 00:16)
     - [ ] Re-check: the whole time shows on a show (try a late one like 00:16 and a wide one like 23:58); it shrinks a little if it has to, never cut off
 
+### Phone remote: updates itself (Nov 15)
+
+Install this build once by hand from the NuvioRemote release; from then on the app updates itself. No change on the PC.
+
+- [ ] More › Device shows an Update key and, under it, "Build N" (the build installed); Update checks at once and says "up to date"
+- [ ] After a newer build is published, opening the app (or Update in More) downloads it, and a card at the top says "Update ready · Nuvio Remote build N" with Later and Install
+- [ ] Install, the first time: Android asks to allow Nuvio Remote to install apps; after allowing and coming back, the install carries on and Android's confirm screen appears; the app updates and keeps the paired PCs
+- [ ] The next update installs with no "allow" step (on Android 12 and up, often no confirm screen at all)
+- [ ] Later hides the card until a newer build; More › Install still installs it
+
 ## Music playback
 
 - [x] Gapless: songs in an album run straight into each other (2026-11-08)

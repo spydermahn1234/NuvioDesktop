@@ -6,6 +6,9 @@ upstream Nuvio.
 
 - **Download:** the APK in the [NuvioRemote release](https://github.com/spydermahn1234/NuvioDesktop/releases/tag/NuvioRemote).
   It is rebuilt by `.github/workflows/android-remote.yml` on every push to `Spyder` that touches `remote-android/` or that workflow.
+- **Updates:** after installing once, the app updates itself. On opening it checks the release (at most every six
+  hours), downloads a newer build in the background and offers **Install**; **More › Device › Update** checks at
+  once. The release notes carry "Build N." (the workflow's run number, which is also the app's versionCode): keep it.
 - **Needs:** Android 8 or newer, and a Nuvio build from the same branch. Most features need the PC and the phone on
   the same build: an older PC ignores what it does not know, and an older phone never asks for it.
 

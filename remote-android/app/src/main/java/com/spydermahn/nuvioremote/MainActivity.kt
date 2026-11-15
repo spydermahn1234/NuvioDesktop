@@ -154,6 +154,9 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         viewModel.onForeground()
+        // Back from allowing Nuvio Remote to install apps: carry on with the update; else look for one now and then.
+        if (AppUpdater.state.value is UpdateState.NeedsPermission && packageManager.canRequestPackageInstalls()) AppUpdater.install(this)
+        else AppUpdater.check(this)
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
@@ -215,6 +218,7 @@ private fun RemoteApp(viewModel: RemoteViewModel) {
             is Screen.Pair -> PairScreen(screen, state, viewModel)
             Screen.Remote -> ConnectedScreen(state, viewModel)
         }
+        UpdateCard(Modifier.align(Alignment.TopCenter))
     }
     }
     // Over everything, edge to edge: the bars are hidden while it shows.
