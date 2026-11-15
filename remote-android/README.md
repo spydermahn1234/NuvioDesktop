@@ -26,8 +26,19 @@ queue, and can "sleep" to try Wake. A strip shows what it was sent. This is for 
 ## What it does
 
 **Remote tab**
-- Touchpad (swipe to move a tile, tap for OK) or D-pad, with Back, Home, Search (opens the phone keyboard) and More.
-  The touchpad or D-pad choice is remembered.
+- Touchpad (swipe to move a tile, tap for OK), D-pad or **Pointer**, with Back, Home, Search (opens the phone keyboard)
+  and More. The tag in the pad's corner switches between them, and the choice is remembered.
+- **Pointer**: the phone as the PC's mouse, like a Magic Remote, made to be used without looking down. The whole
+  Remote tab becomes one touch zone (over What to watch and the Back, Home, Search and More keys), and it never
+  swaps itself for the source list, the What to watch or Live TV mirrors, or the film and music screens: the TV's own
+  screens are driven with the cursor. Point the phone at the TV and turn or tilt it; the real Windows cursor follows,
+  over Nuvio, the player and any other window, and holds still while a finger is on the zone. **Tap** = click.
+  **Drag up or down** = scroll, **left or right** = scroll sideways (a poster row); the first movement picks the
+  direction. **Hold** still until it buzzes, then lift = right-click; hold and **turn the phone** = drag (as holding OK
+  does on a Magic Remote; it buzzes again when the button goes down). **Two fingers** = Back. Tags at the top:
+  **Centre** (puts the cursor mid-screen when it no longer lines up with the phone, which only ever sends how it
+  moved), the speed (Slow, Normal, Fast, remembered) and the way back to the Touchpad. The gyro stops whenever the
+  app is not on screen. A phone without a gyroscope cannot point and says so.
 - Works everywhere in Nuvio, including Settings (arrow keys there show a focus ring in the theme's colour).
 - **During a film:** a Now playing card, Subtitles and Audio tiles (tap for the next track), back 10s / play-pause /
   ahead 10s, Back, Sources, More. **Sources** shows the TV's source list on the phone, in the same order, and tapping
@@ -107,6 +118,7 @@ source lines are built in `PhoneRemoteLibraryLines.kt` and answered in `PhoneRem
 | Live scores | (none) | `SCORE <sport> <kind> <title> <text>` (after `SUBSCRIBE`, a favourite team's event; shown as a notification) |
 | Long-press menus | `MENU`, `DO` | `MENU`, `DONE`, `PLAYLISTS`, `RECAP` |
 | Links | `OPEN` | `OPENING`, `CANT_OPEN` |
+| Pointer | `POINT <dx> <dy>` (ten-thousandths of the screen's width), `POINT_CENTRE`, `CLICK <left\|right\|middle>`, `PRESS` / `RELEASE <button>` (a drag; the PC lets go if the phone disconnects), `SCROLL <notches>`, `HSCROLL <notches>` (Shift + wheel) | (none) |
 
 The QR code holds `nuvioremote://pair?n=<name>&p=<port>&c=<code>&a=<addresses>`. The app tries each address until one
 answers.

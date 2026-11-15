@@ -84,6 +84,16 @@ internal interface PhoneRemoteListener {
     fun onMenu(target: RemoteMenuTarget, reply: (String) -> Unit) = Unit
     /** A row of that menu: answer with DONE, PLAYLISTS or RECAP lines. */
     fun onMenuAction(target: RemoteMenuTarget, code: String, args: List<String>, reply: (String) -> Unit) = Unit
+    /** fork:phone-remote pointer: move the mouse by ten-thousandths of the screen's width. */
+    fun onPoint(dx: Int, dy: Int) = Unit
+    fun onPointCentre() = Unit
+    fun onClick(button: PointerButton) = Unit
+    fun onScroll(notches: Int) = Unit
+    fun onScrollSideways(notches: Int) = Unit
+    fun onPress(button: PointerButton) = Unit
+    fun onRelease(button: PointerButton) = Unit
+    /** A phone went away: let go of anything it was holding down. */
+    fun onPhoneGone() = Unit
 }
 
 /**
@@ -363,6 +373,13 @@ internal class PhoneRemoteServer(
                             is RemoteMessage.LiveTvDo -> listener.onLiveTv(message.action)
                             is RemoteMessage.Menu -> listener.onMenu(message.target, ::trySend)
                             is RemoteMessage.Do -> listener.onMenuAction(message.target, message.code, message.args, ::trySend)
+                            is RemoteMessage.Point -> listener.onPoint(message.dx, message.dy)
+                            RemoteMessage.PointCentre -> listener.onPointCentre()
+                            is RemoteMessage.Click -> listener.onClick(message.button)
+                            is RemoteMessage.Scroll -> listener.onScroll(message.notches)
+                            is RemoteMessage.ScrollSideways -> listener.onScrollSideways(message.notches)
+                            is RemoteMessage.Press -> listener.onPress(message.button)
+                            is RemoteMessage.Release -> listener.onRelease(message.button)
                             else -> Unit
                         }
                     }
@@ -370,6 +387,8 @@ internal class PhoneRemoteServer(
             } catch (_: IOException) {
                 // The phone went away: screen off, Wi-Fi dropped, app closed.
             } finally {
+                // A drag cut short by the Wi-Fi must not leave the PC's mouse button down.
+                runCatching { listener.onPhoneGone() }
                 if (clients.remove(this)) {
                     publishClients()
                     log("Phone remote disconnected: $deviceName")

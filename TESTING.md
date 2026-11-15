@@ -942,3 +942,19 @@ Settings > Live TV > Stage. Watch a few programmes on Live TV first (each one at
 - [ ] Live TV subtitles on a film the guide does not mark (The Ring on Film4, Matilda on ITV2): the log says "as a film -> movie tt...", and the add-ons' subtitles are offered; "Channel 4 News" is not looked up
 - [ ] Right-click with the mouse on any programme on the stages (rows, cards, view tiles) opens the same menu as holding OK; on a favourite on Home the menu has Unstar too (holding OK there no longer unstars straight away)
 - [ ] Hold OK on any programme on the stages (Home's pick and Next up, Three things, Starting soon, Tonight, Earlier, the views): a menu with Watch, Follow <title> (or Stop following), Remind me (before it starts) and Close; Follow shows a toast and the show appears under Following
+
+## Phone remote: pointer (upstream merge, Nov 15)
+
+Upstream's windows-tv-adaptive (94a5b339) merged into Spyder: the phone as a pointer came in; everything else stayed the fork's.
+
+- [ ] Nuvio starts and the Live TV stages, the music home, the Stage, the album and artist pages look as they did before the merge
+- [ ] Settings still has the built-in AIOStreams and AIOMetadata, and the update check still looks at this fork's Nightly
+- [ ] Nuvio Remote: the tag in the pad's corner (or More) goes Touchpad, D-pad, Pointer and back, and the choice is remembered
+- [ ] Pointer: turning and tilting the phone moves the Windows cursor on the TV; it holds still while a finger is on the screen and does not drift when the phone is still
+- [ ] Pointer: a tap clicks where the cursor is (a poster opens, a button presses)
+- [ ] Pointer: dragging up or down scrolls a page; left or right scrolls a poster row sideways
+- [ ] Pointer: hold until it buzzes and lift = right-click (Live TV's programme menu opens); hold and turn the phone = drag
+- [ ] Pointer: two fingers = Back
+- [ ] Pointer: Centre puts the cursor in the middle of the TV; Slow / Normal / Fast changes the speed and is remembered
+- [ ] Pointer: the Remote tab stays the pointer while a film, music, the source list, What to watch or Live TV is on the TV
+- [ ] Nuvio Remote still updates itself only through its own card (Install / Later) and More > Device > Update: no second "Update available" banner

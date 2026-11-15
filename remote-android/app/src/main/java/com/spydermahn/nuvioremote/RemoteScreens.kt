@@ -58,6 +58,7 @@ import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Mouse
 import androidx.compose.material.icons.rounded.OpenWith
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Pause
@@ -231,21 +232,23 @@ private fun RemoteTab(state: UiState, viewModel: RemoteViewModel) {
             },
             onRetry = viewModel::reconnect,
             trailing = {
-                if (state.sources != null) {
+                if (state.padMode == PadMode.Pointer) {
+                    // Pointer mode is a mouse: there are no panels to swap to.
+                } else if (state.sources != null) {
                     GlassTag(
-                        if (padOverSources) "Sources" else if (state.padMode == PadMode.Touchpad) "Touchpad" else "D-pad",
+                        if (padOverSources) "Sources" else state.padMode.label,
                         icon = if (padOverSources) Icons.AutoMirrored.Rounded.List else Icons.Rounded.CropSquare,
                         onClick = { padOverSources = !padOverSources },
                     )
                 } else if (state.tonight != null && showing == Showing.Browsing) {
                     GlassTag(
-                        if (padOverTonight) "Tonight" else if (state.padMode == PadMode.Touchpad) "Touchpad" else "D-pad",
+                        if (padOverTonight) "Tonight" else state.padMode.label,
                         icon = if (padOverTonight) Icons.Rounded.Movie else Icons.Rounded.CropSquare,
                         onClick = { padOverTonight = !padOverTonight },
                     )
                 } else if (state.liveTv != null && showing == Showing.Browsing) {
                     GlassTag(
-                        if (padOverLiveTv) "Live TV" else if (state.padMode == PadMode.Touchpad) "Touchpad" else "D-pad",
+                        if (padOverLiveTv) "Live TV" else state.padMode.label,
                         icon = if (padOverLiveTv) Icons.Rounded.Movie else Icons.Rounded.CropSquare,
                         onClick = { padOverLiveTv = !padOverLiveTv },
                     )
@@ -253,8 +256,7 @@ private fun RemoteTab(state: UiState, viewModel: RemoteViewModel) {
                     GlassTag(
                         when {
                             padOverPlaying -> "Now playing"
-                            state.padMode == PadMode.Touchpad -> "Touchpad"
-                            else -> "D-pad"
+                            else -> state.padMode.label
                         },
                         icon = when {
                             !padOverPlaying -> Icons.Rounded.CropSquare
@@ -273,6 +275,8 @@ private fun RemoteTab(state: UiState, viewModel: RemoteViewModel) {
         val sources = state.sources
         val tonight = state.tonight
         when {
+            // Pointer mode is the TV's mouse: the whole tab, never swapped for a mirror or the playing screens.
+            state.padMode == PadMode.Pointer -> PointerBody(state, viewModel, Modifier.weight(1f))
             // The TV is showing its source list: pick one here (the pad, from the header tag, still drives the TV).
             sources != null && !padOverSources -> SourcesBody(sources, viewModel, onPad = { padOverSources = true })
             // Only while nothing plays: once a card starts a film, the film screen takes over.
@@ -1174,15 +1178,8 @@ private fun Transport(playing: NowPlaying, viewModel: RemoteViewModel, modifier:
 private fun NavPanel(padMode: PadMode, viewModel: RemoteViewModel, modifier: Modifier, compact: Boolean = false) {
     Column(modifier.glass(RoundedCornerShape(if (compact) 22.dp else 26.dp)).padding(if (compact) 12.dp else 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            GlassLabel(
-                if (padMode == PadMode.Touchpad) "Touchpad" else "D-pad",
-                Modifier.weight(1f),
-                icon = if (padMode == PadMode.Touchpad) Icons.Rounded.OpenWith else Icons.Rounded.RadioButtonChecked,
-            )
-            GlassTag(
-                if (padMode == PadMode.Touchpad) "D-pad" else "Touchpad",
-                onClick = { viewModel.setPadMode(if (padMode == PadMode.Touchpad) PadMode.DPad else PadMode.Touchpad) },
-            )
+            GlassLabel(padMode.label, Modifier.weight(1f), icon = padMode.icon)
+            GlassTag(padMode.next().label, icon = padMode.next().icon, onClick = { viewModel.setPadMode(padMode.next()) })
         }
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             if (padMode == PadMode.Touchpad) {
@@ -1260,6 +1257,13 @@ internal fun Touchpad(
 
 private val STEP = 44.dp
 
+private val PadMode.icon: androidx.compose.ui.graphics.vector.ImageVector
+    get() = when (this) {
+        PadMode.Touchpad -> Icons.Rounded.OpenWith
+        PadMode.DPad -> Icons.Rounded.RadioButtonChecked
+        PadMode.Pointer -> Icons.Rounded.Mouse
+    }
+
 
 @Composable
 private fun DPad(viewModel: RemoteViewModel, size: androidx.compose.ui.unit.Dp) {
@@ -1321,11 +1325,8 @@ private fun MoreSheet(state: UiState, viewModel: RemoteViewModel, onType: () -> 
 
             GlassLabel("Display")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                GlassKey(
-                    if (state.padMode == PadMode.Touchpad) Icons.Rounded.RadioButtonChecked else Icons.Rounded.OpenWith,
-                    if (state.padMode == PadMode.Touchpad) "D-pad" else "Touchpad",
-                ) {
-                    viewModel.setPadMode(if (state.padMode == PadMode.Touchpad) PadMode.DPad else PadMode.Touchpad)
+                GlassKey(state.padMode.next().icon, state.padMode.next().label) {
+                    viewModel.setPadMode(state.padMode.next())
                     onDismiss()
                 }
                 GlassKey(Icons.Rounded.DarkMode, "Dark") {
