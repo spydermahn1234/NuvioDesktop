@@ -4,6 +4,7 @@ package com.spydermahn.nuvioremote
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,6 +45,7 @@ import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -674,6 +676,8 @@ fun MusicLibraryScreen(state: UiState, viewModel: RemoteViewModel, onPlayed: () 
     var kind by rememberSaveable { mutableStateOf(ALL) }
     var openArtistId by rememberSaveable { mutableStateOf<String?>(null) }
     var picked by remember { mutableStateOf<LibraryAlbum?>(null) }
+    var pickedSong by remember { mutableStateOf<FoundSong?>(null) }
+    var pickedArtist by remember { mutableStateOf<FoundArtist?>(null) }
 
     val artistsById = remember(library.artists) { library.artists.associateBy { it.id } }
     val openArtist = openArtistId?.let(artistsById::get)
@@ -692,17 +696,36 @@ fun MusicLibraryScreen(state: UiState, viewModel: RemoteViewModel, onPlayed: () 
         )
     } else {
         Column(Modifier.fillMaxSize()) {
-            val voice = rememberVoiceInput("Search your music", onText = { query = it })
+            val voice = rememberVoiceInput("Search music", onText = { query = it })
             LibraryHeader(
                 "Music",
                 "Your music on ${state.current?.name ?: "the PC"}",
                 query,
                 { query = it },
-                "Search artists and albums",
+                "Search your library and YouTube Music",
                 library.loading,
                 onRefresh = { viewModel.loadMusic(force = true) },
                 onMic = voice,
             )
+            // A search also asks YouTube Music on the PC (as its music home does), once typing pauses.
+            LaunchedEffect(query) {
+                delay(SEARCH_PAUSE_MS)
+                viewModel.searchMusic(query)
+            }
+            if (query.trim().length >= 2) {
+                MusicSearchResults(
+                    query = query,
+                    search = state.musicSearch?.takeIf { it.query.equals(query.trim(), ignoreCase = true) },
+                    library = library,
+                    artistsById = artistsById,
+                    onLibraryArtist = { openArtistId = it.id },
+                    onFoundArtist = { found ->
+                        if (artistsById[found.id] != null) openArtistId = found.id else pickedArtist = found
+                    },
+                    onAlbum = { picked = it },
+                    onSong = { pickedSong = it },
+                )
+            } else {
             PillTabs(
                 items = listOf(ALBUMS, ARTISTS),
                 selected = view,
@@ -743,7 +766,32 @@ fun MusicLibraryScreen(state: UiState, viewModel: RemoteViewModel, onPlayed: () 
                     AlbumGrid(shown, artistsById, header = if (activeKind == ALL) "All albums" else activeKind, count = countLabel(shown.size, "album")) { picked = it }
                 }
             }
+            }
         }
+    }
+
+    pickedSong?.let { song ->
+        SongSheet(
+            song = song,
+            onDismiss = { pickedSong = null },
+            onPlay = { how ->
+                viewModel.playSong(song, how)
+                pickedSong = null
+                if (how == SongHow.Now || how == SongHow.Radio) onPlayed()
+            },
+        )
+    }
+
+    pickedArtist?.let { artist ->
+        FoundArtistSheet(
+            artist = artist,
+            onDismiss = { pickedArtist = null },
+            onRadio = {
+                viewModel.artist(LibraryArtistInfo(artist.id, artist.name, artist.photo, starred = false), ArtistAction.Radio)
+                pickedArtist = null
+                onPlayed()
+            },
+        )
     }
 
     picked?.let { album ->
@@ -768,6 +816,221 @@ fun MusicLibraryScreen(state: UiState, viewModel: RemoteViewModel, onPlayed: () 
                 openArtistId = artist.id
             },
         )
+    }
+}
+
+// ---------------------------------------------------------------- Music search (Nov 15): the library and YouTube Music
+
+/**
+ * The Music tab while searching: artists, songs and albums, the library's matches first and then what YouTube Music
+ * found on the PC. Anything already in the library carries a Library tag, and YouTube Music's copy of a library album
+ * or artist is not listed twice.
+ */
+@Composable
+private fun MusicSearchResults(
+    query: String,
+    search: MusicSearchState?,
+    library: MusicLibraryState,
+    artistsById: Map<String, LibraryArtistInfo>,
+    onLibraryArtist: (LibraryArtistInfo) -> Unit,
+    onFoundArtist: (FoundArtist) -> Unit,
+    onAlbum: (LibraryAlbum) -> Unit,
+    onSong: (FoundSong) -> Unit,
+) {
+    val g = LocalGlass.current
+    val libraryArtists = library.artists.filter { matches(query, it.name) }
+    val libraryAlbums = library.albums.filter { matches(query, it.title, artistsById[it.artistId]?.name, it.year) }.distinctBy { it.browseId }
+    val libraryAlbumIds = remember(library.albums) { library.albums.map { it.browseId }.toSet() }
+    // Artists: the library's matches, then YouTube Music's (its copies of library artists are tagged, not repeated).
+    val artists: List<Pair<FoundArtist, Boolean>> = buildList {
+        libraryArtists.forEach { add(FoundArtist(it.id, it.name, it.photo) to true) }
+        search?.artists.orEmpty().forEach { found ->
+            if (none { it.first.id == found.id }) add(found to (found.id in artistsById))
+        }
+    }
+    // Albums: the same, keyed by browse id; a YouTube Music album that is in the library opens as the library's.
+    val albums: List<Pair<LibraryAlbum, Boolean>> = buildList {
+        libraryAlbums.forEach { add(it to true) }
+        search?.albums.orEmpty().forEach { found ->
+            if (none { it.first.browseId == found.browseId }) {
+                val own = library.albums.firstOrNull { it.browseId == found.browseId }
+                add(
+                    (own ?: LibraryAlbum(found.artistId.orEmpty(), found.browseId, found.title, found.kind ?: "Album", found.year, found.cover, starred = false)) to
+                        (found.browseId in libraryAlbumIds),
+                )
+            }
+        }
+    }
+    val albumArtists = remember(search) { search?.albums.orEmpty().associate { it.browseId to it.artist } }
+    val songs = search?.songs.orEmpty()
+
+    LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp), modifier = Modifier.fillMaxSize()) {
+        item(key = "status") {
+            val status = when {
+                search == null || search.loading -> "Searching YouTube Music on the PC…"
+                search.noAnswer -> "The PC didn't answer. Update Nuvio on the PC for YouTube Music results."
+                search.failed -> "Couldn't reach YouTube Music from the PC."
+                else -> null
+            }
+            if (status != null) {
+                Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (search == null || search.loading) {
+                        CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.size(8.dp))
+                    }
+                    Text(status, color = g.textMuted, fontSize = 13.sp)
+                }
+            }
+        }
+        if (artists.isNotEmpty()) {
+            item(key = "artists-label") { SectionRow("Artists", countLabel(artists.size, "artist")) }
+            item(key = "artists") {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
+                    items(artists, key = { it.first.id }) { (artist, inLibrary) ->
+                        Column(
+                            Modifier
+                                .width(96.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    val own = artistsById[artist.id]
+                                    if (own != null) onLibraryArtist(own) else onFoundArtist(artist)
+                                }
+                                .padding(vertical = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            RemoteImage(artist.photo, fallback = null, placeholder = artist.name.take(1), modifier = Modifier.size(76.dp).clip(CircleShape))
+                            Text(artist.name, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
+                            if (inLibrary) LibraryBadge(Modifier.padding(top = 4.dp))
+                        }
+                    }
+                }
+            }
+        }
+        if (songs.isNotEmpty()) {
+            item(key = "songs-label") { SectionRow("Songs", countLabel(songs.size, "song")) }
+            items(songs, key = { "song-" + it.videoId }) { song ->
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onSong(song) }.padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RemoteImage(song.cover, fallback = null, placeholder = song.title, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)))
+                    Spacer(Modifier.size(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(song.title, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val line = listOfNotNull(
+                            song.artist,
+                            song.seconds.takeIf { it > 0 }?.let { formatTime(it * 1000L) },
+                            if (song.video) "Video" else null,
+                        ).joinToString(" · ")
+                        if (line.isNotEmpty()) Text(line, fontSize = 12.sp, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+        if (albums.isNotEmpty()) {
+            item(key = "albums-label") {
+                Spacer(Modifier.height(8.dp))
+                SectionRow("Albums", countLabel(albums.size, "album"))
+            }
+            items(albums, key = { "album-" + it.first.browseId }) { (album, inLibrary) ->
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onAlbum(album) }.padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RemoteImage(album.cover, fallback = null, placeholder = album.title, modifier = Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)))
+                    Spacer(Modifier.size(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(album.title, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val line = listOfNotNull(
+                            artistsById[album.artistId]?.name ?: albumArtists[album.browseId],
+                            album.year,
+                            album.kind.takeIf { it != "Album" },
+                        ).joinToString(" · ")
+                        if (line.isNotEmpty()) Text(line, fontSize = 12.sp, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    if (inLibrary) LibraryBadge(Modifier.padding(start = 8.dp))
+                }
+            }
+        }
+        if (artists.isEmpty() && songs.isEmpty() && albums.isEmpty() && search != null && !search.loading) {
+            item(key = "nothing") {
+                Text("Nothing found for \"${query.trim()}\".", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+            }
+        }
+    }
+}
+
+/** The tag on anything already in the PC's music library. */
+@Composable
+private fun LibraryBadge(modifier: Modifier = Modifier) {
+    val g = LocalGlass.current
+    Text(
+        "LIBRARY",
+        color = g.accent,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.8.sp,
+        maxLines = 1,
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .border(1.dp, g.tintEdge, RoundedCornerShape(50))
+            .background(g.tint, RoundedCornerShape(50))
+            .padding(horizontal = 7.dp, vertical = 2.dp),
+    )
+}
+
+/** A song from the search: play it now, after the playing one, at the end of the queue, or start its radio. */
+@Composable
+private fun SongSheet(song: FoundSong, onDismiss: () -> Unit, onPlay: (SongHow) -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Color(0xFF14151A),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RemoteImage(song.cover, fallback = null, placeholder = song.title, modifier = Modifier.size(80.dp).clip(RoundedCornerShape(10.dp)))
+                Spacer(Modifier.size(16.dp))
+                Column(Modifier.weight(1f)) {
+                    GlassLabel(listOfNotNull(if (song.video) "Video" else "Song", song.seconds.takeIf { it > 0 }?.let { formatTime(it * 1000L) }).joinToString(" · "))
+                    DisplayTitle(song.title, size = 20, maxLines = 2)
+                    song.artist?.let { Text(it, color = LocalGlass.current.accent, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                }
+            }
+            Spacer(Modifier.height(20.dp))
+            ActionButton("Play on the TV", Icons.Rounded.PlayArrow, primary = true, modifier = Modifier.fillMaxWidth()) { onPlay(SongHow.Now) }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ActionButton("Play next", Icons.Rounded.SkipNext, modifier = Modifier.weight(1f)) { onPlay(SongHow.Next) }
+                ActionButton("Add to queue", Icons.AutoMirrored.Rounded.QueueMusic, modifier = Modifier.weight(1f)) { onPlay(SongHow.Queue) }
+            }
+            Spacer(Modifier.height(10.dp))
+            ActionButton("Start radio", Icons.Rounded.Radio, modifier = Modifier.fillMaxWidth()) { onPlay(SongHow.Radio) }
+        }
+    }
+}
+
+/** An artist YouTube Music found who is not in the library: their radio on the TV. */
+@Composable
+private fun FoundArtistSheet(artist: FoundArtist, onDismiss: () -> Unit, onRadio: () -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Color(0xFF14151A),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RemoteImage(artist.photo, fallback = null, placeholder = artist.name.take(1), modifier = Modifier.size(80.dp).clip(CircleShape))
+                Spacer(Modifier.size(16.dp))
+                Column(Modifier.weight(1f)) {
+                    GlassLabel("From YouTube Music")
+                    DisplayTitle(artist.name, size = 22, maxLines = 2)
+                    Text("Not in your library", color = Muted, fontSize = 13.sp)
+                }
+            }
+            Spacer(Modifier.height(20.dp))
+            ActionButton("Radio on the TV", Icons.Rounded.Radio, primary = true, modifier = Modifier.fillMaxWidth(), onClick = onRadio)
+        }
     }
 }
 

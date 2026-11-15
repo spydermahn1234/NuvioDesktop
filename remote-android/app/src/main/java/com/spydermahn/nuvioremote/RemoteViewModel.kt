@@ -48,6 +48,8 @@ data class UiState(
     val sources: SourceList? = null,
     /** Nuvio's catalog search for the Watch tab's query; null until asked. */
     val search: SearchState? = null,
+    /** YouTube Music's answer for the Music tab's query; null until asked. */
+    val musicSearch: MusicSearchState? = null,
     /** The film player's subtitles, while the subtitle sheet is open (asked for with a long press on the tile). */
     val subtitles: ServerLine.Subtitles? = null,
     /** The film player's audio tracks, while the audio sheet is open. */
@@ -105,6 +107,17 @@ data class VideoLibraryState(
 )
 
 data class SearchState(val query: String, val loading: Boolean, val titles: List<LibraryTitle>)
+
+/** The Music tab's YouTube Music search: [noAnswer] when the PC never answered (a Nuvio from before Nov 15). */
+data class MusicSearchState(
+    val query: String,
+    val loading: Boolean,
+    val failed: Boolean = false,
+    val noAnswer: Boolean = false,
+    val songs: List<FoundSong> = emptyList(),
+    val artists: List<FoundArtist> = emptyList(),
+    val albums: List<FoundAlbum> = emptyList(),
+)
 
 data class MusicLibraryState(
     val artists: List<LibraryArtistInfo> = emptyList(),
@@ -468,6 +481,18 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
                             state
                         }
                     }
+                    is ServerLine.MusicResults -> _state.update { state ->
+                        if (state.musicSearch?.query?.equals(line.query, ignoreCase = true) == true) {
+                            state.copy(
+                                musicSearch = state.musicSearch.copy(
+                                    loading = false, failed = line.failed, noAnswer = false,
+                                    songs = line.songs, artists = line.artists, albums = line.albums,
+                                ),
+                            )
+                        } else {
+                            state
+                        }
+                    }
                     is ServerLine.Opening -> notify("Opening ${line.what} on the TV")
                     is ServerLine.Score -> ScoreNotifications.show(getApplication(), line)
                     is ServerLine.Menu -> _state.update { state ->
@@ -726,6 +751,30 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
         sendOrReconnect { it.search(trimmed) }
     }
 
+    private var musicSearchTimeout: Job? = null
+
+    /** Searches YouTube Music on the PC for the Music tab (as the TV's music home does); blank clears it. */
+    fun searchMusic(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.length < 2) {
+            _state.update { it.copy(musicSearch = null) }
+            return
+        }
+        if (_state.value.musicSearch?.query == trimmed) return
+        _state.update { it.copy(musicSearch = MusicSearchState(trimmed, loading = true)) }
+        sendOrReconnect { it.musicSearch(trimmed) }
+        musicSearchTimeout?.cancel()
+        musicSearchTimeout = viewModelScope.launch {
+            delay(MUSIC_SEARCH_WAIT_MS)
+            _state.update { state ->
+                val search = state.musicSearch
+                if (search != null && search.query == trimmed && search.loading) state.copy(musicSearch = search.copy(loading = false, noAnswer = true)) else state
+            }
+        }
+    }
+
+    fun playSong(song: FoundSong, how: SongHow) = sendOrReconnect { it.playSong(song.videoId, how) }
+
     fun pickSource(source: SourceInfo) = sendOrReconnect { it.pickSource(source.number) }
 
     /** Taps on the Live TV mirror (Nov 14). */
@@ -804,6 +853,8 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
 
     private companion object {
         const val LIBRARY_TIMEOUT_MS = 8_000L
+        /** How long the Music tab waits for YouTube Music's answer before saying the PC does not answer. */
+        const val MUSIC_SEARCH_WAIT_MS = 20_000L
         const val LIBRARY_RETRY_MS = 1_500L
         /** About half a minute: a Trakt or MDBList library can take that long to load after Nuvio starts. */
         const val LIBRARY_RETRIES = 20

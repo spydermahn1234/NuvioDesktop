@@ -201,6 +201,11 @@ internal object PhoneRemoteProtocol {
             "PLAY_TRACK" -> if (parts.size >= 3) {
                 parts[2].toIntOrNull()?.takeIf { it >= 0 }?.let { RemoteMessage.PlayTrack(decode(parts[1]), it) }?.takeIf { it.browseId.isNotBlank() }
             } else null
+            // fork:phone-remote music search: YouTube Music's answer on the phone's Music tab, and playing a song from it.
+            "MUSIC_SEARCH" -> parts.getOrNull(1)?.let(::decode)?.trim()?.take(200)?.takeIf { it.isNotEmpty() }?.let { RemoteMessage.MusicSearch(it) }
+            "PLAY_SONG" -> if (parts.size >= 3) {
+                SongHow.fromWire(parts[2])?.let { RemoteMessage.PlaySong(decode(parts[1]), it) }?.takeIf { it.videoId.isNotBlank() }
+            } else null
             "SEARCH" -> parts.getOrNull(1)?.let(::decode)?.trim()?.take(200)?.takeIf { it.isNotEmpty() }?.let { RemoteMessage.Search(it) }
             // fork:phone-remote sources: play the nth source of the list on screen.
             "PICK_SOURCE" -> parts.getOrNull(1)?.toIntOrNull()?.takeIf { it >= 1 }?.let { RemoteMessage.PickSource(it) }
@@ -258,6 +263,8 @@ internal sealed interface RemoteMessage {
     data class PickAudio(val number: Int) : RemoteMessage
     data class PickSubtitle(val number: Int) : RemoteMessage
     data class Search(val query: String) : RemoteMessage
+    data class MusicSearch(val query: String) : RemoteMessage
+    data class PlaySong(val videoId: String, val how: SongHow) : RemoteMessage
     data object Queue : RemoteMessage
     data class QueueAction(val action: String, val videoId: String) : RemoteMessage
     data object LyricsRequest : RemoteMessage
@@ -330,5 +337,14 @@ internal enum class RemoteKey(val wire: String) {
     companion object {
         private val byWire = entries.associateBy { it.wire }
         fun fromWire(wire: String): RemoteKey? = byWire[wire.lowercase()]
+    }
+}
+
+/** fork:phone-remote music search - what PLAY_SONG does with the song: play it now, after the playing one, at the end of the queue, or as a radio. */
+internal enum class SongHow(val wire: String) {
+    Now("now"), Next("next"), Queue("queue"), Radio("radio");
+
+    companion object {
+        fun fromWire(value: String): SongHow? = entries.firstOrNull { it.wire == value }
     }
 }

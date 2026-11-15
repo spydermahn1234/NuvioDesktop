@@ -125,6 +125,14 @@ sealed interface ServerLine {
     data class Wake(val macs: List<String>, val broadcasts: List<String>) : ServerLine
     /** What Nuvio's search found for [query] in the addons' catalogs, so far while [loading]. */
     data class SearchResults(val loading: Boolean, val query: String, val titles: List<LibraryTitle>) : ServerLine
+    /** What YouTube Music found for the Music tab's [query]; [failed] when the PC could not reach it. */
+    data class MusicResults(
+        val failed: Boolean,
+        val query: String,
+        val songs: List<FoundSong>,
+        val artists: List<FoundArtist>,
+        val albums: List<FoundAlbum>,
+    ) : ServerLine
 
     /** The long-press sheet for [target], worded by the PC. An empty [actions] means the PC could not find it. */
     data class Menu(val target: MenuTarget, val heading: String, val detail: String?, val actions: List<MenuAction>) : ServerLine
@@ -163,6 +171,7 @@ sealed interface ServerLine {
                 "TONIGHT" -> LibraryLines.parseTonight(line) ?: Other
                 "LIVETV" -> LibraryLines.parseLiveTv(line) ?: Other
                 "SEARCH_RESULTS" -> LibraryLines.parseSearch(line) ?: Other
+                "MUSIC_RESULTS" -> LibraryLines.parseMusicResults(line) ?: Other
                 "QUEUE" -> LibraryLines.parseQueue(line) ?: Other
                 "EPISODES" -> LibraryLines.parseEpisodes(line) ?: Other
                 "SUBTITLES" -> LibraryLines.parseSubtitles(line) ?: Other
@@ -406,6 +415,12 @@ class RemoteSession private constructor(private val socket: Socket) : AutoClosea
     /** Nuvio's catalog search; answers come back as [ServerLine.SearchResults] while it fills. */
     fun search(query: String) = send("SEARCH ${RemoteProtocol.encode(query)}")
 
+    /** YouTube Music's search, as the music home on the TV asks it; the answer comes back as [ServerLine.MusicResults]. */
+    fun musicSearch(query: String) = send("MUSIC_SEARCH ${RemoteProtocol.encode(query)}")
+
+    /** Plays a song from the music search: now, next, at the end of the queue, or as its radio. */
+    fun playSong(videoId: String, how: SongHow) = send("PLAY_SONG ${RemoteProtocol.encode(videoId)} ${how.wire}")
+
     fun album(browseId: String, action: AlbumAction) = send("PLAY_ALBUM ${RemoteProtocol.encode(browseId)} ${action.wire}")
 
     fun artist(artistId: String, action: ArtistAction) = send("ARTIST ${RemoteProtocol.encode(artistId)} ${action.wire}")
@@ -495,3 +510,6 @@ class RemoteSession private constructor(private val socket: Socket) : AutoClosea
         }
     }
 }
+
+/** What PLAY_SONG does with a song from the music search. */
+enum class SongHow(val wire: String) { Now("now"), Next("next"), Queue("queue"), Radio("radio") }

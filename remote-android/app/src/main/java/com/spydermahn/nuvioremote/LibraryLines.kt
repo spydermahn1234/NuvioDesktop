@@ -174,6 +174,23 @@ data class LyricLine(val timeMs: Long?, val text: String, val words: List<WordTi
 
 data class LibraryArtistInfo(val id: String, val name: String, val photo: String?, val starred: Boolean)
 
+/** A song or video YouTube Music found for the Music tab's search; [video] plays as the video itself. */
+data class FoundSong(val videoId: String, val title: String, val artist: String?, val seconds: Int, val cover: String?, val video: Boolean)
+
+/** An artist YouTube Music found; [id] is the channel id, the same as a library artist's. */
+data class FoundArtist(val id: String, val name: String, val photo: String?)
+
+/** An album, EP or single YouTube Music found; [browseId] is the same as a library album's. */
+data class FoundAlbum(
+    val browseId: String,
+    val title: String,
+    val artist: String?,
+    val artistId: String?,
+    val year: String?,
+    val kind: String?,
+    val cover: String?,
+)
+
 data class LibraryAlbum(
     val artistId: String,
     val browseId: String,
@@ -453,6 +470,49 @@ object LibraryLines {
     }
 
     /** `ALBUM_TRACKS <browseId> <tracks>`; mirrors `albumTracksLine` in the PC's PhoneRemoteLibraryLines.kt. */
+    /**
+     * `MUSIC_RESULTS <failed 0|1> <query> <songs> <artists> <albums>`; mirrors `musicSearchLine` in the PC's
+     * PhoneRemoteLibraryLines.kt.
+     */
+    fun parseMusicResults(line: String): ServerLine? {
+        val parts = line.trim().split(' ')
+        if (parts.size < 3 || parts[0] != "MUSIC_RESULTS") return null
+        val songs = records(parts.getOrNull(3)).mapNotNull { f ->
+            if (f.size < 6) return@mapNotNull null
+            FoundSong(
+                videoId = f[0] ?: return@mapNotNull null,
+                title = f[1] ?: return@mapNotNull null,
+                artist = f[2],
+                seconds = f[3]?.toIntOrNull() ?: 0,
+                cover = f[4],
+                video = f[5] == "1",
+            )
+        }
+        val artists = records(parts.getOrNull(4)).mapNotNull { f ->
+            if (f.size < 3) return@mapNotNull null
+            FoundArtist(id = f[0] ?: return@mapNotNull null, name = f[1] ?: return@mapNotNull null, photo = f[2])
+        }
+        val albums = records(parts.getOrNull(5)).mapNotNull { f ->
+            if (f.size < 7) return@mapNotNull null
+            FoundAlbum(
+                browseId = f[0] ?: return@mapNotNull null,
+                title = f[1] ?: return@mapNotNull null,
+                artist = f[2],
+                artistId = f[3],
+                year = f[4],
+                kind = f[5],
+                cover = f[6],
+            )
+        }
+        return ServerLine.MusicResults(
+            failed = parts[1] == "1",
+            query = if (parts[2] == "-") "" else RemoteProtocol.decode(parts[2]),
+            songs = songs,
+            artists = artists,
+            albums = albums,
+        )
+    }
+
     fun parseAlbumTracks(line: String): ServerLine? {
         val parts = line.trim().split(' ')
         if (parts.size < 2 || parts[0] != "ALBUM_TRACKS") return null

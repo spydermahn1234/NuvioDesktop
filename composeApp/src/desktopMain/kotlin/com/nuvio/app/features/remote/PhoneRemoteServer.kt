@@ -58,6 +58,10 @@ internal interface PhoneRemoteListener {
     fun onPickSubtitle(number: Int, reply: (String) -> Unit) = Unit
     /** Searches the catalogs for [query], handing each SEARCH_RESULTS line to [reply] (this phone only) as it fills. */
     fun onSearch(query: String, reply: (String) -> Unit) = Unit
+    /** fork:phone-remote music search - YouTube Music's answer for [query], one MUSIC_RESULTS line to [reply] (this phone only). */
+    fun onMusicSearch(query: String, reply: (String) -> Unit) = Unit
+    /** Plays a song from the last music search; what is opening, or null when it cannot. */
+    fun onPlaySong(videoId: String, how: SongHow): String? = null
     /** The QUEUE line; after a [onQueueAction] too, so the phone sees the change. */
     fun onQueue(): String? = null
     /** Then hands the fresh QUEUE line to [reply], once the change has landed. */
@@ -346,6 +350,8 @@ internal class PhoneRemoteServer(
                             RemoteMessage.SubtitlesRequest -> listener.onSubtitles(::trySend)
                             is RemoteMessage.PickSubtitle -> listener.onPickSubtitle(message.number, ::trySend)
                             is RemoteMessage.Search -> listener.onSearch(message.query, ::trySend)
+                            is RemoteMessage.MusicSearch -> listener.onMusicSearch(message.query, ::trySend)
+                            is RemoteMessage.PlaySong -> sendOpening(listener.onPlaySong(message.videoId, message.how))
                             RemoteMessage.Queue -> listener.onQueue()?.let(::send)
                             is RemoteMessage.QueueAction -> listener.onQueueAction(message.action, message.videoId, ::trySend)
                             RemoteMessage.LyricsRequest -> listener.onLyrics(::trySend)

@@ -23,6 +23,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  * pc:    QUEUE <playing index> <tracks>        each: videoId, title, artist, seconds, cover, upcoming 0|1
  * phone: LYRICS
  * pc:    LYRICS synced|plain|none <title> <lines>   each: time in ms (or -), text
+ * phone: MUSIC_SEARCH <query>
+ * pc:    MUSIC_RESULTS <failed 0|1> <query> <songs> <artists> <albums>   see PhoneRemoteLibraryLines.musicSearchLine
+ * phone: PLAY_SONG <videoId> now|next|queue|radio
  * ```
  */
 internal object PhoneRemoteMusic {
@@ -125,6 +128,122 @@ internal object PhoneRemoteMusic {
         }
         return title ?: "the song"
     }
+
+    // --- Music search: YouTube Music's answer, as the music home asks for it. ---
+
+    private var searchJob: Job? = null
+
+    /** Songs and videos from recent searches, so PLAY_SONG can play what the phone picked. */
+    private val searchedSongs = java.util.concurrent.ConcurrentHashMap<String, com.nuvio.app.features.music.MusicTrack>()
+
+    /** Artists from recent searches, for a radio of one not in the library. */
+    private val searchedArtists = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    internal fun searchedArtistName(id: String): String? = searchedArtists[id]
+
+    fun search(query: String, reply: (String) -> Unit) {
+        searchJob?.cancel()
+        searchJob = background.launch {
+            val found = withTimeoutOrNull(20_000L) {
+                runCatching { com.nuvio.app.features.music.defaultMusicCatalog().searchEverything(query) }.getOrNull()
+            }
+            val failed = found == null || found.failed
+            val result = found ?: com.nuvio.app.features.music.MusicSearchEverything.EMPTY
+            // The top result first in its own list, when it is a song, an album or an artist the lists do not hold.
+            val top = result.top
+            val songs = buildList {
+                addAll(result.songs)
+                addAll(result.videos.map { it.copy(isVideo = true) })
+            }.distinctBy { it.videoId }.take(MAX_SEARCH_SONGS)
+            val topArtistId = top?.takeIf { it.kind.equals("Artist", ignoreCase = true) }?.artists?.firstOrNull()?.browseId
+            val artists = buildList {
+                if (top != null && topArtistId != null && result.artists.none { it.browseId == topArtistId }) {
+                    add(com.nuvio.app.features.music.MusicArtistSummary(topArtistId, top.title, top.thumbnailUrl))
+                }
+                addAll(result.artists)
+            }.distinctBy { it.browseId }.take(MAX_SEARCH_ARTISTS)
+            val albums = buildList {
+                val topAlbum = top?.albumBrowseId
+                if (top != null && topAlbum != null && top.videoId == null && result.albums.none { it.browseId == topAlbum }) {
+                    add(com.nuvio.app.features.music.MusicAlbumSummary(topAlbum, top.title, top.artists, null, top.kind, top.thumbnailUrl))
+                }
+                addAll(result.albums)
+            }.distinctBy { it.browseId }.take(MAX_SEARCH_ALBUMS)
+            songs.forEach { searchedSongs[it.videoId] = it }
+            artists.forEach { searchedArtists[it.browseId] = it.name }
+            reply(
+                PhoneRemoteLibraryLines.musicSearchLine(
+                    query = query,
+                    failed = failed && songs.isEmpty() && artists.isEmpty() && albums.isEmpty(),
+                    songs = songs.map { track ->
+                        RemoteMusicSong(
+                            videoId = track.videoId,
+                            title = track.title,
+                            artist = track.artists.joinToString(", ") { it.name },
+                            seconds = track.durationSeconds,
+                            cover = track.coverUrl ?: com.nuvio.app.features.music.youTubeThumbnail(track.videoId),
+                            video = track.isVideo,
+                        )
+                    },
+                    artists = artists.map { RemoteMusicArtist(it.browseId, it.name, it.thumbnailUrl) },
+                    albums = albums.map { album ->
+                        RemoteMusicAlbum(
+                            browseId = album.browseId,
+                            title = album.title,
+                            artist = album.artists.joinToString(", ") { it.name },
+                            artistId = album.artists.firstNotNullOfOrNull { it.browseId },
+                            year = album.year,
+                            kind = album.kind,
+                            cover = album.thumbnailUrl,
+                        )
+                    },
+                ),
+            )
+        }
+    }
+
+    /** Plays a song or video from a search: now (a video as video), next, at the end of the queue, or as its radio. */
+    fun playSong(videoId: String, how: SongHow): String? {
+        val track = searchedSongs[videoId] ?: return null
+        background.launch {
+            val player = MusicPlayback.player
+            val single = com.nuvio.app.features.music.youTubeSingleAlbum(track)
+            when (how) {
+                SongHow.Now -> withContext(Dispatchers.Main) {
+                    player.play(
+                        single,
+                        mode = if (track.isVideo) com.nuvio.app.features.music.MusicPlayMode.Video else com.nuvio.app.features.music.MusicPlayMode.Audio,
+                    )
+                }
+                SongHow.Next -> withContext(Dispatchers.Main) {
+                    if (player.playNext(single)) com.nuvio.app.core.ui.NuvioToastController.show("Playing next: ${track.title}")
+                }
+                SongHow.Queue -> withContext(Dispatchers.Main) {
+                    if (player.enqueue(single)) com.nuvio.app.core.ui.NuvioToastController.show("Queued ${track.title}")
+                }
+                SongHow.Radio -> {
+                    val radio = runCatching {
+                        com.nuvio.app.features.music.loadSongRadio(
+                            com.nuvio.app.features.music.defaultMusicCatalog(), track.videoId, track.title, track.artists,
+                        )
+                    }.getOrNull()?.takeIf { it.tracks.isNotEmpty() }
+                    withContext(Dispatchers.Main) {
+                        if (radio != null) player.play(radio)
+                        else com.nuvio.app.core.ui.NuvioToastController.show("Couldn't start a radio from ${track.title}")
+                    }
+                }
+            }
+        }
+        log.i { "Phone remote: ${how.wire} ${track.title}" }
+        return when (how) {
+            SongHow.Radio -> "${track.title} radio"
+            else -> track.title
+        }
+    }
+
+    private const val MAX_SEARCH_SONGS = 20
+    private const val MAX_SEARCH_ARTISTS = 10
+    private const val MAX_SEARCH_ALBUMS = 20
 
     private var lyricsJob: Job? = null
 

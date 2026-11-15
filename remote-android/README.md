@@ -65,6 +65,9 @@ queue, and can "sleep" to try Wake. A strip shows what it was sent. This is for 
 **Music tab**
 - Albums and artists from the PC. An album lists its songs under Play, Shuffle and Add to queue; tap a song to play the
   album from it. An artist has Shuffle all and Radio.
+- **Search** covers the library and, once typing pauses, YouTube Music (asked on the PC, as its music home does):
+  artists, songs and albums, with a **LIBRARY** tag on anything already in the library. A song plays now, next, at
+  the end of the queue or as a radio; any album opens with its songs; an artist outside the library plays as a radio.
 
 **Other**
 - **Tonight:** while the TV shows the Tonight picker (Movies & TV's "How shall we choose tonight?"), the Remote tab
@@ -97,7 +100,7 @@ source lines are built in `PhoneRemoteLibraryLines.kt` and answered in `PhoneRem
 | Keys | `KEY`, `TEXT`, `SEEK`, `VOLUME`, `PING` | `PONG` |
 | Now playing | `SUBSCRIBE` | `STATE` / `IDLE`, `THEME`, `WAKE`, `SOURCES`, `LYRICS` |
 | Library | `LIBRARY`, `OPEN_TITLE`, `CONTINUE`, `RESUME`, `EPISODES`, `PLAY_EPISODE`, `SEARCH` | `LIBRARY`, `CONTINUE`, `EPISODES`, `SEARCH_RESULTS` |
-| Music | `PLAY_ALBUM`, `ALBUM_TRACKS`, `PLAY_TRACK`, `ARTIST`, `QUEUE`, `QUEUE_PLAY`, `QUEUE_NEXT`, `QUEUE_REMOVE` | `ALBUM_TRACKS`, `QUEUE` |
+| Music | `PLAY_ALBUM`, `ALBUM_TRACKS`, `PLAY_TRACK`, `ARTIST`, `QUEUE`, `QUEUE_PLAY`, `QUEUE_NEXT`, `QUEUE_REMOVE`, `MUSIC_SEARCH`, `PLAY_SONG` | `ALBUM_TRACKS`, `QUEUE`, `MUSIC_RESULTS` |
 | Sources | `PICK_SOURCE` | `SOURCES` |
 | Tonight | `TONIGHT_DO` | `TONIGHT` (after `SUBSCRIBE`, whenever it changes) |
 | Live TV | `LIVETV_DO` | `LIVETV` (after `SUBSCRIBE`, whenever it changes) |

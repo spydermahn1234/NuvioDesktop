@@ -327,7 +327,8 @@ internal object PhoneRemoteLibrary {
     }
 
     fun artist(artistId: String, action: ArtistAction): String? {
-        val artist = MusicLibraryRepository.state.value.artists.firstOrNull { it.id == artistId } ?: return null
+        val artist = MusicLibraryRepository.state.value.artists.firstOrNull { it.id == artistId }
+            ?: return searchedArtistRadio(artistId, action)
         mainScope.launch {
             val catalog = defaultMusicCatalog()
             val ok = try {
@@ -350,5 +351,22 @@ internal object PhoneRemoteLibrary {
             ArtistAction.Mix -> "a mix of ${artist.name}"
             ArtistAction.Radio -> "${artist.name} radio"
         }
+    }
+
+    /** fork:phone-remote music search - an artist the search found who is not in the library: their radio (a mix needs the library's albums). */
+    private fun searchedArtistRadio(artistId: String, action: ArtistAction): String? {
+        if (action != ArtistAction.Radio) return null
+        val name = PhoneRemoteMusic.searchedArtistName(artistId) ?: return null
+        mainScope.launch {
+            val radio = try {
+                loadArtistRadio(defaultMusicCatalog(), artistId, name)?.takeIf { it.tracks.isNotEmpty() }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                null
+            }
+            if (radio != null) MusicPlayback.player.play(radio) else NuvioToastController.show("Couldn't play $name radio from your phone")
+        }
+        return "$name radio"
     }
 }

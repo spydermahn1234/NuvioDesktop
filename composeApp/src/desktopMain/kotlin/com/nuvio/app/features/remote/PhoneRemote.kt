@@ -249,6 +249,8 @@ internal object PhoneRemote {
         override fun onSubtitles(reply: (String) -> Unit) = subtitles(reply)
         override fun onPickSubtitle(number: Int, reply: (String) -> Unit) = pickSubtitle(number, reply)
         override fun onSearch(query: String, reply: (String) -> Unit) = PhoneRemoteLibrary.search(query, reply)
+        override fun onMusicSearch(query: String, reply: (String) -> Unit) = PhoneRemoteMusic.search(query, reply)
+        override fun onPlaySong(videoId: String, how: SongHow): String? = PhoneRemoteMusic.playSong(videoId, how)
         override fun onQueue(): String = PhoneRemoteMusic.queueLine()
         override fun onQueueAction(action: String, videoId: String, reply: (String) -> Unit) =
             PhoneRemoteMusic.queueAction(action, videoId, reply)

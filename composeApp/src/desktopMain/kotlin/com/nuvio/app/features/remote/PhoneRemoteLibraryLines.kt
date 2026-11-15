@@ -68,6 +68,30 @@ internal data class RemoteQueueTrack(
     val upcoming: Boolean,
 )
 
+/** fork:phone-remote music search - a song or video YouTube Music found; [video] plays as the video itself. */
+internal data class RemoteMusicSong(
+    val videoId: String,
+    val title: String,
+    val artist: String,
+    val seconds: Int,
+    val cover: String?,
+    val video: Boolean,
+)
+
+/** fork:phone-remote music search - an album, EP or single YouTube Music found. */
+internal data class RemoteMusicAlbum(
+    val browseId: String,
+    val title: String,
+    val artist: String,
+    val artistId: String?,
+    val year: String?,
+    val kind: String?,
+    val cover: String?,
+)
+
+/** fork:phone-remote music search - an artist YouTube Music found ([id] is the channel id, as the library's). */
+internal data class RemoteMusicArtist(val id: String, val name: String, val photo: String?)
+
 /** An episode of a show, for the phone's season list. [videoId] is the id the details page plays it by. */
 internal data class RemoteEpisode(
     val season: Int?,
@@ -170,6 +194,25 @@ internal object PhoneRemoteLibraryLines {
                 url(title.poster), url(title.posterFallback), flag(title.watched),
             )
         }
+
+    /**
+     * `MUSIC_RESULTS <failed 0|1> <query> <songs> <artists> <albums>`: what YouTube Music finds for the phone's music
+     * search (`MUSIC_SEARCH <query>`). Songs: videoId, title, artist, seconds, cover, video 0|1 (played with
+     * `PLAY_SONG <videoId> now|next|queue|radio`). Artists: channel id, name, photo (`ARTIST <id> radio` works for any).
+     * Albums: browseId, title, artist, artist's channel id, year, kind, cover (`PLAY_ALBUM` and `ALBUM_TRACKS` take
+     * any). The phone marks what is already in the library by those ids.
+     */
+    fun musicSearchLine(
+        query: String,
+        failed: Boolean,
+        songs: List<RemoteMusicSong>,
+        artists: List<RemoteMusicArtist>,
+        albums: List<RemoteMusicAlbum>,
+    ): String =
+        "MUSIC_RESULTS ${flag(failed)} ${text(query)} " +
+            records(songs) { s -> listOf(text(s.videoId), text(s.title), text(s.artist), s.seconds.coerceAtLeast(0).toString(), url(s.cover), flag(s.video)) } + " " +
+            records(artists) { a -> listOf(text(a.id), text(a.name), url(a.photo)) } + " " +
+            records(albums) { a -> listOf(text(a.browseId), text(a.title), text(a.artist), text(a.artistId), text(a.year), text(a.kind), url(a.cover)) }
 
     /** `QUEUE <playing index> <tracks>`; see PhoneRemoteMusic. */
     fun queueLine(playing: Int, tracks: List<RemoteQueueTrack>): String =

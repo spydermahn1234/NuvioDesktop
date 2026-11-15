@@ -291,4 +291,18 @@ class DemoTvTest {
         assertTrue(lines.next<ServerLine.Done>().message.startsWith("Added to"))
         session.close()
     }
+
+    @Test
+    fun musicSearchTagsTheLibraryAndPlaysASong() {
+        val (session, lines) = connect()
+        session.musicSearch("portishead")
+        val results = lines.next<ServerLine.MusicResults>()
+        assertEquals("portishead", results.query)
+        // The demo's library albums come back alongside one that is not in the library.
+        assertTrue(results.albums.any { it.browseId == "demo-yt-album" })
+        assertTrue(results.songs.isNotEmpty())
+        session.playSong(results.songs.first().videoId, SongHow.Now)
+        assertTrue(lines.next<ServerLine.Opening>().what.isNotBlank())
+        session.close()
+    }
 }

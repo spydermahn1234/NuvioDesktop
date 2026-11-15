@@ -793,6 +793,50 @@ object DemoTv {
                         }, 2, TimeUnit.SECONDS)
                     }
                 }
+                "MUSIC_SEARCH" -> {
+                    // A pretend YouTube Music answer: the library albums and artists that match (so they get the
+                    // Library tag), one album and artist that are not in it, and songs from the matching albums.
+                    val query = RemoteProtocol.decode(parts.getOrElse(1) { "" }).trim()
+                    note("Music search: $query")
+                    fun f(value: String?) = value?.takeIf { it.isNotBlank() }?.let(RemoteProtocol::encode) ?: "-"
+                    val q = query.lowercase()
+                    val matching = DEMO_ALBUMS.filter { q in it.title.lowercase() || q in it.artist.lowercase() }.ifEmpty { DEMO_ALBUMS.take(2) }
+                    val outside = query.replaceFirstChar { it.uppercase() }
+                    val songs = matching.flatMap { a -> a.tracks.take(3).mapIndexed { i, t -> Triple(a, i, t) } }.take(8)
+                        .joinToString(";") { (a, i, t) ->
+                            listOf(f("${a.id}-$i"), f(t.first), f(a.artist), t.second.toString(), f(cover(a.title)), if (i == 2) "1" else "0").joinToString(",")
+                        }.ifEmpty { "-" }
+                    val artists = (matching.map { it.artist }.distinct().map { listOf(f(artistId(it)), f(it), f(photo(it))) } +
+                        listOf(listOf(f("demo-yt-artist"), f("$outside Collective"), f(photo("$outside Collective")))))
+                        .joinToString(";") { it.joinToString(",") }
+                    val albums = (matching.map { a -> listOf(f(a.id), f(a.title), f(a.artist), f(artistId(a.artist)), f(a.year), f(a.kind), f(cover(a.title))) } +
+                        listOf(listOf(f("demo-yt-album"), f("$outside (Live)"), f("$outside Collective"), f("demo-yt-artist"), f("2024"), f("Album"), f(cover("$outside live")))))
+                        .joinToString(";") { it.joinToString(",") }
+                    ticker.schedule({ send("MUSIC_RESULTS 0 ${f(query)} $songs $artists $albums") }, 800, TimeUnit.MILLISECONDS)
+                }
+                "PLAY_SONG" -> {
+                    val id = RemoteProtocol.decode(parts.getOrElse(1) { "" })
+                    val album = DEMO_ALBUMS.firstOrNull { id.startsWith(it.id + "-") }
+                    val index = id.substringAfterLast('-').toIntOrNull()
+                    if (album == null || index == null || index !in album.tracks.indices) {
+                        send("CANT_OPEN")
+                    } else {
+                        val how = parts.getOrNull(2) ?: "now"
+                        send("OPENING ${RemoteProtocol.encode(album.tracks[index].first + if (how == "radio") " radio" else "")}")
+                        when (how) {
+                            "next" -> note("Playing next: ${album.tracks[index].first}")
+                            "queue" -> note("Queued ${album.tracks[index].first}")
+                            else -> {
+                                playMusic(album)
+                                synchronized(DemoTv) {
+                                    songIndex = index
+                                    setPosition(0L)
+                                }
+                                broadcastState()
+                            }
+                        }
+                    }
+                }
                 "ALBUM_TRACKS" -> {
                     val album = DEMO_ALBUMS.firstOrNull { it.id == RemoteProtocol.decode(parts.getOrElse(1) { "" }) }
                     fun f(value: String) = RemoteProtocol.encode(value)

@@ -227,6 +227,19 @@ Needs the new NuvioRemote app (no change on the PC).
   - [~] Re-check: on a show the card lays out sideways: "ENDS AT" and a big time on the left, Next episode on the right (Skip stacked above it during an intro or credits); nothing scrolls, and the time keeps its size when Skip comes and goes (2026-11-11): works, but the time was cut off ("00:1" for 00:16)
     - [ ] Re-check: the whole time shows on a show (try a late one like 00:16 and a wide one like 23:58); it shrinks a little if it has to, never cut off
 
+### Phone remote: music search with YouTube Music (Nov 15)
+
+Needs the new Nuvio on the PC (build.cmd) and the new NuvioRemote app.
+
+- [ ] Music tab: typing two letters or more (or the mic) shows Artists, Songs and Albums; your library's matches come at once and YouTube Music's fill in a moment later ("Searching YouTube Music on the PC…" meanwhile)
+- [ ] Artists and albums already in your library carry a LIBRARY tag, and are not listed twice
+- [ ] A library artist opens its page on the phone; an artist not in the library opens a sheet with Radio on the TV, which plays their radio
+- [ ] Tapping a song: Play on the TV plays it (a Video row plays as the video), Play next and Add to queue join the queue, Start radio plays its radio
+- [ ] Tapping any album (in the library or not) opens the album sheet with its songs; Play, Shuffle, Add to queue and a song all play on the TV
+- [ ] Clearing the search goes back to the Albums / Artists view
+- [ ] With an older Nuvio on the PC: after about 20 s it says the PC didn't answer, and the library matches still show
+- [ ] Demo TV: a music search shows the demo albums with LIBRARY tags plus one "(Live)" album without; a song plays
+
 ### Phone remote: updates itself (Nov 15)
 
 Install this build once by hand from the NuvioRemote release; from then on the app updates itself. No change on the PC.
