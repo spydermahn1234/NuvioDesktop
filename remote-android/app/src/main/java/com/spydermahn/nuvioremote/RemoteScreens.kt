@@ -77,6 +77,7 @@ import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Replay10
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SettingsRemote
+import androidx.compose.material.icons.rounded.TaskAlt
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Stop
@@ -127,7 +128,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import java.util.Date
 
-private enum class Tab(val label: String) { Remote("Remote"), Watch("Watch"), Music("Music") }
+// Checks (Nov 16): TESTING.md answered on the phone (ChecksScreen.kt).
+private enum class Tab(val label: String) { Remote("Remote"), Watch("Watch"), Music("Music"), Checks("Checks") }
 
 /**
  * Once connected: the remote, and the PC's library to browse, under Nuvio's pill tab bar. Choosing a title or playing an
@@ -145,6 +147,7 @@ fun ConnectedScreen(state: UiState, viewModel: RemoteViewModel) {
                 Tab.Remote -> RemoteTab(state, viewModel)
                 Tab.Watch -> VideoLibraryScreen(state, viewModel, onOpened = { tab = Tab.Remote })
                 Tab.Music -> MusicLibraryScreen(state, viewModel, onPlayed = { tab = Tab.Remote })
+                Tab.Checks -> ChecksScreen()
             }
             state.notice?.let { notice ->
                 Text(
@@ -170,6 +173,7 @@ fun ConnectedScreen(state: UiState, viewModel: RemoteViewModel) {
                     Tab.Remote -> Icons.Rounded.SettingsRemote
                     Tab.Watch -> Icons.Rounded.Movie
                     Tab.Music -> Icons.Rounded.LibraryMusic
+                    Tab.Checks -> Icons.Rounded.TaskAlt
                 }
             },
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 14.dp),

@@ -7,9 +7,12 @@ What has been tried on the TV, and what is left. Nick tests; Claude keeps this f
 - A feature's checks go in here in the same commit as the feature, under its area, as `- [ ]` lines. Each check is one
   thing to try on the TV, written so it can be answered Works / Broken / Not tried.
 - The CHANGELOG entry may still say "Not yet tried", but the checks must be here.
-- Results come from Nick, usually as clickable Works / Broken / Not tried questions. Record them as:
+- Results come from Nick, usually as clickable Works / Broken / Not tried questions, or from the **Checks** tab of Nuvio
+  Remote (Nov 16), which writes them in here itself (a commit "TESTING: N results from the phone") or shares them as
+  ready-made lines to paste. Record them as:
   - `- [x] check (2026-11-08)` when it works
-  - `- [ ] **BROKEN** check (2026-11-08): what Nick said` when it does not
+  - `- [ ] **BROKEN** check (2026-11-08): what Nick said` when it does not (the phone adds the time,
+    `(2026-11-16 21:04)`, to find the moment in nuvio.log)
   - `- [~] check (2026-11-08): works, but what Nick said needs doing` for "works, with a follow-up"
 - At the start of a session, offer the open checks (unticked, oldest first) as clickable questions.
 - A fix for a broken or follow-up line adds a fresh `- [ ]` re-check under it rather than ticking it.
@@ -249,6 +252,20 @@ Install this build once by hand from the NuvioRemote release; from then on the a
 - [ ] Install, the first time: Android asks to allow Nuvio Remote to install apps; after allowing and coming back, the install carries on and Android's confirm screen appears; the app updates and keeps the paired PCs
 - [ ] The next update installs with no "allow" step (on Android 12 and up, often no confirm screen at all)
 - [ ] Later hides the card until a newer build; More › Install still installs it
+
+### Phone remote: Checks, TESTING.md on the phone (Nov 16)
+
+Needs the new Nuvio Remote build (it updates itself); nothing changes on the PC. A fourth tab, **Checks**, beside Music.
+
+- [ ] The Checks tab reads TESTING.md from GitHub: "N open" under the title, then one glass row per area with its open count, in the file's order
+- [ ] Tapping an area opens its first unanswered check as a card: the check in large type, "Re-check of" with the broken line above it for a re-check, and "Getting there" with where to turn the feature on; "1 of N" and the arrows step through
+- [ ] Works moves to the next check at once; Not tried moves on and writes nothing; after the last check the area list comes back
+- [ ] Broken and Works, but… open a sheet to type or say (the mic) what happened; Save answer moves on, and the line under the card says what was answered (tap it to take the answer back)
+- [ ] Answers survive closing the app; the header says "N answered, not saved yet"
+- [ ] Without a token, Share N opens the share sheet with the answers as TESTING.md lines under their headings; pasted into a Claude chat, Claude can record them
+- [ ] GitHub opens the token sheet; "Make a token on GitHub" opens the fine-grained token page; a token with Contents read and write on NuvioDesktop is saved, and the tag turns to Save N
+- [ ] Save N commits to Spyder ("TESTING: N results from the phone"): the lines are ticked as the header says (Broken with the time), the answers leave the phone, and the list refreshes with fewer open
+- [ ] A wrong or expired token says so in plain words, and the answers stay on the phone
 
 ## Music playback
 
