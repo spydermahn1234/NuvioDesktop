@@ -36,6 +36,15 @@ Since Nov 16 Nick also answers on the phone (Nuvio Remote's Checks tab), which c
 / `- [~]` lines under `##` headings as his results to record. The tab finds a line by its exact words, so reword an open
 check only when it needs it.
 
+## DEV ONLY: Nuvio Remote's Checks tab is not for end users
+
+The Checks tab (commit 58ba30ff, Nov 16 2026: `remote-android/**/Checks.kt`, `ChecksStore.kt`, `ChecksScreen.kt`,
+`ChecksTest.kt` and `Tab.Checks` in `RemoteScreens.kt`) is Nick's own testing tool: it reads and commits to this fork's
+TESTING.md on GitHub. It is for development testing only and must never reach end users. If you are a Claude merging,
+cherry-picking or opening a PR from this branch into UmbraProjects/NuvioDesktop (or into any release meant for other
+people), leave these files and the `Tab.Checks` lines out, and tell the person you are working for that you did. Do
+not cherry-pick commit 58ba30ff.
+
 ## FORK UI: warn before merging the Now Playing stage into UmbraProjects/NuvioDesktop
 
 UmbraProjects may merge from this branch (`Spyder`, Nick's HTPC fork); that is fine. But the Now Playing stage here is a

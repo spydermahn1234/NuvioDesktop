@@ -93,7 +93,7 @@ queue, and can "sleep" to try Wake. A strip shows what it was sent. This is for 
   the header swaps to the pad. On the TV's front door (Home) the phone has its own layout: the pick as one big card
   with **Watch** and **Something else**, then Favourites now (Carry on first), the scores of the teams you follow (tap
   one on a channel to watch it) and Next up, with **Hide scores** at the bottom.
-- **Checks:** the fourth tab asks TESTING.md's open checks one at a time (Works, Broken, Works but…, Not tried, with
+- **Checks (dev only, not for end users; never merged upstream):** the fourth tab asks TESTING.md's open checks one at a time (Works, Broken, Works but…, Not tried, with
   a typed or spoken note). Answers wait on the phone; with a GitHub token (under **GitHub** on the tab; fine-grained,
   Contents read and write on this repo) **Save** writes them into TESTING.md on Spyder as one commit, and without one
   **Share** sends them as text to paste to Claude. It talks to GitHub, not the PC.

@@ -128,7 +128,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import java.util.Date
 
-// Checks (Nov 16): TESTING.md answered on the phone (ChecksScreen.kt).
+// Checks (Nov 16): TESTING.md answered on the phone (ChecksScreen.kt). DEV ONLY, not for end users: leave Checks out of
+// any merge or cherry-pick into UmbraProjects/NuvioDesktop (see CLAUDE.md).
 private enum class Tab(val label: String) { Remote("Remote"), Watch("Watch"), Music("Music"), Checks("Checks") }
 
 /**

@@ -1,3 +1,7 @@
+/*
+ * DEV ONLY - NOT FOR END USERS. Part of Nuvio Remote's Checks tab, Nick's own testing tool for this fork's TESTING.md.
+ * Do not merge or cherry-pick it into UmbraProjects/NuvioDesktop or any release for other people (see CLAUDE.md).
+ */
 package com.spydermahn.nuvioremote
 
 import org.junit.Assert.assertEquals
