@@ -219,16 +219,16 @@ Needs this Nuvio and the new NuvioRemote app together. Hold anything for about h
 
 Needs the new NuvioRemote app (no change on the PC).
 
-- [ ] Playing a film: the gap between the volume slider and Back / Sources / Dark / More is now a glass card with "ENDS AT" and the finishing time in big type (in your phone's 12 or 24 hour format), and the film's length ("Runs 1h 50m") under it
-- [ ] The time is right: it matches the clock plus the time left on the seek bar, and jumps at once when you seek or skip 10 s
-- [ ] Pause: the label reads "Ends at · paused" and the time creeps forward with the clock (it is when it would end if you played now)
-- [ ] Speed 1.5x (More sheet): the finishing time comes forward and "1.5x" shows on the line under it; the sleep timer shows "Sleep in N min" there too
-- [ ] On a show, Next episode sits in the card's bottom row; during an intro, recap or credits Skip appears beside it. The big time does not move when they come and go
-- [ ] Nothing on the film screen scrolls on your phone; the card fills the gap with no blank space under it
+- [x] Playing a film: the gap between the volume slider and Back / Sources / Dark / More is now a glass card with "ENDS AT" and the finishing time in big type (in your phone's 12 or 24 hour format), and the film's length ("Runs 1h 50m") under it (2026-11-16)
+- [x] The time is right: it matches the clock plus the time left on the seek bar, and jumps at once when you seek or skip 10 s (2026-11-16)
+- [x] Pause: the label reads "Ends at · paused" and the time creeps forward with the clock (it is when it would end if you played now) (2026-11-16)
+- [x] Speed 1.5x (More sheet): the finishing time comes forward and "1.5x" shows on the line under it; the sleep timer shows "Sleep in N min" there too (2026-11-16)
+- [x] On a show, Next episode sits in the card's bottom row; during an intro, recap or credits Skip appears beside it. The big time does not move when they come and go (2026-11-16)
+- [x] Nothing on the film screen scrolls on your phone; the card fills the gap with no blank space under it (2026-11-16)
 - [ ] **BROKEN** (2026-11-11): on a show the screen scrolled and the card was cut off under the keys
   - [ ] **BROKEN** Re-check (2026-11-11): no scroll, but the time was tiny and Next episode filled the card: on a show (taller top panel) nothing scrolls; the card shrinks to fit and its big time gets smaller, with Next episode fully visible inside it
   - [~] Re-check: on a show the card lays out sideways: "ENDS AT" and a big time on the left, Next episode on the right (Skip stacked above it during an intro or credits); nothing scrolls, and the time keeps its size when Skip comes and goes (2026-11-11): works, but the time was cut off ("00:1" for 00:16)
-    - [ ] Re-check: the whole time shows on a show (try a late one like 00:16 and a wide one like 23:58); it shrinks a little if it has to, never cut off
+    - [x] Re-check: the whole time shows on a show (try a late one like 00:16 and a wide one like 23:58); it shrinks a little if it has to, never cut off (2026-11-16)
 
 ### Phone remote: music search with YouTube Music (Nov 15)
 
