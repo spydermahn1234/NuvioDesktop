@@ -1240,6 +1240,7 @@ fun main(args: Array<String>) {
                     com.nuvio.app.core.ui.TvMenuBackdrop()
                     com.nuvio.app.features.panelring.PanelRingOverlay(window)
                     com.nuvio.app.features.panelring.PanelRingHint()
+                    com.nuvio.app.features.input.GamepadCursorHint()
                     com.nuvio.app.features.input.OnScreenKeyboardOverlay()
                     com.nuvio.app.core.ui.FrameCadenceTelemetry()
                     com.nuvio.app.core.ui.FrameBudgetTelemetry()

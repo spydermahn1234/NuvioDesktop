@@ -958,3 +958,20 @@ Upstream's windows-tv-adaptive (94a5b339) merged into Spyder: the phone as a poi
 - [ ] Pointer: Centre puts the cursor in the middle of the TV; Slow / Normal / Fast changes the speed and is remembered
 - [ ] Pointer: the Remote tab stays the pointer while a film, music, the source list, What to watch or Live TV is on the TV
 - [ ] Nuvio Remote still updates itself only through its own card (Install / Later) and More > Device > Update: no second "Update available" banner
+
+## Upstream merge (Nov 16)
+
+Upstream's windows-tv-adaptive (43492138) merged into Spyder. Its new things, and a check that the fork's own pages are untouched:
+
+- [ ] Nuvio starts; the music home, Stage, album and artist pages and the Live TV stages look as before
+- [ ] Settings > Keyboard shortcuts > Phone remote > Aim assist for the pointer: Off / Light / Medium / Strong; with Medium, the phone's pointer slows over buttons and posters and is pulled gently toward them
+- [ ] Clicking a text field with the phone's pointer opens Nuvio's on-screen keyboard
+- [ ] Two-finger Back on the pointer always goes back at once and never freezes the cursor
+- [ ] TV mode: the pointer's sideways drag (or Shift + wheel) walks along whichever row the cursor is over
+- [ ] YouTube at 2x, or a 4K video: plays without stalling (FastStream turns itself on); the watch page's FastStream button offers downloading the whole video
+- [ ] Library: every card is a portrait poster, even one saved from a landscape row
+- [ ] A person page (click a cast or crew member): the new layout, and a director or writer opens on their crew work
+- [ ] A controller's stick moves a cursor where a screen has no focusable item
+- [ ] Settings > Appearance > Sidebar items at top: the sidebar's items sit under the profile
+- [ ] Live TV: a playlist whose password was pasted with a line break now plays
+- [ ] Simkl Next up updates after marking an episode watched
