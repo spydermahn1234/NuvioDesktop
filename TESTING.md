@@ -992,3 +992,19 @@ Upstream's windows-tv-adaptive (43492138) merged into Spyder. Its new things, an
 - [ ] Settings > Appearance > Sidebar items at top: the sidebar's items sit under the profile
 - [ ] Live TV: a playlist whose password was pasted with a line break now plays
 - [ ] Simkl Next up updates after marking an episode watched
+
+## Nuvio Lights (Nov 18)
+
+The tray app in `lights/` (NuvioLights.exe from the NuvioLights release). Phone remote must be on in Nuvio.
+
+- [ ] NuvioLights.exe starts to the tray; the Lights window opens and Find lights lists the WiZ ceiling bulb and the Govee lights (LAN Control on in the Govee app)
+- [ ] Flash on a row blinks that light twice and leaves it as it was
+- [ ] It asks for the phone remote's six-digit code once; after that the tray menu says Connected
+- [ ] Play a film: the WiZ ceiling light fades down to 10 % within about two seconds
+- [ ] Pause it: the ceiling light fades straight back to the brightness it had before
+- [ ] Next episode plays on its own: the light stays dimmed through the gap
+- [ ] Stop the film: the light comes back after about four seconds
+- [ ] Play music: the light dims too; untick Music in the tray menu and it no longer does
+- [ ] A Govee light set to Dim (or Turn off) in the Lights window follows play and pause the same way
+- [ ] Exit from the tray menu while dimmed: the lights come back before it quits
+- [ ] Restart the PC: Nuvio Lights starts with Windows and reconnects to Nuvio without asking for the code

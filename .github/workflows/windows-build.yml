@@ -10,6 +10,9 @@ on:
       # The Android remote has its own workflow (android-remote.yml) and nothing of it is in the PC build.
       - 'remote-android/**'
       - '.github/workflows/android-remote.yml'
+      # Nuvio Lights (lights/) is a separate tray app with its own workflow (nuvio-lights.yml).
+      - 'lights/**'
+      - '.github/workflows/nuvio-lights.yml'
 
 # A newer push makes an older run's result irrelevant: stop it instead of queueing two 20-minute builds.
 concurrency:
