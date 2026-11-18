@@ -44,7 +44,35 @@ data class GoveeDevice(
     val sku: String,
     val deviceId: String,
     val name: String,
+    /** How this device's Movie DreamView is switched through the API; null when it has none. */
+    val dreamView: GoveeDreamView? = null,
+    /** False for a device that only offers DreamView (no power switch): never dimmed or switched off. */
+    val switchable: Boolean = true,
 )
+
+/**
+ * fork:govee-dreamview - the capability that starts a device's Movie DreamView (the screen-synced group set up in the
+ * Govee Home app, which every light grouped in it follows). Govee reports it two ways: most devices as
+ * `devices.capabilities.toggle` / `dreamViewToggle` (1 on, 0 off); some newer ones as
+ * `devices.capabilities.movie_setting` / `movieMode`, a STRUCT whose [field] takes the chosen option's [onValue].
+ */
+@Serializable
+data class GoveeDreamView(
+    val type: String,
+    val instance: String,
+    /** The STRUCT field to set (movieMode), or null when the value is sent as is. */
+    val field: String? = null,
+    val onValue: Int = 1,
+    /** The value that turns it off, or null when the capability has no off (movieMode). */
+    val offValue: Int? = 0,
+)
+
+/** fork:govee-dreamview - the last "Start Movie DreamView" result, for its row in Settings. */
+sealed interface GoveeDreamViewState {
+    data object Idle : GoveeDreamViewState
+    data object Running : GoveeDreamViewState
+    data class Done(val started: Int, val failed: Int) : GoveeDreamViewState
+}
 
 sealed interface GoveeDeviceLoadState {
     data object Idle : GoveeDeviceLoadState
@@ -78,6 +106,11 @@ data class LightsSettings(
     val goveeDevices: List<GoveeDevice> = emptyList(),
     val goveeSelectedDeviceIds: Set<String> = emptySet(),
     val goveeDeviceLoadState: GoveeDeviceLoadState = GoveeDeviceLoadState.Idle,
+    /** fork:govee-dreamview - devices whose Movie DreamView Nuvio starts. */
+    val goveeDreamViewDeviceIds: Set<String> = emptySet(),
+    /** fork:govee-dreamview - start it when Nuvio starts. */
+    val dreamViewOnStart: Boolean = true,
+    val dreamViewState: GoveeDreamViewState = GoveeDreamViewState.Idle,
     val webhookMethod: LightsWebhookMethod = LightsWebhookMethod.Post,
     val webhookStartUrl: String = "",
     val webhookPauseUrl: String = "",
@@ -87,9 +120,16 @@ data class LightsSettings(
 ) {
     val hasGoveeKey: Boolean get() = goveeApiKey.isNotBlank()
 
-    /** Selected devices that are still in the cached list; a stale selection is ignored. */
+    /**
+     * Selected devices that are still in the cached list; a stale selection is ignored. A device running Movie
+     * DreamView is left out: dimming it would fight the screen sync.
+     */
     val goveeActiveDevices: List<GoveeDevice>
-        get() = goveeDevices.filter { it.deviceId in goveeSelectedDeviceIds }
+        get() = goveeDevices.filter { it.deviceId in goveeSelectedDeviceIds && it.deviceId !in goveeDreamViewDeviceIds && it.switchable }
+
+    /** fork:govee-dreamview - chosen devices that still list a DreamView capability. */
+    val goveeDreamViewDevices: List<GoveeDevice>
+        get() = goveeDevices.filter { it.deviceId in goveeDreamViewDeviceIds && it.dreamView != null }
 
     val hasGovee: Boolean get() = hasGoveeKey && goveeActiveDevices.isNotEmpty()
 
@@ -140,6 +180,8 @@ internal data class LightsStoredSettings(
     val scheduleUntilMinutes: Int = DEFAULT_SCHEDULE_UNTIL_MINUTES,
     val goveeDevices: List<GoveeDevice> = emptyList(),
     val goveeSelectedDeviceIds: List<String> = emptyList(),
+    val goveeDreamViewDeviceIds: List<String> = emptyList(),
+    val dreamViewOnStart: Boolean = true,
     val webhookMethod: LightsWebhookMethod = LightsWebhookMethod.Post,
     val webhookStartUrl: String = "",
     val webhookPauseUrl: String = "",
@@ -189,6 +231,7 @@ object LightsSettingsRepository {
     private var goveeApiKey = ""
     private var goveeDeviceLoadState: GoveeDeviceLoadState = GoveeDeviceLoadState.Idle
     private var testState: LightsTestState = LightsTestState.Idle
+    private var dreamViewState: GoveeDreamViewState = GoveeDreamViewState.Idle
 
     fun ensureLoaded() {
         if (hasLoaded) return
@@ -221,7 +264,7 @@ object LightsSettingsRepository {
         LightsSettingsStorage.saveGoveeApiKey(trimmed)
         // A new key is a new account: the cached device list belongs to the old one.
         goveeDeviceLoadState = GoveeDeviceLoadState.Idle
-        update { copy(goveeDevices = emptyList(), goveeSelectedDeviceIds = emptyList()) }
+        update { copy(goveeDevices = emptyList(), goveeSelectedDeviceIds = emptyList(), goveeDreamViewDeviceIds = emptyList()) }
         publish()
     }
 
@@ -231,10 +274,29 @@ object LightsSettingsRepository {
         copy(goveeSelectedDeviceIds = selected.toList())
     }
 
+    fun toggleGoveeDreamViewDevice(deviceId: String) = update {
+        val selected = goveeDreamViewDeviceIds.toMutableSet()
+        if (!selected.remove(deviceId)) selected.add(deviceId)
+        copy(goveeDreamViewDeviceIds = selected.toList())
+    }
+
+    fun setDreamViewOnStart(value: Boolean) = update { copy(dreamViewOnStart = value) }
+
+    internal fun setDreamViewState(state: GoveeDreamViewState) {
+        ensureLoaded()
+        dreamViewState = state
+        publish()
+    }
+
     internal fun setGoveeDevices(devices: List<GoveeDevice>) = update {
         // Keep whatever selection still exists; drop ids the account no longer lists.
         val known = devices.map { it.deviceId }.toSet()
-        copy(goveeDevices = devices, goveeSelectedDeviceIds = goveeSelectedDeviceIds.filter { it in known })
+        val dreamViews = devices.filter { it.dreamView != null }.map { it.deviceId }.toSet()
+        copy(
+            goveeDevices = devices,
+            goveeSelectedDeviceIds = goveeSelectedDeviceIds.filter { it in known },
+            goveeDreamViewDeviceIds = goveeDreamViewDeviceIds.filter { it in dreamViews },
+        )
     }
 
     internal fun setGoveeDeviceLoadState(state: GoveeDeviceLoadState) {
@@ -279,6 +341,9 @@ object LightsSettingsRepository {
             goveeDevices = stored.goveeDevices,
             goveeSelectedDeviceIds = stored.goveeSelectedDeviceIds.toSet(),
             goveeDeviceLoadState = goveeDeviceLoadState,
+            goveeDreamViewDeviceIds = stored.goveeDreamViewDeviceIds.toSet(),
+            dreamViewOnStart = stored.dreamViewOnStart,
+            dreamViewState = dreamViewState,
             webhookMethod = stored.webhookMethod,
             webhookStartUrl = stored.webhookStartUrl,
             webhookPauseUrl = stored.webhookPauseUrl,

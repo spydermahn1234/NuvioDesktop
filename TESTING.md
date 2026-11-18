@@ -1008,3 +1008,12 @@ The tray app in `lights/` (NuvioLights.exe from the NuvioLights release). Phone 
 - [ ] A Govee light set to Dim (or Turn off) in the Lights window follows play and pause the same way
 - [ ] Exit from the tray menu while dimmed: the lights come back before it quits
 - [ ] Restart the PC: Nuvio Lights starts with Windows and reconnects to Nuvio without asking for the code
+
+## Lights out: Govee Movie DreamView (Nov 18)
+
+Settings > Lights out > Govee. Needs the Movie DreamView group set up in the Govee Home app first.
+
+- [ ] Load the Govee devices again: a **Movie DreamView** row lists the device(s) that offer it (the AI Sync Box at least); if it says none offers it, send nuvio.log (it lists every device's capabilities)
+- [ ] Pick the device, press **Start Movie DreamView now**: all the Govee lights grouped in the DreamView start following the TV
+- [ ] Close and reopen Nuvio with **Start Movie DreamView with Nuvio** on: the DreamView starts by itself within a few seconds
+- [ ] Play and pause a film: the DreamView lights are not dimmed (the WiZ ceiling light still is, through Nuvio Lights)

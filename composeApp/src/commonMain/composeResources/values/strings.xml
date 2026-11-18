@@ -1513,6 +1513,15 @@
     <string name="settings_lights_govee_devices_failed">Could not load devices: %1$s</string>
     <string name="settings_lights_govee_devices">Lights to control</string>
     <string name="settings_lights_govee_devices_description">Only these react to playback</string>
+    <string name="settings_lights_dreamview_none">None of these devices offers Movie DreamView through Govee's API. Load the devices again after setting up the DreamView in the Govee Home app; nuvio.log lists what each device offers.</string>
+    <string name="settings_lights_dreamview_devices">Movie DreamView</string>
+    <string name="settings_lights_dreamview_devices_description">Nuvio starts the Movie DreamView of these devices; the lights grouped in it in the Govee Home app follow. They are never dimmed</string>
+    <string name="settings_lights_dreamview_on_start">Start Movie DreamView with Nuvio</string>
+    <string name="settings_lights_dreamview_on_start_description">Turns it on each time Nuvio starts</string>
+    <string name="settings_lights_dreamview_start">Start Movie DreamView now</string>
+    <string name="settings_lights_dreamview_start_idle">Turns the chosen devices on and starts their DreamView</string>
+    <string name="settings_lights_dreamview_started">Started on %1$d device(s)</string>
+    <string name="settings_lights_dreamview_failed">%1$d device(s) did not start; see nuvio.log</string>
     <string name="settings_lights_govee_devices_empty">None selected</string>
     <string name="settings_lights_govee_devices_count">%1$d lights</string>
     <string name="settings_lights_section_webhooks">Webhooks</string>

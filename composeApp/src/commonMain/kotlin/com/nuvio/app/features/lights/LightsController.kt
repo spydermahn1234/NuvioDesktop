@@ -50,18 +50,58 @@ object LightsController {
     private var paused = false
 
     private const val TEST_HOLD_MS = 4_000L
+    private const val DREAMVIEW_GAP_MS = 600L
 
     init {
         scope.launch { drain() }
     }
 
-    /** Loads settings and undoes a scene the previous run never got to restore. */
+    /** Loads settings, undoes a scene the previous run never got to restore, then starts Movie DreamView. */
     fun ensureLoaded() {
         LightsSettingsRepository.ensureLoaded()
         scope.launch {
             runCatching { GoveeLightsProvider.restoreAfterCrash(LightsSettingsRepository.snapshot()) }
                 .onFailure { if (it is CancellationException) throw it; log.w(it) { "Crash restore failed" } }
+            // fork:govee-dreamview - after the restore, so a restored brightness can't land on top of it.
+            if (LightsSettingsRepository.snapshot().dreamViewOnStart) startDreamViewNow()
         }
+    }
+
+    /** fork:govee-dreamview - Settings' "Start now": the chosen devices' Movie DreamView, right away. */
+    fun startDreamView() {
+        scope.launch { startDreamViewNow() }
+    }
+
+    private suspend fun startDreamViewNow() {
+        val settings = LightsSettingsRepository.snapshot()
+        val devices = settings.goveeDreamViewDevices
+        if (!settings.hasGoveeKey || devices.isEmpty()) return
+        LightsSettingsRepository.setDreamViewState(GoveeDreamViewState.Running)
+        var started = 0
+        var failed = 0
+        for (device in devices) {
+            // A device that is off can't start DreamView: switch it on first, and keep within Govee's 2 requests a second.
+            if (device.switchable) {
+                GoveeClient.setPower(settings.goveeApiKey, device, on = true)
+                delay(DREAMVIEW_GAP_MS)
+            }
+            when (val result = GoveeClient.setDreamView(settings.goveeApiKey, device, on = true)) {
+                is GoveeResult.Ok -> {
+                    started++
+                    log.i { "Movie DreamView on: ${device.name} (${device.sku}, ${device.dreamView?.instance})" }
+                }
+                is GoveeResult.Unauthorized -> {
+                    failed++
+                    log.w { "Govee rejected the API key starting DreamView on ${device.name}: ${result.detail}" }
+                }
+                is GoveeResult.Failed -> {
+                    failed++
+                    log.w { "Could not start DreamView on ${device.name}: ${result.detail}" }
+                }
+            }
+            delay(DREAMVIEW_GAP_MS)
+        }
+        LightsSettingsRepository.setDreamViewState(GoveeDreamViewState.Done(started, failed))
     }
 
     /** Playback is actually running: the first report is the Start, later ones (after a pause) a Resume. */

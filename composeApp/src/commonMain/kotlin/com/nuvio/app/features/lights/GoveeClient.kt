@@ -48,6 +48,10 @@ internal object GoveeClient {
     private const val CAP_ONLINE = "devices.capabilities.online"
     private const val INSTANCE_POWER = "powerSwitch"
     private const val INSTANCE_BRIGHTNESS = "brightness"
+    private const val CAP_TOGGLE = "devices.capabilities.toggle"
+    private const val CAP_MOVIE_SETTING = "devices.capabilities.movie_setting"
+    private const val INSTANCE_DREAMVIEW = "dreamViewToggle"
+    private const val INSTANCE_MOVIE_MODE = "movieMode"
 
     private val log = Logger.withTag("Govee")
     private val json = Json { ignoreUnknownKeys = true }
@@ -56,24 +60,21 @@ internal object GoveeClient {
         val response = request(apiKey, "GET", "$BASE_URL/user/devices", body = "")
         return response.map { root ->
             val data = root["data"] as? JsonArray ?: JsonArray(emptyList())
-            data.mapNotNull { entry ->
-                val obj = entry as? JsonObject ?: return@mapNotNull null
-                val sku = obj.string("sku") ?: return@mapNotNull null
-                val deviceId = obj.string("device") ?: return@mapNotNull null
-                // Anything without a power switch cannot be a "light" for our purposes, whatever
-                // Govee's type string says — this keeps thermometers and the like out of the picker.
-                val capabilities = obj["capabilities"] as? JsonArray ?: JsonArray(emptyList())
-                val switchable = capabilities.any { cap ->
-                    (cap as? JsonObject)?.string("type") == CAP_ON_OFF
-                }
-                if (!switchable) return@mapNotNull null
-                GoveeDevice(
-                    sku = sku,
-                    deviceId = deviceId,
-                    name = obj.string("deviceName")?.takeIf { it.isNotBlank() } ?: sku,
-                )
+            // fork:govee-dreamview - every device's capabilities go to the log, so a DreamView this misses can be seen.
+            data.forEach { entry ->
+                val obj = entry as? JsonObject ?: return@forEach
+                log.i { "Govee ${obj.string("sku")} \"${obj.string("deviceName")}\": ${describeCapabilities(obj)}" }
             }
+            parseDevices(data)
         }
+    }
+
+    /** fork:govee-dreamview - switches a device's Movie DreamView on (or off, where the capability has an off). */
+    suspend fun setDreamView(apiKey: String, device: GoveeDevice, on: Boolean): GoveeResult<Unit> {
+        val dreamView = device.dreamView ?: return GoveeResult.Failed("${device.name} has no DreamView")
+        val value = if (on) dreamView.onValue else dreamView.offValue ?: return GoveeResult.Failed("${device.name}'s DreamView has no off")
+        val payload: JsonElement = dreamView.field?.let { field -> buildJsonObject { put(field, value) } } ?: JsonPrimitive(value)
+        return control(apiKey, device, dreamView.type, dreamView.instance, payload)
     }
 
     suspend fun readState(apiKey: String, device: GoveeDevice): GoveeResult<GoveeDeviceState> {
@@ -108,6 +109,73 @@ internal object GoveeClient {
         }
     }
 
+    /** The devices worth listing: anything with a power switch (keeps thermometers out), and anything with DreamView. */
+    internal fun parseDevices(data: JsonArray): List<GoveeDevice> = data.mapNotNull { entry ->
+        val obj = entry as? JsonObject ?: return@mapNotNull null
+        val sku = obj.string("sku") ?: return@mapNotNull null
+        val deviceId = obj.string("device") ?: return@mapNotNull null
+        val capabilities = obj["capabilities"] as? JsonArray ?: JsonArray(emptyList())
+        val switchable = capabilities.any { cap -> (cap as? JsonObject)?.string("type") == CAP_ON_OFF }
+        val dreamView = dreamViewOf(capabilities)
+        if (!switchable && dreamView == null) return@mapNotNull null
+        GoveeDevice(
+            sku = sku,
+            deviceId = deviceId,
+            name = obj.string("deviceName")?.takeIf { it.isNotBlank() } ?: sku,
+            dreamView = dreamView,
+            switchable = switchable,
+        )
+    }
+
+    /**
+     * fork:govee-dreamview - `toggle`/`dreamViewToggle` when the device has it (the usual form, and the one with an
+     * off), otherwise `movie_setting`/`movieMode`: an ENUM, or a STRUCT of one ENUM field, whose option named like
+     * "Movie" is picked (the first option when none is).
+     */
+    internal fun dreamViewOf(capabilities: JsonArray): GoveeDreamView? {
+        val caps = capabilities.mapNotNull { it as? JsonObject }
+        caps.firstOrNull { it.string("instance") == INSTANCE_DREAMVIEW }?.let { cap ->
+            val options = (cap["parameters"] as? JsonObject)?.options().orEmpty()
+            return GoveeDreamView(
+                type = cap.string("type") ?: CAP_TOGGLE,
+                instance = INSTANCE_DREAMVIEW,
+                onValue = options.firstOrNull { it.first.equals("on", ignoreCase = true) }?.second ?: 1,
+                offValue = options.firstOrNull { it.first.equals("off", ignoreCase = true) }?.second ?: 0,
+            )
+        }
+        val movie = caps.firstOrNull {
+            it.string("instance") == INSTANCE_MOVIE_MODE || it.string("type") == CAP_MOVIE_SETTING
+        } ?: return null
+        val parameters = movie["parameters"] as? JsonObject ?: return null
+        val fields = parameters["fields"] as? JsonArray
+        val field = fields?.firstNotNullOfOrNull { f ->
+            (f as? JsonObject)?.takeIf { (it["options"] as? JsonArray)?.isNotEmpty() == true }
+        }
+        val options = (field ?: parameters).options()
+        if (options.isEmpty()) return null
+        val pick = options.firstOrNull { it.first.contains("movie", ignoreCase = true) } ?: options.first()
+        return GoveeDreamView(
+            type = movie.string("type") ?: CAP_MOVIE_SETTING,
+            instance = movie.string("instance") ?: INSTANCE_MOVIE_MODE,
+            field = field?.string("fieldName"),
+            onValue = pick.second,
+            offValue = null,
+        )
+    }
+
+    private fun JsonObject.options(): List<Pair<String, Int>> =
+        (this["options"] as? JsonArray).orEmpty().mapNotNull { option ->
+            val o = option as? JsonObject ?: return@mapNotNull null
+            val value = (o["value"] as? JsonPrimitive)?.intOrNull ?: return@mapNotNull null
+            (o.string("name") ?: value.toString()) to value
+        }
+
+    private fun describeCapabilities(device: JsonObject): String =
+        (device["capabilities"] as? JsonArray).orEmpty().joinToString { cap ->
+            val o = cap as? JsonObject
+            "${o?.string("type")?.removePrefix("devices.capabilities.")}/${o?.string("instance")}"
+        }
+
     suspend fun setPower(apiKey: String, device: GoveeDevice, on: Boolean): GoveeResult<Unit> =
         control(apiKey, device, CAP_ON_OFF, INSTANCE_POWER, JsonPrimitive(if (on) 1 else 0))
 
@@ -119,7 +187,7 @@ internal object GoveeClient {
         device: GoveeDevice,
         type: String,
         instance: String,
-        value: JsonPrimitive,
+        value: JsonElement,
     ): GoveeResult<Unit> {
         val body = buildJsonObject {
             put("requestId", requestId())
