@@ -39,6 +39,49 @@ internal fun editionKind(edition: AlbumEditionTracks, thisExplicit: Boolean): Ve
     }
 }
 
+/**
+ * fork:lenses - where the song [title] (track [focus] of [trackCount], [seconds] long) is on [edition], or -1. By title first,
+ * reading a censored title ("F**k", "B#tch", "S--t") as matching any letters in the masked places. When no title matches and
+ * the edition is this album's clean or explicit [twin] with the same number of tracks, the track in the same place is the
+ * same song if its length is within [EDITION_SECONDS_SLACK] seconds (a clean edit retitled beyond recognition).
+ */
+internal fun editionTrackFor(focus: Int, title: String, trackCount: Int, seconds: Int, edition: AlbumEditionTracks, twin: Boolean): Int {
+    val key = songKey(title)
+    edition.trackTitles.indexOfFirst { songKey(it) == key }.let { if (it >= 0) return it }
+    edition.trackTitles.indexOfFirst { censoredMatch(it, title) || censoredMatch(title, it) }.let { if (it >= 0) return it }
+    if (!twin || edition.trackTitles.size != trackCount || focus !in edition.trackTitles.indices) return -1
+    val there = edition.trackDurations.getOrElse(focus) { 0 }
+    return if (seconds > 0 && there > 0 && kotlin.math.abs(there - seconds) <= EDITION_SECONDS_SLACK) focus else -1
+}
+
+/** How far apart (seconds) a clean edit and its explicit original may run and still count as one song by position. */
+internal const val EDITION_SECONDS_SLACK = 5
+
+/** Runs of `*` or `#`, or two or more `-` / `_`, inside a word: how titles hide a swear word. */
+private val MASK = Regex("""[*#]+|[-_]{2,}""")
+
+/**
+ * True when [masked] is a censored spelling of [plain]: the mask runs in [masked]'s song key stand for one or more letters,
+ * the rest must match exactly. False when [masked] has no mask (an ordinary title is matched by [songKey] alone).
+ */
+internal fun censoredMatch(masked: String, plain: String): Boolean {
+    val lower = masked.lowercase()
+    if (!MASK.containsMatchIn(lower)) return false
+    val core = lower.replace(Regex("""\s*[(\[][^)\]]*[)\]]"""), " ").substringBefore(" - ")
+    val pattern = StringBuilder()
+    var i = 0
+    while (i < core.length) {
+        val m = MASK.find(core, i)?.takeIf { it.range.first == i }
+        if (m != null) { pattern.append("""[\p{L}\p{N}]+"""); i = m.range.last + 1; continue }
+        val c = core[i]
+        if (c.isLetterOrDigit()) pattern.append(Regex.escape(c.toString()))
+        i++
+    }
+    if (pattern.isEmpty()) return false
+    val target = songKey(plain)
+    return target.isNotEmpty() && Regex(pattern.toString()).matches(target)
+}
+
 /** Where a version is: [trackIndex] on this album, or [release] (another record or a single) of the artist. */
 internal data class SongVersion(
     val title: String,
@@ -115,10 +158,11 @@ internal fun songVersions(
     releases.firstOrNull { it.kind == ReleaseKind.Single && songKey(it.title) == key }?.let { single ->
         out += SongVersion(single.title, VersionKind.Single, null, single, single.title)
     }
-    editions.distinctBy { it.browseId }.forEach { edition ->
-        val at = edition.trackTitles.indexOfFirst { songKey(it) == key }
-        if (at < 0) return@forEach
+    // Clean and explicit twins first, so a deluxe or remaster never pushes them past [limit].
+    editions.distinctBy { it.browseId }.sortedBy { if (editionKind(it, thisExplicit) == VersionKind.Edition) 1 else 0 }.forEach { edition ->
         val kind = editionKind(edition, thisExplicit)
+        val at = editionTrackFor(focus, title, trackTitles.size, trackDurations.getOrElse(focus) { 0 }, edition, twin = kind != VersionKind.Edition)
+        if (at < 0) return@forEach
         val label = when (kind) {
             VersionKind.Clean -> "Clean edition"
             VersionKind.Explicit -> "Explicit edition"

@@ -330,12 +330,15 @@ Needs the new Nuvio Remote build (it updates itself); nothing changes on the PC.
 - [x] Albums with two editions (Ren, Vincent's Tale) stay on one (2026-11-08)
 - [ ] **BROKEN** Song by song > Other versions finds the clean or explicit edition (2026-11-08): not all of the time,
   needs work
+  - [ ] Re-check after the fix (Nov 20): on an explicit album with a clean edition (2001, or one whose clean titles are starred out like "F**k"), Song by song > Other versions lists "Clean edition" for every song, the starred ones included, and playing it plays the clean copy
+  - [ ] On an album with deluxe or remastered editions as well, the Clean (or Explicit) edition is listed first, above the others
 - [x] Edit pills: small card, intro, trivia and the song story edit on the album page and the Stage, and stick (2026-11-08)
 
 ## Music facts
 
 - [ ] **BROKEN** The facts filler fills in the background within the AI key's limits (2026-11-08): on Groq's free tier
   it hits the limits within seconds
+  - [ ] Re-check after the fix (rolling-minute limit, 1773853, Nov 8): with a free Groq key and the filler on for half an hour, Settings > Music shows it filling and now and then "Keeping under the AI key's minute limit; next lookup in N s", never "Several lookups failed in a row", and a song story you open yourself meanwhile still loads
 - [x] Share music facts as JSON; Fill album facts in the background (Settings > Music) (2026-11-08)
 
 ## Now Playing stage

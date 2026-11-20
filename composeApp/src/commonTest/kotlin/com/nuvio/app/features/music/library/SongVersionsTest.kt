@@ -96,4 +96,51 @@ class SongVersionsTest {
         val v = songVersions(0, listOf("Forgot About Dre"), listOf(222), "2001", emptyList(), emptyList(), editions = listOf(clean), thisExplicit = true)
         assertTrue(v.isEmpty())
     }
+
+    // fork:lenses - Other versions missed the clean edition "not all of the time" (TESTING.md, Nov 8): censored titles, a
+    // retitled clean edit, and deluxe editions crowding the clean one out.
+    @Test
+    fun aCensoredTitleOnTheCleanEditionStillMatches() {
+        val tracks = listOf("Intro", "Fuck You", "Bitches Ain't Shit")
+        val censored = AlbumEditionTracks(
+            "MPREb_c", "Album", explicit = false,
+            trackTitles = listOf("Intro", "F**k You", "B#tches Ain't S--t"), trackDurations = listOf(30, 200, 240),
+        )
+        val you = songVersions(1, tracks, listOf(30, 201, 241), "Album", emptyList(), emptyList(), editions = listOf(censored), thisExplicit = true).single()
+        assertEquals(1, you.editionTrack)
+        assertEquals(VersionKind.Clean, you.kind)
+        val third = songVersions(2, tracks, listOf(30, 201, 241), "Album", emptyList(), emptyList(), editions = listOf(censored), thisExplicit = true).single()
+        assertEquals(2, third.editionTrack)
+    }
+
+    @Test
+    fun censoredMatchNeedsTheUnmaskedLettersToAgree() {
+        assertTrue(censoredMatch("F**k You", "Fuck You"))
+        assertTrue(censoredMatch("F*ck You (Clean)", "Fuck You"))
+        assertTrue(!censoredMatch("F**k You", "Fork Them"))
+        assertTrue(!censoredMatch("Fuck You", "Fuck You")) // nothing masked: songKey's job
+        assertTrue(!censoredMatch("****", ""))
+    }
+
+    @Test
+    fun aRetitledCleanEditFallsBackToTheSamePlaceAndLength() {
+        val tracks = listOf("Intro", "Explicit Title", "Outro")
+        val twin = AlbumEditionTracks("MPREb_t", "Album", explicit = false, trackTitles = listOf("Intro", "Radio Title", "Outro"), trackDurations = listOf(30, 198, 60))
+        assertEquals(1, songVersions(1, tracks, listOf(30, 201, 60), "Album", emptyList(), emptyList(), editions = listOf(twin), thisExplicit = true).single().editionTrack)
+        // Too different in length: not the same song.
+        assertTrue(songVersions(1, tracks, listOf(30, 260, 60), "Album", emptyList(), emptyList(), editions = listOf(twin), thisExplicit = true).isEmpty())
+        // A deluxe edition (not a clean/explicit twin) is never matched by position.
+        val deluxe = twin.copy(title = "Album (Deluxe)", explicit = true)
+        assertTrue(songVersions(1, tracks, listOf(30, 198, 60), "Album", emptyList(), emptyList(), editions = listOf(deluxe), thisExplicit = true).isEmpty())
+    }
+
+    @Test
+    fun theCleanEditionIsListedBeforeOtherEditions() {
+        val tracks = listOf("Song")
+        val deluxes = (1..6).map { AlbumEditionTracks("MPREb_d$it", "Album (Deluxe $it)", explicit = true, trackTitles = listOf("Song"), trackDurations = listOf(200)) }
+        val cleanOne = AlbumEditionTracks("MPREb_clean", "Album", explicit = false, trackTitles = listOf("Song"), trackDurations = listOf(200))
+        val v = songVersions(0, tracks, listOf(200), "Album", emptyList(), emptyList(), editions = deluxes + cleanOne, thisExplicit = true)
+        assertEquals("MPREb_clean", v.first().editionId)
+        assertEquals(6, v.size)
+    }
 }

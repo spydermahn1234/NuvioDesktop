@@ -225,7 +225,7 @@ fun MusicAlbumScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 /** fork:lenses - how many of an album's other editions the Song by song panel reads; rarely more than two. */
-private const val MAX_LENS_EDITIONS = 3
+private const val MAX_LENS_EDITIONS = 5
 
 @Composable
 private fun AlbumContent(
