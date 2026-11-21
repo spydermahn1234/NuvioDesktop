@@ -195,6 +195,10 @@ private fun InstallGroup(isTablet: Boolean, scope: kotlinx.coroutines.CoroutineS
                         result = when (val added = AddonRepository.addAddon(address.trim())) {
                             is AddAddonResult.Success -> "Installed ${added.manifest.name}.".also { address = "" }
                             is AddAddonResult.Error -> added.message
+                            // fork:local-addons - upstream's tracking addons (Nov 21 merge) ask before installing;
+                            // that dialog lives on the Addons page, so send it there rather than install unasked.
+                            is AddAddonResult.TrackingConsentRequired ->
+                                "${added.manifest.name} is a tracking addon: install it from Settings > Addons, which asks first."
                         }
                         busy = false
                     }
