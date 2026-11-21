@@ -40,6 +40,9 @@
   <string name="addons_error_enter_url">Wprowadź URL dodatku.</string>
   <string name="addons_input_placeholder">URL dodatku</string>
   <string name="addons_install_button">Zainstaluj dodatek</string>
+  <string name="addons_tracking_consent_title">Dodatek śledzący</string>
+  <string name="addons_tracking_consent_body">%1$s to dodatek śledzący. Nuvio będzie wysyłać do niego Twoją aktywność: co odtwarzasz, wstrzymujesz i zatrzymujesz wraz z pozycją odtwarzania, co dodajesz do biblioteki lub z niej usuwasz oraz co oznaczasz jako obejrzane lub nieobejrzane. Te dane opuszczają Nuvio i są przetwarzane przez twórcę dodatku i usługę, z którą się łączy.</string>
+  <string name="addons_tracking_consent_checkbox">Zgadzam się udostępniać temu dodatkowi moją aktywność i bibliotekę</string>
   <string name="addons_loading_manifest_details">Ładowanie szczegółów manifestu...</string>
   <string name="addons_modal_checking_message">Walidacja URL manifestu i ładowanie szczegółów dodatku przed instalacją.</string>
   <string name="addons_modal_checking_title">Sprawdzanie dodatku</string>
@@ -1224,6 +1227,7 @@
   <string name="settings_continue_watching_click_action_description">Opcja kliknięcia lewym przyciskiem.</string>
   <string name="settings_continue_watching_click_action_play">Odtwórz</string>
   <string name="settings_continue_watching_click_action_details">Szczegóły</string>
+  <string name="settings_continue_watching_click_action_details_upcoming">Szczegóły tylko dla nadchodzących</string>
   <string name="settings_continue_watching_source_shortcut_title">Skrót do źródła</string>
   <string name="settings_continue_watching_source_shortcut_description">Przycisk widoczny po najechaniu, który robi coś przeciwnego niż kliknięcie: otwiera wybór źródła, gdy włączone jest Użyj ostatniego linku, a w przeciwnym razie odtwarza ostatni link. Opcja Środek zamienia go w duży przycisk nad grafiką.</string>
   <string name="settings_continue_watching_source_shortcut_off">Wyłączony</string>
@@ -1331,6 +1335,8 @@
   <string name="settings_stream_player_badges_same">Taki sam jak plakietki źródeł</string>
   <string name="settings_stream_addon_logo_title">Logo dodatku</string>
   <string name="settings_stream_addon_logo_description">Pokazuj logo i nazwę dodatku obok źródeł.</string>
+  <string name="settings_stream_usenet_formatter_title">Format Usenetu dla wszystkich wyników</string>
+  <string name="settings_stream_usenet_formatter_description">Formatuj streamy z dodatków i debridu według układu wbudowanego Usenetu (rozdzielczość, tytuł, HDR, grupa wydania i dźwięk).</string>
   <string name="settings_stream_display_section">Wyświetlanie</string>
   <string name="settings_stream_badge_position_title">Pozycja plakietek</string>
   <string name="settings_stream_badge_position_description">Wybierz, czy plakietki Fusion i rozmiaru mają się pojawiać nad kartami źródeł, czy pod nimi.</string>
@@ -1964,6 +1970,8 @@
   <string name="settings_playback_nvidia_rtx_hdr_anime_desc">Domyślnie wyłączone: konwersja SDR na HDR może przesycać płaskie kolory anime. Nigdy nie działa, gdy uruchomiony jest Anime4K, własny shader lub SVP, chyba że włączona jest opcja poniżej.</string>
   <string name="settings_playback_desktop_inverse_tone_mapping">SDR na HDR (mpv)</string>
   <string name="settings_playback_desktop_inverse_tone_mapping_desc">Rozszerza wideo SDR do HDR na dowolnej karcie graficznej (odwrotne mapowanie tonów mpv). Wymaga włączonego HDR w systemie Windows; RTX Video True HDR przejmuje działanie, gdy jest uruchomiony. Działa z Anime4K, shaderami i SVP.</string>
+    <string name="settings_playback_desktop_match_refresh_rate">Dopasuj częstotliwość odświeżania</string>
+    <string name="settings_playback_desktop_match_refresh_rate_desc">Podczas odtwarzania przełącza monitor na częstotliwość odświeżania będącą wielokrotnością liczby klatek filmu (24 kl./s na 24 lub 120 Hz, 25 kl./s na 50 Hz), aby usunąć szarpanie, i przywraca ją po zamknięciu odtwarzacza. Ekran może na chwilę zgasnąć przy każdym przełączeniu.</string>
   <string name="settings_playback_desktop_inverse_tone_mapping_peak">Maksymalna jasność SDR na HDR</string>
   <string name="settings_playback_desktop_inverse_tone_mapping_peak_desc">Jak jasne mogą być najjaśniejsze światła. Dobrym początkiem jest wartość zbliżona do szczytowej jasności HDR wyświetlacza; niższe wartości wyglądają bliżej oryginalnego SDR.</string>
   <string name="settings_playback_nvidia_rtx_hdr_anime_shaders">Także z shaderami anime</string>
@@ -1985,8 +1993,6 @@
   <string name="settings_playback_selected_count">%1$d wybranych</string>
   <string name="settings_playback_show_loading_overlay">Pokaż nakładkę ładowania</string>
   <string name="settings_playback_show_loading_overlay_description">Pokaż nakładkę ładowania podczas uruchamiania strumienia.</string>
-  <string name="settings_playback_pip_browse">Przeglądanie w trybie obrazu w obrazie</string>
-  <string name="settings_playback_pip_browse_description">Obraz w obrazie zyskuje przycisk, który przywraca aplikację z wideo w jej rogu, dzięki czemu możesz przeglądać w trakcie odtwarzania. Zwiastuny są w tym czasie wyłączone. Działa od następnego wideo.</string>
   <string name="settings_playback_double_click">Dwuklik na wideo</string>
   <string name="settings_playback_double_click_description">Co robi dwuklik na odtwarzanym wideo. W trybie obrazu w obrazie zawsze przywraca wideo.</string>
   <string name="settings_playback_double_click_pip">Obraz w obrazie</string>
@@ -3773,6 +3779,7 @@
   <string name="settings_home_hero_info_none">Brak informacji hero</string>
   <string name="settings_home_hero_info_priority">Priorytet informacji hero</string>
   <string name="settings_home_hero_info_priority_description">Wybierz, które znaczki hero mają pierwszeństwo.</string>
+  <string name="settings_home_hero_info_priority_keys">Enter włącza lub wyłącza; Lewo/Prawo lub Shift+Góra/Dół przesuwa wcześniej lub później.</string>
   <string name="settings_home_hero_info_release_status">Status premiery</string>
   <string name="settings_home_hero_info_release_status_description">Pokazuje, czy film jest dostępny w streamingu, w kinach, w produkcji lub na nośnikach fizycznych.</string>
   <string name="settings_home_hero_info_short_film">Film krótkometrażowy</string>
@@ -3890,6 +3897,18 @@
   <string name="setup_wizard_trailers_start_auto">Automatycznie</string>
   <string name="setup_wizard_shortcuts_after_finish">Po kliknięciu Zakończ Nuvio otworzy stronę skrótów klawiszowych, abyś mógł zobaczyć sterowanie i wybrać między strzałkami a WASD.</string>
   <string name="setup_wizard_renderer_note">Nuvio rysuje interfejs przy użyciu Direct3D 11 dla najszerszej zgodności. Aby uzyskać bardziej dopracowany wygląd, możesz przełączyć na OpenGL w Ustawienia › Wideo &amp; audio › Renderer interfejsu. Jeśli odtwarzanie na pełnym ekranie pokaże wtedy czarny ekran, wróć do Direct3D 11.</string>
+  <string name="setup_wizard_scale_title">Rozmiar</string>
+  <string name="setup_wizard_scale_subtitle">Ustaw tekst i przyciski tak, by wygodnie czytało się je z miejsca, w którym siedzisz. Ten panel rośnie i maleje razem z nimi.</string>
+  <string name="setup_wizard_scale_description">Wszystko w Nuvio, łącznie z menu i tekstem.</string>
+  <string name="setup_wizard_scale_shortcut">Ctrl + plus i Ctrl + minus zmieniają go w każdej chwili.</string>
+  <string name="setup_wizard_panels_title">Panele</string>
+  <string name="setup_wizard_panels_subtitle">Nuvio to więcej niż filmy i seriale. Wybierz, co widać w nawigacji; Start, Szukaj i Biblioteka są zawsze.</string>
+  <string name="setup_wizard_panels_tonight">Pomaga wybrać, co obejrzeć dziś wieczorem, kilkoma szybkimi pytaniami albo rzutem monetą.</string>
+  <string name="setup_wizard_panels_live_tv">Kanały TV i przewodnik z dodanej przez ciebie playlisty IPTV.</string>
+  <string name="setup_wizard_panels_youtube">Twoja strona główna i subskrypcje YouTube po zalogowaniu.</string>
+  <string name="setup_wizard_panels_music">Albumy, wykonawcy, teksty i radio z YouTube Music.</string>
+  <string name="setup_wizard_panels_games">Tryb gier do uruchamiania gier z PC prosto z kanapy.</string>
+  <string name="setup_wizard_panels_later">Każdy z nich można ponownie włączyć w Ustawieniach, gdzie ma też własne opcje.</string>
   <string name="settings_account_setup">Konfiguracja</string>
   <string name="settings_account_run_wizard">Uruchom kreator konfiguracji</string>
   <string name="settings_account_run_wizard_description">Przejrzyj tryb wyświetlania, źródła, zwiastuny, sterowanie i klucze metadanych.</string>
@@ -4674,6 +4693,8 @@
   <string name="player_hud_custom_shadow_color">Własny kolor cienia</string>
   <string name="player_hud_enter_a_hex_color_like_ffd700">Wpisz kolor hex, np. #FFD700 lub #B3000000.</string>
   <string name="player_hud_mpv_diagnostics">Diagnostyka MPV</string>
+  <string name="player_hud_diagnostics">Diagnostyka</string>
+  <string name="player_hud_stream_info">Informacje o strumieniu</string>
   <string name="player_hud_option">Opcja</string>
   <string name="player_hud_no_addon_subtitles_loaded">Nie załadowano napisów z dodatków</string>
   <string name="player_hud_no_tracks_available">Brak dostępnych ścieżek</string>
@@ -5030,6 +5051,15 @@
     <string name="gamepad_cursor_speed_slow">Wolna</string>
     <string name="gamepad_cursor_speed_medium">Średnia</string>
     <string name="gamepad_cursor_speed_fast">Szybka</string>
+    <string name="gamepad_lights_section">Światła kontrolera</string>
+    <string name="gamepad_lights_note">Tylko PlayStation DualSense. Bez zmian nigdy nic nie zapisuje w kontrolerze; każdy inny wybór przełącza też kontroler Bluetooth na pełny raport, który zużywa trochę więcej baterii.</string>
+    <string name="gamepad_light_bar">Pasek świetlny</string>
+    <string name="gamepad_light_bar_description">Kolorowy pasek wokół panelu dotykowego.</string>
+    <string name="gamepad_light_bar_leave">Bez zmian</string>
+    <string name="gamepad_light_bar_off">Wyłączony</string>
+    <string name="gamepad_light_bar_accent">Kolor akcentu</string>
+    <string name="gamepad_player_light">Światło gracza</string>
+    <string name="gamepad_player_light_description">Małe białe światło pod panelem dotykowym.</string>
     <string name="gamepad_cursor_default">Wskaźnik domyślnie</string>
     <string name="gamepad_cursor_default_description">Lewa gałka jest zawsze wskaźnikiem, gdy Nuvio jest na wierzchu. Krzyżak nadal przesuwa zaznaczenie, a A klika lub wybiera zależnie od tego, czego użyto ostatnio. Przytrzymaj przycisk odblokowania, aby schować wskaźnik.</string>
     <string name="gamepad_cursor_hint">Podpowiedzi przycisków</string>
@@ -5059,4 +5089,17 @@
     <string name="gamepad_rebind_player">Podczas odtwarzania</string>
     <string name="gamepad_rebind_changed">Zmieniono</string>
     <string name="gamepad_rebind_search_description">Zmień przypisanie przycisków kontrolera do przeglądania i odtwarzania</string>
+    <string name="usenet_unpacking_7z">Rozpakowywanie skompresowanego 7z</string>
+    <string name="settings_stream_scoring_trait_compressed_archive_movie">Skompresowane 7z (filmy)</string>
+    <string name="settings_stream_scoring_trait_compressed_archive_series">Skompresowane 7z (seriale i anime)</string>
+    <string name="settings_stream_scoring_trait_compressed_archive_caption">Wydania Usenet, które po otwarciu okazały się skompresowanym 7z. Odtwarzają się, ale przewijanie do przodu czeka, aż pobierze się wszystko wcześniej.</string>
+    <string name="usenet_compressed_releases">Skompresowane wydania 7z</string>
+    <string name="usenet_compressed_releases_description">Skompresowane 7z widać dopiero po otwarciu. Odtwarza się, ale przewijanie do przodu czeka, aż pobierze się wszystko wcześniej. Pominięte nie są ponawiane.</string>
+    <string name="usenet_compressed_play_all">Zawsze odtwarzaj</string>
+    <string name="usenet_compressed_skip_over">Pomiń powyżej %1$s</string>
+    <string name="usenet_compressed_skip_all">Zawsze pomijaj</string>
+    <string name="usenet_compressed_skipped">Pominięto skompresowane 7z - próba następnego źródła</string>
+    <string name="usenet_compressed_unplayable">To wydanie to skompresowane 7z, pominięte przez ustawienia Usenet</string>
+    <string name="tonight_twelve_hour">Zegar 12-godzinny</string>
+    <string name="tonight_twelve_hour_description">Pokazuj godziny jako 11:30 PM zamiast 23:30.</string>
 </resources>

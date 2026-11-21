@@ -6,6 +6,8 @@ import com.nuvio.app.core.ui.NuvioGlass
 import com.nuvio.app.core.ui.accentFill
 import com.nuvio.app.features.settings.settingsGlassGlyph
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.ui.graphics.graphicsLayer
+import com.nuvio.app.core.ui.smoothBorder
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
@@ -331,6 +333,7 @@ import com.nuvio.app.features.player.ExternalPlayerPlaybackRequest
 import com.nuvio.app.features.player.rememberExternalPlayerLauncher
 import com.nuvio.app.features.player.prepareExternalPlayerLaunch
 import com.nuvio.app.features.player.playerSourceIdentityKey
+import com.nuvio.app.features.player.nextFailoverStream
 import com.nuvio.app.features.player.externalPlayerSubtitleTargets
 import com.nuvio.app.features.player.externalPlaybackTracking
 import com.nuvio.app.features.cast.CastController
@@ -445,6 +448,9 @@ import com.nuvio.app.features.watched.WatchedRepository
 import com.nuvio.app.features.watchprogress.ContinueWatchingItem
 import com.nuvio.app.features.watchprogress.ContinueWatchingPreferencesRepository
 import com.nuvio.app.features.watchprogress.ResumePromptRepository
+import com.nuvio.app.features.watchprogress.isUpcoming
+import com.nuvio.app.features.servers.serverPlaybackMessage
+import com.nuvio.app.features.servers.serverResumePositionMs
 import com.nuvio.app.features.watchprogress.WatchProgressPlaybackSession
 import com.nuvio.app.features.watchprogress.WatchProgressRepository
 import com.nuvio.app.features.watchprogress.nextUpDismissKey
@@ -584,6 +590,9 @@ data class CatalogRoute(
     val folderId: String? = null,
     val sourceKey: String? = null,
     val discoverRowKey: String? = null,
+    val serverConnectionId: String? = null,
+    val serverLibraryId: String? = null,
+    val serverCollectionId: String? = null,
 ) {
     constructor(
         title: String,
@@ -597,6 +606,7 @@ data class CatalogRoute(
             is CatalogTarget.Library -> CatalogTargetKind.LIBRARY
             is CatalogTarget.CollectionSource -> CatalogTargetKind.COLLECTION_SOURCE
             is CatalogTarget.DiscoverRow -> CatalogTargetKind.DISCOVER_ROW
+            is CatalogTarget.Server -> CatalogTargetKind.SERVER
         }.name,
         contentType = target.contentType,
         supportsPagination = target.supportsPagination,
@@ -609,6 +619,9 @@ data class CatalogRoute(
         folderId = (target as? CatalogTarget.CollectionSource)?.folderId,
         sourceKey = (target as? CatalogTarget.CollectionSource)?.sourceKey,
         discoverRowKey = (target as? CatalogTarget.DiscoverRow)?.rowKey,
+        serverConnectionId = (target as? CatalogTarget.Server)?.connectionId,
+        serverLibraryId = (target as? CatalogTarget.Server)?.libraryId,
+        serverCollectionId = (target as? CatalogTarget.Server)?.collectionId,
     )
 
     fun toCatalogTarget(): CatalogTarget =
@@ -638,6 +651,13 @@ data class CatalogRoute(
             CatalogTargetKind.DISCOVER_ROW -> CatalogTarget.DiscoverRow(
                 rowKey = requireNotNull(discoverRowKey),
                 contentType = contentType,
+            )
+
+            CatalogTargetKind.SERVER -> CatalogTarget.Server(
+                connectionId = requireNotNull(serverConnectionId),
+                libraryId = serverLibraryId,
+                contentType = contentType,
+                collectionId = serverCollectionId,
             )
         }
 }
@@ -1407,9 +1427,24 @@ fun App() {
  */
 private fun NavController.navigateIfResumed(route: Any) {
     if (currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+        if (route is DetailRoute) {
+            // launchSingleTop matches on the destination, not its arguments, so it would
+            // replace the current details page with the new one (More like this, cast
+            // credits) and Back would skip straight past it. Push a new details page
+            // instead, and only skip the one case singleTop guarded: the same title on
+            // top of itself, which registers duplicate shared-element keys and freezes
+            // the renderer.
+            val entry = currentBackStackEntry
+            if (entry != null && entry.destination.hasRoute<DetailRoute>()) {
+                val current = entry.toRoute<DetailRoute>()
+                if (current.type == route.type && current.id == route.id) return
+            }
+            navigate(route)
+            return
+        }
         // launchSingleTop avoids stacking a second instance of the same destination
-        // (e.g. the same details page) on top of itself, which would register
-        // duplicate shared-element transition keys and freeze the renderer.
+        // on top of itself, which would register duplicate shared-element transition
+        // keys and freeze the renderer.
         navigate(route) { launchSingleTop = true }
     }
 }
@@ -1606,6 +1641,8 @@ private fun MainAppContent(
                     GameModeController.setActive(false)
                     return@collect
                 }
+                // A poster's long-press sheet closes first, rather than the page behind it going back.
+                if (PosterZoomOverlayCoordinator.requestClose()) return@collect
                 // fork:youtube-mini-player - over the tab the mini player draws, Back steps back inside the
                 // tab and never closes the video (the box's X does). From a YouTube tab video's page, Back
                 // goes to the mini player, as the player's own Back does (handleYouTubeMiniPlayerBack).
@@ -2391,6 +2428,17 @@ private fun MainAppContent(
                         lastStreamTitle = playerLaunch.streamTitle,
                         lastSourceUrl = playerLaunch.sourceUrl,
                     )
+                    if (durationMs != null && durationMs > 0L) {
+                        com.nuvio.app.features.addons.AddonEventDispatcher.player(
+                            target = com.nuvio.app.features.addons.AddonPlayerEventTarget(
+                                type = session.contentType,
+                                videoId = session.videoId,
+                            ),
+                            action = com.nuvio.app.features.addons.AddonPlayerAction.STOP,
+                            currentTimeMs = if (result.endedByUser) result.positionMs else durationMs,
+                            durationMs = durationMs,
+                        )
+                    }
                     val snapshot = PlayerPlaybackSnapshot(
                         isLoading = false,
                         isPlaying = false,
@@ -3366,6 +3414,7 @@ private fun MainAppContent(
             if (
                 continueWatchingPreferencesUiState.clickAction.opensDetails(
                     canOpenDetails = !item.isCloudLibraryContinueWatchingItem(),
+                    isUpcoming = item.isUpcoming(),
                 )
             ) {
                 resumePromptItem = null
@@ -3837,7 +3886,7 @@ private fun MainAppContent(
                         Box(modifier = Modifier.fillMaxSize().background(Color.Black))
                         return@composable
                     }
-                    // fork:pip-browse - with the setting on, the player is drawn outside the graph
+                    // fork:pip-browse - the player is drawn outside the graph
                     // (PlayerHostLayer) so PiP can take this route away and leave it playing. Decided
                     // once per launch; coming back from the corner box picks the same player up.
                     val reattachingHostedPlayer = remember(route.launchId) { hostedPlayer?.launchId == route.launchId }
@@ -3846,8 +3895,7 @@ private fun MainAppContent(
                         when {
                             reattachingHostedPlayer -> hostedPlayer
                             openInBox -> com.nuvio.app.features.player.HostedPlayer(route.launchId).also { it.detached = true }
-                            com.nuvio.app.features.player.PlayerBrowsePip.enabled.value &&
-                                launch.autoPlayMode != PlayerAutoPlayMode.Playlist ->
+                            launch.autoPlayMode != PlayerAutoPlayMode.Playlist ->
                                 com.nuvio.app.features.player.HostedPlayer(route.launchId)
                             else -> null
                         }
@@ -4021,6 +4069,7 @@ private fun MainAppContent(
                         },
                         onOpenPartyMedia = ::openPartyMedia,
                         stream = launch.stream,
+                        sourceFromLinkCache = launch.sourceFromLinkCache,
                         // fork:pip-browse - from the corner box there is no route to pop: the player just ends.
                         onBack = if (hosted == null) {
                             onBackFromPlayer
@@ -5096,6 +5145,7 @@ private fun MainAppContent(
             val continueWatchingUsesDetailsByDefault = selectedContinueWatching?.let { item ->
                 continueWatchingPreferencesUiState.clickAction.opensDetails(
                     canOpenDetails = !item.isCloudLibraryContinueWatchingItem(),
+                    isUpcoming = item.isUpcoming(),
                 )
             } == true
 
@@ -5583,6 +5633,12 @@ private fun MainAppContent(
                                     bingeGroup = cached.bingeGroup,
                                 ),
                             )
+                            // A torrent saved from a P2P play: with link resolving on, the debrid
+                            // service plays it, so the sources load as usual (and resolve it there)
+                            // rather than opening it peer to peer behind the P2P warning.
+                            if (DirectDebridPlaybackResolver.shouldResolveToPlayableStream(cachedStream)) {
+                                return@LaunchedEffect
+                            }
                             requestOrOpenP2pStream(
                                 stream = cachedStream,
                                 resolvedResumePositionMs = launch.resumePositionMs,
@@ -5592,6 +5648,71 @@ private fun MainAppContent(
                                 isAutoPlay = true,
                             )
                             reuseNavigated = true
+                            return@LaunchedEffect
+                        }
+                        val cachedUsenetStream = cached.toUsenetStream()
+                        if (cachedUsenetStream != null) {
+                            // Holds autoplay back while the engine opens the release again.
+                            reuseNavigated = true
+                            val opened = runCatching {
+                                com.nuvio.app.features.usenet.UsenetEngine.resolve(
+                                    cachedUsenetStream,
+                                    streamLookupSeasonNumber,
+                                    streamLookupEpisodeNumber,
+                                )
+                            }
+                                .onFailure {
+                                    // Never leave autoplay held back by an open that was abandoned.
+                                    if (it is CancellationException) {
+                                        reuseNavigated = false
+                                        throw it
+                                    }
+                                }
+                                .getOrNull()
+                            val openedUrl = opened?.playableDirectUrl
+                            if (opened == null || openedUrl == null) {
+                                // Gone or no longer complete: forget it and choose a source as usual.
+                                StreamLinkCacheRepository.remove(cacheKey)
+                                reuseNavigated = false
+                                return@LaunchedEffect
+                            }
+                            val usenetLaunch = PlayerLaunch(
+                                title = launch.title,
+                                sourceUrl = openedUrl,
+                                streamType = opened.streamType,
+                                sourceAffinity = launch.sourceAffinity,
+                                logo = launch.logo,
+                                poster = launch.poster,
+                                background = launch.background,
+                                seasonNumber = canonicalSeasonNumber,
+                                episodeNumber = canonicalEpisodeNumber,
+                                episodeTitle = launch.episodeTitle,
+                                episodeThumbnail = launch.episodeThumbnail,
+                                streamTitle = cached.streamName,
+                                streamFilename = opened.mediaFilename,
+                                streamSubtitle = null,
+                                sourceIdentityKey = cached.sourceIdentityKey
+                                    ?: cachedUsenetStream.playerSourceIdentityKey(),
+                                bingeGroup = cached.bingeGroup,
+                                pauseDescription = pauseDescription,
+                                providerName = cached.addonName,
+                                providerAddonId = cached.addonId,
+                                contentType = launch.type,
+                                videoId = effectiveVideoId,
+                                parentMetaId = launch.parentMetaId ?: effectiveVideoId,
+                                parentMetaType = launch.parentMetaType ?: launch.type,
+                                watchProgressSource = launch.watchProgressSource,
+                                initialPositionMs = launch.resumePositionMs ?: 0L,
+                                initialProgressFraction = launch.resumeProgressFraction,
+                                disableProgressTracking = launch.disableProgressTracking,
+                                autoPlayMode = launch.autoPlayMode,
+                                stream = opened,
+                                sourceFromLinkCache = true,
+                            )
+                            // The engine's link lives with its session, so it always plays here.
+                            StreamsRepository.clear()
+                            StreamPickerController.close(clearStreams = false)
+                            navController.navigateToPlayer(usenetLaunch)
                             return@LaunchedEffect
                         }
                         val cachedDirectStream = StreamItem(
@@ -5645,6 +5766,7 @@ private fun MainAppContent(
                                 disableProgressTracking = launch.disableProgressTracking,
                                 autoPlayMode = launch.autoPlayMode,
                                 stream = cachedDirectStream,
+                                sourceFromLinkCache = true,
                             )
                         if (playerSettings.externalPlayerEnabled) {
                             openExternalPlayback(playerLaunch)
@@ -5675,6 +5797,8 @@ private fun MainAppContent(
                     streamsUiState.requestToken,
                     expectedStreamsRequestToken,
                     reuseHandled,
+                    // A saved Usenet release that no longer opens hands back to autoplay.
+                    reuseNavigated,
                     launch.manualSelection,
                 ) {
                     if (!reuseHandled) return@LaunchedEffect
@@ -5684,7 +5808,38 @@ private fun MainAppContent(
                     if (streamsUiState.requestToken != expectedStreamsRequestToken) return@LaunchedEffect
                     val selectedStream = streamsUiState.autoPlayStream ?: return@LaunchedEffect
                     val selectedSourceIdentityKey = selectedStream.playerSourceIdentityKey()
-                    val stream = if (DirectDebridPlaybackResolver.shouldResolveToPlayableStream(selectedStream)) {
+                    if (selectedStream.needsUsenetPreparation && com.nuvio.app.features.usenet.UsenetEngine.hasFailed(selectedStream)) {
+                        // It failed to open moments ago; the engine would only say so again.
+                        StreamsRepository.skipAutoPlayStream(selectedStream)
+                        return@LaunchedEffect
+                    }
+                    val stream = if (selectedStream.needsUsenetPreparation) {
+                        runCatching {
+                            com.nuvio.app.features.usenet.UsenetEngine.resolve(selectedStream, streamLookupSeasonNumber, streamLookupEpisodeNumber)
+                        }
+                            .onFailure { if (it is CancellationException) throw it }
+                            .getOrElse { error ->
+                                val compressed = com.nuvio.app.features.usenet.usenetCompressedSkip(error)
+                                if (!StreamsRepository.skipAutoPlayStream(selectedStream)) {
+                                    NuvioToastController.show(
+                                        if (compressed) getString(Res.string.usenet_compressed_unplayable)
+                                        else error.message ?: "This Usenet release could not be opened",
+                                    )
+                                } else if (compressed) {
+                                    NuvioToastController.show(getString(Res.string.usenet_compressed_skipped))
+                                }
+                                return@LaunchedEffect
+                            }
+                    } else if (selectedStream.needsServerPreparation) {
+                        runCatching { com.nuvio.app.features.servers.ServerPlayback.prepare(selectedStream) }
+                            .onFailure { if (it is CancellationException) throw it }
+                            .getOrElse { error ->
+                                if (!StreamsRepository.skipAutoPlayStream(selectedStream)) {
+                                    NuvioToastController.show(error.serverPlaybackMessage())
+                                }
+                                return@LaunchedEffect
+                            }
+                    } else if (DirectDebridPlaybackResolver.shouldResolveToPlayableStream(selectedStream)) {
                         when (
                             val resolved = DirectDebridPlaybackResolver.resolveToPlayableStream(
                                 stream = selectedStream,
@@ -5743,7 +5898,10 @@ private fun MainAppContent(
                             season = streamLookupSeasonNumber,
                             episode = streamLookupEpisodeNumber,
                         )
-                        StreamLinkCacheRepository.save(
+                        // A Usenet release is kept by its NZB: the engine URL ends with its session.
+                        if (selectedStream.nzbUrl != null) {
+                            StreamLinkCacheRepository.saveUsenet(cacheKey, selectedStream, selectedSourceIdentityKey)
+                        } else StreamLinkCacheRepository.save(
                             contentKey = cacheKey,
                             url = sourceUrl,
                             streamName = stream.streamLabel,
@@ -5846,6 +6004,10 @@ private fun MainAppContent(
                     return@session
                 }
 
+                // Sources the picker's own failover has tried for this request (a Usenet release
+                // that would not open), so a walk never comes back to one.
+                val pickerFailoverTried = remember(request.launchId) { mutableSetOf<String>() }
+
                 fun openSelectedStream(
                     stream: StreamItem,
                     resolvedResumePositionMs: Long?,
@@ -5859,6 +6021,128 @@ private fun MainAppContent(
                     // "Play on device…": resolve as usual, then hand the stream to the cast picker.
                     castToDevice: Boolean = false,
                 ) {
+                    if (stream.needsUsenetPreparation) {
+                        if (castToDevice) {
+                            NuvioToastController.show("Usenet sources can't be played on another device yet")
+                            return
+                        }
+                        if (resolvingDebridStream) return
+                        streamRouteScope.launch {
+                            resolvingDebridStream = true
+                            val opened = runCatching {
+                                com.nuvio.app.features.usenet.UsenetEngine.resolve(stream, streamLookupSeasonNumber, streamLookupEpisodeNumber)
+                            }
+                                .onFailure { if (it is CancellationException) throw it }
+                                .getOrElse { error ->
+                                    resolvingDebridStream = false
+                                    sourceIdentityKey?.let(pickerFailoverTried::add)
+                                    stream.playerSourceIdentityKey()?.let(pickerFailoverTried::add)
+                                    val next = if (playerSettings.streamFailoverEnabled) {
+                                        nextFailoverStream(
+                                            streams = StreamsRepository.uiState.value.groups.flatMap { it.streams },
+                                            activeIdentityKey = null,
+                                            triedIdentityKeys = pickerFailoverTried,
+                                            excludeUsenet = com.nuvio.app.features.usenet.usenetUnavailable(error),
+                                            // The same ranking the player's own failover uses. Without it the
+                                            // walk took the list's order, where Local library comes first, so a
+                                            // release that failed to open fell back to a local file scored -120
+                                            // ahead of the next best Usenet or addon source (Nov 20).
+                                            preferredAudioLanguages = com.nuvio.app.features.player.resolvePreferredAudioLanguageTargets(
+                                                preferredAudioLanguage = playerSettings.preferredAudioLanguage,
+                                                secondaryPreferredAudioLanguage = playerSettings.secondaryPreferredAudioLanguage,
+                                                deviceLanguages = com.nuvio.app.features.player.DeviceLanguagePreferences.preferredLanguageCodes(),
+                                                originalLanguage = OriginalLanguageCache.languageFor(launch.parentMetaId),
+                                            ),
+                                            scoreProfile = com.nuvio.app.features.streams.StreamScoreRepository.profile,
+                                            scoreContext = com.nuvio.app.features.streams.StreamScoreContexts.forPlayback(
+                                                isEpisode = streamLookupEpisodeNumber != null,
+                                                contentId = launch.parentMetaId,
+                                                contentType = launch.type,
+                                            ),
+                                        )
+                                    } else {
+                                        null
+                                    }
+                                    val compressed = com.nuvio.app.features.usenet.usenetCompressedSkip(error)
+                                    if (next == null) {
+                                        NuvioToastController.show(
+                                            if (compressed) getString(Res.string.usenet_compressed_unplayable)
+                                            else error.message ?: "This Usenet release could not be opened",
+                                        )
+                                        return@launch
+                                    }
+                                    next.playerSourceIdentityKey()?.let(pickerFailoverTried::add)
+                                    NuvioToastController.show(
+                                        getString(if (compressed) Res.string.usenet_compressed_skipped else Res.string.player_failover_trying_next),
+                                    )
+                                    openSelectedStream(
+                                        stream = next,
+                                        resolvedResumePositionMs = resolvedResumePositionMs,
+                                        resolvedResumeProgressFraction = resolvedResumeProgressFraction,
+                                        forceExternal = forceExternal,
+                                        forceInternal = forceInternal,
+                                        saveForReuse = saveForReuse,
+                                    )
+                                    return@launch
+                                }
+                            resolvingDebridStream = false
+                            if (saveForReuse && StreamLinkCacheRepository.shouldSaveLinks(playerSettings.streamReuseLastLinkEnabled)) {
+                                StreamLinkCacheRepository.saveUsenet(
+                                    StreamLinkCacheRepository.contentKey(
+                                        type = launch.type,
+                                        videoId = effectiveStreamVideoId,
+                                        parentMetaId = launch.parentMetaId,
+                                        season = streamLookupSeasonNumber,
+                                        episode = streamLookupEpisodeNumber,
+                                    ),
+                                    stream,
+                                    sourceIdentityKey,
+                                )
+                            }
+                            openSelectedStream(
+                                stream = opened,
+                                resolvedResumePositionMs = resolvedResumePositionMs,
+                                resolvedResumeProgressFraction = resolvedResumeProgressFraction,
+                                forceExternal = false,
+                                forceInternal = true,
+                                sourceIdentityKey = sourceIdentityKey,
+                                // The engine's link lives only as long as its session.
+                                saveForReuse = false,
+                            )
+                        }
+                        return
+                    }
+                    if (stream.needsServerPreparation) {
+                        if (resolvingDebridStream) return
+                        streamRouteScope.launch {
+                            resolvingDebridStream = true
+                            val prepared = runCatching { com.nuvio.app.features.servers.ServerPlayback.prepare(stream) }
+                                .onFailure { if (it is CancellationException) throw it }
+                                .getOrElse { error ->
+                                    resolvingDebridStream = false
+                                    NuvioToastController.show(error.serverPlaybackMessage())
+                                    return@launch
+                                }
+                            val serverResumeMs = if (resolvedResumePositionMs == 0L) {
+                                null // Start from the beginning was asked for.
+                            } else {
+                                serverResumePositionMs(prepared, effectiveVideoId)
+                            }
+                            resolvingDebridStream = false
+                            openSelectedStream(
+                                stream = prepared,
+                                resolvedResumePositionMs = serverResumeMs ?: resolvedResumePositionMs,
+                                resolvedResumeProgressFraction = resolvedResumeProgressFraction.takeIf { serverResumeMs == null },
+                                forceExternal = false,
+                                forceInternal = true,
+                                sourceIdentityKey = sourceIdentityKey,
+                                // A server's playback URL carries its access token and a session id.
+                                saveForReuse = false,
+                                castToDevice = castToDevice,
+                            )
+                        }
+                        return
+                    }
                     if (stream.youTubeIdToResolve != null) {
                         if (resolvingDebridStream) return
                         streamRouteScope.launch {
@@ -6851,15 +7135,28 @@ private fun DesktopHoverSidebar(
                 )
             }
 
-            if (profileStackVisible) {
+            AnimatedVisibility(
+                visible = profileStackVisible,
+                enter = fadeIn(tween(140)) + scaleIn(
+                    animationSpec = tween(150, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                    initialScale = 0.94f,
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f),
+                ),
+                exit = fadeOut(tween(110)) + androidx.compose.animation.scaleOut(
+                    animationSpec = tween(110),
+                    targetScale = 0.94f,
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f),
+                ),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = profileTopPadding + 58.dp)
+                    .width(DesktopSidebarExpandedContentWidth),
+            ) {
                 SidebarProfileSwitcherStack(
                     onProfileSelected = onProfileSelected,
                     onAddProfileRequested = onAddProfileRequested,
                     onDismissRequest = { profileStackVisible = false },
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = profileTopPadding + 58.dp)
-                        .width(DesktopSidebarExpandedContentWidth),
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
 
@@ -7122,15 +7419,54 @@ private fun DesktopSidebarItem(
     icon: @Composable (Color) -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
-    val contentColor = if (selected) tokens.colors.textPrimary else tokens.colors.textMuted
-    val iconColor = if (selected) tokens.colors.onAccent else contentColor
+    val interactionSource = remember { MutableInteractionSource() }
+    val hovered by interactionSource.collectIsHoveredAsState()
+    val contentColor by animateColorAsState(
+        targetValue = when {
+            selected -> tokens.colors.textPrimary
+            hovered -> tokens.colors.textPrimary.copy(alpha = 0.9f)
+            else -> tokens.colors.textMuted
+        },
+        animationSpec = tween(150),
+        label = "desktop_sidebar_content",
+    )
+    val iconColor by animateColorAsState(
+        targetValue = if (selected) tokens.colors.onAccent else contentColor,
+        animationSpec = tween(150),
+        label = "desktop_sidebar_icon",
+    )
+    val pillProgress by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (selected) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
+            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium,
+        ),
+        label = "desktop_sidebar_pill",
+    )
+    val hoverAlpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (hovered && !selected) 1f else 0f,
+        animationSpec = tween(130),
+        label = "desktop_sidebar_hover",
+    )
+    val iconScale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (hovered) 1.06f else 1f,
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
+            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium,
+        ),
+        label = "desktop_sidebar_scale",
+    )
 
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .height(52.dp)
             .padding(horizontal = 10.dp, vertical = 4.dp)
-            .clickable(onClick = onClick),
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            ),
         color = Color.Transparent,
         shape = RoundedCornerShape(16.dp),
     ) {
@@ -7147,18 +7483,40 @@ private fun DesktopSidebarItem(
                 ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Surface(
-                    modifier = Modifier
-                        .size(DesktopSidebarIconSlotSize)
-                        .background(
-                            if (selected) tokens.colors.accentFill else SolidColor(Color.Transparent),
-                            RoundedCornerShape(14.dp),
-                        ),
-                    color = Color.Transparent,
-                    shape = RoundedCornerShape(14.dp),
+                Box(
+                    modifier = Modifier.size(DesktopSidebarIconSlotSize),
+                    contentAlignment = Alignment.Center,
                 ) {
+                    if (hoverAlpha > 0f) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Color.White.copy(alpha = 0.08f * hoverAlpha),
+                                    RoundedCornerShape(14.dp),
+                                ),
+                        )
+                    }
+                    if (pillProgress > 0f) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    alpha = pillProgress
+                                    val s = 0.84f + 0.16f * pillProgress
+                                    scaleX = s
+                                    scaleY = s
+                                }
+                                .background(tokens.colors.accentFill, RoundedCornerShape(14.dp)),
+                        )
+                    }
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                scaleX = iconScale
+                                scaleY = iconScale
+                            },
                         contentAlignment = Alignment.Center,
                     ) {
                         icon(iconColor)
@@ -7759,101 +8117,137 @@ private fun TabletFloatingTopBar(
                     transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f),
                 ),
             ) {
-                // Its own glass panel under the bar, same night glass, edge and shadow as the pill.
+                // Uniform night glass matching the nav bar (no shadowElevation cutout through
+                // translucent glass, which darkened the outer rim while leaving the middle lighter).
+                val searchPanelShape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+                val searchPanelColor = NuvioGlass.night(tokens.colors.background, tokens.colors.accent).copy(alpha = 0.94f)
                 Surface(
-                    color = floatingSearchSurfaceColor,
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                    color = searchPanelColor,
+                    shape = searchPanelShape,
                     tonalElevation = 0.dp,
-                    shadowElevation = tokens.elevation.overlay,
-                    border = BorderStroke(1.dp, dividerColor),
-                    modifier = Modifier.padding(top = SearchPanelGap).width(topBarWidth),
+                    shadowElevation = 0.dp,
+                    modifier = Modifier
+                        .padding(top = SearchPanelGap)
+                        .width(topBarWidth)
+                        .smoothBorder(1.dp, dividerColor, searchPanelShape),
                 ) {
                     val shownEntries = pickerEntries
                     val shownSelectedIndex = pickerSelectedIndex
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        LazyColumn(
-                            state = pickerListState,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                // Leave the clear-history footer its own room inside the height the
-                                // panel was already budgeted.
-                                .heightIn(max = (pickerMaxHeight - 32.dp).coerceAtLeast(88.dp))
-                                .padding(vertical = 8.dp),
-                        ) {
-                            items(
-                                items = shownEntries,
-                                key = { entry -> "${entry.source}:${entry.text}" },
-                            ) { entry ->
-                                val index = shownEntries.indexOf(entry)
-                                val isSelected = index == shownSelectedIndex
-                                val rowInteraction = remember { MutableInteractionSource() }
-                                val rowHovered by rowInteraction.collectIsHoveredAsState()
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(
-                                            when {
-                                                isSelected -> Color.White.copy(alpha = 0.1f)
-                                                rowHovered -> Color.White.copy(alpha = 0.06f)
-                                                else -> Color.Transparent
-                                            },
-                                        )
-                                        .hoverable(rowInteraction)
-                                        .clickable(interactionSource = rowInteraction, indication = null) {
-                                            runSearch(entry.text)
-                                        }
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = when (entry.source) {
-                                            com.nuvio.app.features.search.PredictionSource.History -> Icons.Rounded.History
-                                            com.nuvio.app.features.search.PredictionSource.Title -> Icons.Rounded.Movie
-                                            com.nuvio.app.features.search.PredictionSource.YouTube -> Icons.Rounded.SmartDisplay
-                                            com.nuvio.app.features.search.PredictionSource.Music -> Icons.Rounded.MusicNote
-                                            com.nuvio.app.features.search.PredictionSource.Channel -> Icons.Rounded.LiveTv
+                    LazyColumn(
+                        state = pickerListState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = pickerMaxHeight.coerceAtLeast(88.dp)),
+                    ) {
+                        items(
+                            items = shownEntries,
+                            key = { entry -> "${entry.source}:${entry.text}" },
+                        ) { entry ->
+                            val index = shownEntries.indexOf(entry)
+                            val isFirst = index == 0
+                            val isLast = index == shownEntries.lastIndex
+                            val isSelected = index == shownSelectedIndex
+                            val rowInteraction = remember { MutableInteractionSource() }
+                            val rowHovered by rowInteraction.collectIsHoveredAsState()
+                            val rowBg by animateColorAsState(
+                                targetValue = when {
+                                    isSelected -> Color.White.copy(alpha = 0.1f)
+                                    rowHovered -> Color.White.copy(alpha = 0.06f)
+                                    else -> Color.Transparent
+                                },
+                                animationSpec = tween(100),
+                                label = "search_dropdown_row_bg",
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(rowBg)
+                                    .hoverable(rowInteraction)
+                                    .clickable(interactionSource = rowInteraction, indication = null) {
+                                        runSearch(entry.text)
+                                    }
+                                    .padding(
+                                        start = 16.dp,
+                                        end = 16.dp,
+                                        top = if (isFirst) 15.dp else 11.dp,
+                                        bottom = if (isLast) 15.dp else 11.dp,
+                                    ),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = when (entry.source) {
+                                        com.nuvio.app.features.search.PredictionSource.History -> Icons.Rounded.History
+                                        com.nuvio.app.features.search.PredictionSource.Title -> Icons.Rounded.Movie
+                                        com.nuvio.app.features.search.PredictionSource.YouTube -> Icons.Rounded.SmartDisplay
+                                        com.nuvio.app.features.search.PredictionSource.Music -> Icons.Rounded.MusicNote
+                                        com.nuvio.app.features.search.PredictionSource.Channel -> Icons.Rounded.LiveTv
+                                    },
+                                    contentDescription = null,
+                                    modifier = Modifier.size(NuvioTokens.Space.s16),
+                                    tint = inactiveIconTint,
+                                )
+                                androidx.compose.material3.Text(
+                                    text = boldMatch(entry.text, picker.typed),
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = activeIconTint,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                )
+                                // Inline pill button on the bottom history row so clearing history
+                                // does not expand the dropdown panel with an extra footer row.
+                                if (showingHistory && picker.held == null && isLast) {
+                                    val clearInteraction = remember { MutableInteractionSource() }
+                                    val clearHovered by clearInteraction.collectIsHoveredAsState()
+                                    val clearBg by animateColorAsState(
+                                        targetValue = if (clearHovered) {
+                                            Color.White.copy(alpha = 0.16f)
+                                        } else {
+                                            Color.White.copy(alpha = 0.08f)
                                         },
-                                        contentDescription = null,
-                                        modifier = Modifier.size(NuvioTokens.Space.s16),
-                                        tint = inactiveIconTint,
+                                        animationSpec = tween(120),
+                                        label = "search_clear_history_bg",
                                     )
-                                    androidx.compose.material3.Text(
-                                        text = boldMatch(entry.text, picker.typed),
-                                        modifier = Modifier.weight(1f),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = activeIconTint,
-                                        maxLines = 1,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    val clearTextColor by animateColorAsState(
+                                        targetValue = if (clearHovered) {
+                                            Color.White.copy(alpha = 0.95f)
+                                        } else {
+                                            Color.White.copy(alpha = 0.72f)
+                                        },
+                                        animationSpec = tween(120),
+                                        label = "search_clear_history_fg",
                                     )
+                                    val clearShape = RoundedCornerShape(999.dp)
+                                    Box(
+                                        modifier = Modifier
+                                            .smoothBorder(1.dp, Color.White.copy(alpha = 0.14f), clearShape)
+                                            .clip(clearShape)
+                                            .background(clearBg)
+                                            .hoverable(clearInteraction)
+                                            .clickable(
+                                                interactionSource = clearInteraction,
+                                                indication = null,
+                                            ) {
+                                                when (searchScope) {
+                                                    BarSearchScope.Music -> com.nuvio.app.features.music.library.MusicSearchHistory.clear()
+                                                    BarSearchScope.YouTube -> com.nuvio.app.features.youtube.YouTubeSearchHistory.clear()
+                                                    else -> com.nuvio.app.features.search.SearchHistoryRepository.clearHistory()
+                                                }
+                                                picker = picker.typed(searchQuery)
+                                            }
+                                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        androidx.compose.material3.Text(
+                                            text = stringResource(Res.string.compose_search_clear_history),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = clearTextColor,
+                                            maxLines = 1,
+                                        )
+                                    }
                                 }
                             }
-                        }
-
-                        // Mouse-only footer, and only under the recent searches: the arrow keys walk the
-                        // entries above, so this stays out of the picker.
-                        if (showingHistory && picker.held == null) Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 8.dp, end = 8.dp, bottom = 4.dp),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            androidx.compose.material3.Text(
-                                text = stringResource(Res.string.compose_search_clear_history),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.White.copy(alpha = 0.55f),
-                                modifier = Modifier
-                                    .clickable {
-                                        when (searchScope) {
-                                            BarSearchScope.Music -> com.nuvio.app.features.music.library.MusicSearchHistory.clear()
-                                            BarSearchScope.YouTube -> com.nuvio.app.features.youtube.YouTubeSearchHistory.clear()
-                                            else -> com.nuvio.app.features.search.SearchHistoryRepository.clearHistory()
-                                        }
-                                        picker = picker.typed(searchQuery)
-                                    }
-                                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                            )
                         }
                     }
                 }

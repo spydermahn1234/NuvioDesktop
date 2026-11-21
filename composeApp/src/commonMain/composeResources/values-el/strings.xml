@@ -40,6 +40,9 @@
   <string name="addons_error_enter_url">Εισάγετε μια διεύθυνση URL πρόσθετου.</string>
   <string name="addons_input_placeholder">URL πρόσθετου</string>
   <string name="addons_install_button">Εγκατάσταση πρόσθετου</string>
+  <string name="addons_tracking_consent_title">Πρόσθετο παρακολούθησης</string>
+  <string name="addons_tracking_consent_body">Το %1$s είναι πρόσθετο παρακολούθησης. Το Nuvio θα του στέλνει τη δραστηριότητά σας: τι αναπαράγετε, παύετε και σταματάτε μαζί με τη θέση αναπαραγωγής, τι προσθέτετε ή αφαιρείτε από τη βιβλιοθήκη σας και τι σημειώνετε ως προβεβλημένο ή μη. Αυτά τα δεδομένα φεύγουν από το Nuvio και τα διαχειρίζεται ο δημιουργός του πρόσθετου και η υπηρεσία με την οποία συνδέεται.</string>
+  <string name="addons_tracking_consent_checkbox">Συμφωνώ να μοιράζομαι τη δραστηριότητα παρακολούθησης και τη βιβλιοθήκη μου με αυτό το πρόσθετο</string>
   <string name="addons_loading_manifest_details">Φόρτωση λεπτομερειών manifest...</string>
   <string name="addons_modal_checking_message">Επικύρωση της διεύθυνσης URL manifest και φόρτωση λεπτομερειών πρόσθετου πριν από την εγκατάσταση.</string>
   <string name="addons_modal_checking_title">Έλεγχος πρόσθετου</string>
@@ -1224,6 +1227,7 @@
   <string name="settings_continue_watching_click_action_description">Επιλογή με αριστερό κλικ.</string>
   <string name="settings_continue_watching_click_action_play">Αναπαραγωγή</string>
   <string name="settings_continue_watching_click_action_details">Λεπτομέρειες</string>
+  <string name="settings_continue_watching_click_action_details_upcoming">Λεπτομέρειες μόνο για επερχόμενα</string>
   <string name="settings_continue_watching_source_shortcut_title">Συντόμευση πηγής</string>
   <string name="settings_continue_watching_source_shortcut_description">Ένα κουμπί που εμφανίζεται με τον δείκτη και κάνει το αντίθετο από ένα κλικ: ανοίγει τον επιλογέα πηγής όταν είναι ενεργή η «Επαναχρησιμοποίηση τελευταίου συνδέσμου», αλλιώς παίζει τον τελευταίο σύνδεσμο. Η επιλογή «Κέντρο» το κάνει μεγάλο κουμπί πάνω από τα εικαστικά.</string>
   <string name="settings_continue_watching_source_shortcut_off">Ανενεργή</string>
@@ -1331,6 +1335,8 @@
   <string name="settings_stream_player_badges_same">Ίδιο με τα σήματα ροών</string>
   <string name="settings_stream_addon_logo_title">Λογότυπο πρόσθετου</string>
   <string name="settings_stream_addon_logo_description">Εμφάνιση του λογοτύπου και του ονόματος του πρόσθετου δίπλα στις πηγές ροών.</string>
+  <string name="settings_stream_usenet_formatter_title">Μορφή Usenet για όλα τα αποτελέσματα</string>
+  <string name="settings_stream_usenet_formatter_description">Μορφοποίηση των ροών από πρόσθετα και debrid με τη διάταξη του ενσωματωμένου Usenet (ανάλυση, τίτλος, HDR, ομάδα κυκλοφορίας και ήχος).</string>
   <string name="settings_stream_display_section">Εμφάνιση</string>
   <string name="settings_stream_badge_position_title">Θέση σημάτων</string>
   <string name="settings_stream_badge_position_description">Επιλέξτε αν τα σήματα Fusion και μεγέθους εμφανίζονται πάνω ή κάτω από τις κάρτες ροών.</string>
@@ -1964,6 +1970,8 @@
   <string name="settings_playback_nvidia_rtx_hdr_anime_desc">Απενεργοποιημένο από προεπιλογή: η μετατροπή SDR σε HDR μπορεί να υπερκορέσει τα επίπεδα χρώματα του anime. Δεν εφαρμόζεται ποτέ ενώ εκτελείται Anime4K, προσαρμοσμένο shader ή SVP, εκτός αν είναι ενεργή η παρακάτω επιλογή.</string>
   <string name="settings_playback_desktop_inverse_tone_mapping">SDR σε HDR (mpv)</string>
   <string name="settings_playback_desktop_inverse_tone_mapping_desc">Επεκτείνει το βίντεο SDR σε HDR σε οποιαδήποτε GPU (αντίστροφο tone mapping του mpv). Απαιτεί ενεργό HDR των Windows· το RTX Video True HDR αναλαμβάνει όταν εκτελείται. Λειτουργεί με Anime4K, shaders και SVP.</string>
+    <string name="settings_playback_desktop_match_refresh_rate">Αντιστοίχιση ρυθμού ανανέωσης</string>
+    <string name="settings_playback_desktop_match_refresh_rate_desc">Κατά την αναπαραγωγή, αλλάζει την οθόνη σε ρυθμό ανανέωσης που διαιρείται ακριβώς με τον ρυθμό καρέ του βίντεο (24 fps σε 24 ή 120 Hz, 25 fps σε 50 Hz) για να αφαιρεθεί το τρέμουλο, και τον επαναφέρει όταν κλείσει η αναπαραγωγή. Η οθόνη μπορεί να μαυρίσει για λίγο σε κάθε αλλαγή.</string>
   <string name="settings_playback_desktop_inverse_tone_mapping_peak">Μέγιστη φωτεινότητα SDR σε HDR</string>
   <string name="settings_playback_desktop_inverse_tone_mapping_peak_desc">Πόσο φωτεινές γίνονται οι πιο φωτεινές περιοχές. Μια τιμή κοντά στο HDR peak της οθόνης σας είναι καλή αρχή· χαμηλότερη τιμή μοιάζει περισσότερο με το αρχικό SDR.</string>
   <string name="settings_playback_nvidia_rtx_hdr_anime_shaders">Και με shaders anime</string>
@@ -1985,8 +1993,6 @@
   <string name="settings_playback_selected_count">%1$d επιλεγμένα</string>
   <string name="settings_playback_show_loading_overlay">Εμφάνιση overlay φόρτωσης</string>
   <string name="settings_playback_show_loading_overlay_description">Εμφάνιση του αρχικού overlay φόρτωσης ενώ ξεκινά η αναπαραγωγή μιας ροής.</string>
-  <string name="settings_playback_pip_browse">Περιήγηση σε εικόνα σε εικόνα</string>
-  <string name="settings_playback_pip_browse_description">Η εικόνα σε εικόνα αποκτά ένα κουμπί που επαναφέρει την εφαρμογή με το βίντεο σε μια γωνία της, ώστε να περιηγείστε όσο παίζει. Τα τρέιλερ μένουν ανενεργά στο μεταξύ. Ισχύει από το επόμενο βίντεο.</string>
   <string name="settings_playback_double_click">Διπλό κλικ στο βίντεο</string>
   <string name="settings_playback_double_click_description">Τι κάνει ένα διπλό κλικ στο βίντεο που παίζει. Στην εικόνα σε εικόνα επαναφέρει πάντα το βίντεο.</string>
   <string name="settings_playback_double_click_pip">Εικόνα σε εικόνα</string>
@@ -3763,6 +3769,7 @@
   <string name="settings_home_hero_info_none">Δεν εμφανίζονται πληροφορίες hero</string>
   <string name="settings_home_hero_info_priority">Προτεραιότητα πληροφοριών hero</string>
   <string name="settings_home_hero_info_priority_description">Επιλέξτε ποια badges hero προτιμώνται πρώτα.</string>
+  <string name="settings_home_hero_info_priority_keys">Το Enter ενεργοποιεί ή απενεργοποιεί· Αριστερά/Δεξιά ή Shift+Πάνω/Κάτω το μετακινεί νωρίτερα ή αργότερα.</string>
   <string name="settings_home_hero_info_release_status">Κατάσταση κυκλοφορίας</string>
   <string name="settings_home_hero_info_release_status_description">Εμφανίζει αν μια ταινία είναι σε streaming, σε κινηματογράφους, σε παραγωγή ή διαθέσιμη σε φυσική μορφή.</string>
   <string name="settings_home_hero_info_short_film">Ταινία μικρού μήκους</string>
@@ -3880,6 +3887,18 @@
   <string name="setup_wizard_trailers_start_auto">Αυτόματα</string>
   <string name="setup_wizard_shortcuts_after_finish">Αφού κάνετε κλικ στην Ολοκλήρωση, το Nuvio ανοίγει τη σελίδα συντομεύσεων πληκτρολογίου ώστε να δείτε τους ελέγχους και να επιλέξετε μεταξύ βελών και WASD.</string>
   <string name="setup_wizard_renderer_note">Το Nuvio σχεδιάζει τη διεπαφή του με Direct3D 11 για την ευρύτερη συμβατότητα. Για πιο προσεγμένη εμφάνιση, μπορείτε να αλλάξετε σε OpenGL από Ρυθμίσεις › Βίντεο &amp; ήχος › Renderer διεπαφής. Αν η αναπαραγωγή σε πλήρη οθόνη εμφανίζει μαύρη οθόνη, επιστρέψτε στο Direct3D 11.</string>
+  <string name="setup_wizard_scale_title">Μέγεθος</string>
+  <string name="setup_wizard_scale_subtitle">Κάντε το κείμενο και τα κουμπιά άνετα στην ανάγνωση από εκεί που κάθεστε. Αυτό το πλαίσιο μεγαλώνει και μικραίνει μαζί τους.</string>
+  <string name="setup_wizard_scale_description">Τα πάντα στο Nuvio, μαζί με τα μενού και το κείμενο.</string>
+  <string name="setup_wizard_scale_shortcut">Τα Ctrl + συν και Ctrl + πλην το αλλάζουν οποιαδήποτε στιγμή.</string>
+  <string name="setup_wizard_panels_title">Ενότητες</string>
+  <string name="setup_wizard_panels_subtitle">Το Nuvio κάνει περισσότερα από ταινίες και σειρές. Επιλέξτε τι εμφανίζεται στην πλοήγηση· η Αρχική, η Αναζήτηση και η Βιβλιοθήκη είναι πάντα εκεί.</string>
+  <string name="setup_wizard_panels_tonight">Βοηθά να διαλέξετε τι θα δείτε απόψε, με λίγες γρήγορες ερωτήσεις ή ένα στρίψιμο νομίσματος.</string>
+  <string name="setup_wizard_panels_live_tv">Τηλεοπτικά κανάλια και οδηγός από μια λίστα IPTV που προσθέτετε.</string>
+  <string name="setup_wizard_panels_youtube">Η αρχική σας σελίδα και οι συνδρομές σας στο YouTube, μόλις συνδεθείτε.</string>
+  <string name="setup_wizard_panels_music">Άλμπουμ, καλλιτέχνες, στίχοι και ραδιόφωνο από το YouTube Music.</string>
+  <string name="setup_wizard_panels_games">Μια λειτουργία παιχνιδιών για να ξεκινάτε τα παιχνίδια του PC από τον καναπέ.</string>
+  <string name="setup_wizard_panels_later">Οποιαδήποτε από αυτές ενεργοποιείται ξανά στις Ρυθμίσεις, όπου η καθεμία έχει και τις δικές της επιλογές.</string>
   <string name="settings_account_setup">Ρύθμιση</string>
   <string name="settings_account_run_wizard">Εκτέλεση οδηγού ρύθμισης</string>
   <string name="settings_account_run_wizard_description">Ελέγξτε τη λειτουργία εμφάνισης, τις πηγές, τα τρέιλερ, τους ελέγχους και τα κλειδιά μεταδεδομένων.</string>
@@ -4664,6 +4683,8 @@
   <string name="player_hud_custom_shadow_color">Προσαρμοσμένο χρώμα σκιάς</string>
   <string name="player_hud_enter_a_hex_color_like_ffd700">Εισάγετε ένα χρώμα hex, όπως #FFD700 ή #B3000000.</string>
   <string name="player_hud_mpv_diagnostics">Διαγνωστικά MPV</string>
+  <string name="player_hud_diagnostics">Διαγνωστικά</string>
+  <string name="player_hud_stream_info">Πληροφορίες ροής</string>
   <string name="player_hud_option">Επιλογή</string>
   <string name="player_hud_no_addon_subtitles_loaded">Δεν φορτώθηκαν υπότιτλοι από πρόσθετα</string>
   <string name="player_hud_no_tracks_available">Δεν υπάρχουν διαθέσιμα κομμάτια</string>
@@ -5019,6 +5040,15 @@
     <string name="gamepad_cursor_speed_slow">Αργή</string>
     <string name="gamepad_cursor_speed_medium">Μέτρια</string>
     <string name="gamepad_cursor_speed_fast">Γρήγορη</string>
+    <string name="gamepad_lights_section">Φώτα χειριστηρίου</string>
+    <string name="gamepad_lights_note">Μόνο PlayStation DualSense. Το Ως έχει δεν γράφει ποτέ στο χειριστήριο· κάθε άλλη επιλογή γυρίζει επίσης ένα χειριστήριο Bluetooth στην πλήρη αναφορά του, που καταναλώνει λίγο περισσότερη μπαταρία.</string>
+    <string name="gamepad_light_bar">Φωτεινή μπάρα</string>
+    <string name="gamepad_light_bar_description">Η χρωματιστή λωρίδα γύρω από το touchpad.</string>
+    <string name="gamepad_light_bar_leave">Ως έχει</string>
+    <string name="gamepad_light_bar_off">Ανενεργή</string>
+    <string name="gamepad_light_bar_accent">Χρώμα έμφασης</string>
+    <string name="gamepad_player_light">Φως παίκτη</string>
+    <string name="gamepad_player_light_description">Το μικρό λευκό φως κάτω από το touchpad.</string>
     <string name="gamepad_cursor_default">Δείκτης από προεπιλογή</string>
     <string name="gamepad_cursor_default_description">Ο αριστερός μοχλός είναι πάντα ο δείκτης όσο το Nuvio είναι μπροστά. Το D-pad μετακινεί ακόμα την εστίαση, και το A κάνει κλικ ή επιλέγει, ανάλογα με το τι χρησιμοποιήσατε τελευταίο. Κρατήστε το κουμπί ξεκλειδώματος για να κρύψετε τον δείκτη.</string>
     <string name="gamepad_cursor_hint">Υποδείξεις κουμπιών</string>
@@ -5048,4 +5078,17 @@
     <string name="gamepad_rebind_player">Κατά την αναπαραγωγή</string>
     <string name="gamepad_rebind_changed">Αλλαγμένο</string>
     <string name="gamepad_rebind_search_description">Αλλαγή αντιστοίχισης κουμπιών χειριστηρίου για περιήγηση και αναπαραγωγή</string>
+    <string name="usenet_unpacking_7z">Αποσυμπίεση συμπιεσμένου 7z</string>
+    <string name="settings_stream_scoring_trait_compressed_archive_movie">Συμπιεσμένο 7z (ταινίες)</string>
+    <string name="settings_stream_scoring_trait_compressed_archive_series">Συμπιεσμένο 7z (σειρές και anime)</string>
+    <string name="settings_stream_scoring_trait_compressed_archive_caption">Κυκλοφορίες Usenet που αποδείχθηκαν συμπιεσμένα 7z όταν άνοιξαν. Παίζουν, αλλά η μεταπήδηση μπροστά περιμένει να κατέβει ό,τι υπάρχει πριν από εκείνο το σημείο.</string>
+    <string name="usenet_compressed_releases">Συμπιεσμένες κυκλοφορίες 7z</string>
+    <string name="usenet_compressed_releases_description">Ένα συμπιεσμένο 7z φαίνεται μόνο όταν ανοίξει. Παίζει, αλλά η μεταπήδηση μπροστά περιμένει να κατέβει ό,τι υπάρχει πριν. Όσα παραλείπονται δεν δοκιμάζονται ξανά.</string>
+    <string name="usenet_compressed_play_all">Πάντα αναπαραγωγή</string>
+    <string name="usenet_compressed_skip_over">Παράλειψη άνω των %1$s</string>
+    <string name="usenet_compressed_skip_all">Πάντα παράλειψη</string>
+    <string name="usenet_compressed_skipped">Παραλείφθηκε συμπιεσμένο 7z - δοκιμή επόμενης πηγής</string>
+    <string name="usenet_compressed_unplayable">Αυτή η κυκλοφορία είναι συμπιεσμένο 7z και παραλείπεται από τις ρυθμίσεις Usenet</string>
+    <string name="tonight_twelve_hour">12ωρη μορφή ώρας</string>
+    <string name="tonight_twelve_hour_description">Εμφάνιση ωρών ως 11:30 PM αντί για 23:30.</string>
 </resources>

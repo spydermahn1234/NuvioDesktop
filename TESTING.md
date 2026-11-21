@@ -1014,3 +1014,20 @@ Upstream's windows-tv-adaptive (43492138) merged into Spyder. Its new things, an
 - [ ] Changing the shape from the TV's own Aspect ratio menu lights the matching chip on the phone within a second
 - [ ] The shape picked from the phone is still in use when the next film starts
 - [ ] During music the Shape row is not shown
+
+## Upstream merge (Nov 21)
+
+Upstream's windows-tv-adaptive (56d7c587) merged into Spyder. Its new things, and a check that the fork's own pages are untouched:
+
+- [ ] Nuvio starts; the music home, Stage, album and artist pages, the Live TV stages and the phone remote work as before
+- [ ] Home and Library posters show at once after a reboot, with no blank cards while they load
+- [ ] Sources: late addon results show at once while the mouse is over the list, without moving the row under the pointer
+- [ ] Settings > Media servers: a Jellyfin, Emby or Plex server can be added, and its files show as a source group for a title it has
+- [ ] A film from a media server plays, and its watch progress shows on the server afterwards
+- [ ] Settings > Usenet: a provider and indexer can be added and each Test button answers
+- [ ] With Search my indexers on, a title's source list has a Built-in Usenet group (playing one may say the engine is missing in this build)
+- [ ] Settings > Usenet > Usenet info opens and shows the indexer and provider counts
+- [ ] Settings > Random Play > Tonight > 12-hour clock shows What to watch's times as 11:30 PM
+- [ ] With TorBox set up, picking a torrent from the player's Sources panel plays through TorBox with no P2P warning
+- [ ] Continue watching's click action offers Details for upcoming only, and it opens details for a Next Up episode not aired yet
+- [ ] Removing a Next Up card keeps it gone after a restart

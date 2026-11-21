@@ -40,6 +40,9 @@
   <string name="addons_error_enter_url">Skriv inn en tilleggs-URL.</string>
   <string name="addons_input_placeholder">Tilleggs-URL</string>
   <string name="addons_install_button">Installer tillegg</string>
+  <string name="addons_tracking_consent_title">Sporingstillegg</string>
+  <string name="addons_tracking_consent_body">%1$s er et sporingstillegg. Nuvio sender det aktiviteten din: hva du spiller av, pauser og stopper med avspillingsposisjon, hva du legger til i eller fjerner fra biblioteket, og hva du merker som sett eller usett. Disse dataene forlater Nuvio og håndteres av utvikleren av tillegget og tjenesten det kobler til.</string>
+  <string name="addons_tracking_consent_checkbox">Jeg godtar å dele seeraktiviteten og biblioteket mitt med dette tillegget</string>
   <string name="addons_loading_manifest_details">Laster manifest-detaljer…</string>
   <string name="addons_modal_checking_message">Validerer manifest-URL og laster tilleggsdetaljer før installasjon.</string>
   <string name="addons_modal_checking_title">Sjekker tillegg</string>
@@ -1224,6 +1227,7 @@
   <string name="settings_continue_watching_click_action_description">Valg for venstreklikk.</string>
   <string name="settings_continue_watching_click_action_play">Spill av</string>
   <string name="settings_continue_watching_click_action_details">Detaljer</string>
+  <string name="settings_continue_watching_click_action_details_upcoming">Detaljer bare for kommende</string>
   <string name="settings_continue_watching_source_shortcut_title">Snarvei til kilde</string>
   <string name="settings_continue_watching_source_shortcut_description">En knapp som vises ved pekeren og gjør det motsatte av et klikk: åpner kildevelgeren når Gjenbruk siste lenke er på, ellers spilles siste lenke av. Midt gjør den til en stor knapp over bildet.</string>
   <string name="settings_continue_watching_source_shortcut_off">Av</string>
@@ -1331,6 +1335,8 @@
   <string name="settings_stream_player_badges_same">Samme som strømmemerker</string>
   <string name="settings_stream_addon_logo_title">Tilleggslogo</string>
   <string name="settings_stream_addon_logo_description">Vis tilleggets logo og navn ved siden av strømmekilder.</string>
+  <string name="settings_stream_usenet_formatter_title">Bruk Usenet-formatet for alle resultater</string>
+  <string name="settings_stream_usenet_formatter_description">Formater strømmer fra tillegg og debrid med oppsettet til innebygd Usenet (oppløsning, tittel, HDR, utgivelsesgruppe og lyd).</string>
   <string name="settings_stream_display_section">Visning</string>
   <string name="settings_stream_badge_position_title">Merkeposisjon</string>
   <string name="settings_stream_badge_position_description">Velg om Fusion- og størrelsesmerker vises over eller under strømmekortene.</string>
@@ -1964,6 +1970,8 @@
   <string name="settings_playback_nvidia_rtx_hdr_anime_desc">Av som standard: SDR-til-HDR-trinnet kan overmette flate animefarger. Brukes aldri mens Anime4K, en egendefinert shader eller SVP kjører, med mindre alternativet nedenfor er på.</string>
   <string name="settings_playback_desktop_inverse_tone_mapping">SDR til HDR (mpv)</string>
   <string name="settings_playback_desktop_inverse_tone_mapping_desc">Utvider SDR-video til HDR på hvilken som helst GPU (mpvs omvendte tonemapping). Krever Windows HDR på; RTX Video True HDR tar over når den kjører. Fungerer med Anime4K, shadere og SVP.</string>
+    <string name="settings_playback_desktop_match_refresh_rate">Tilpass oppdateringsfrekvens</string>
+    <string name="settings_playback_desktop_match_refresh_rate_desc">Mens en video spilles, bytter skjermen til en oppdateringsfrekvens som går opp i videoens bildefrekvens (24 fps til 24 eller 120 Hz, 25 fps til 50 Hz) for å fjerne hakking, og bytter tilbake når avspilleren lukkes. Skjermen kan bli svart et øyeblikk ved hvert bytte.</string>
   <string name="settings_playback_desktop_inverse_tone_mapping_peak">Toppluminans for SDR til HDR</string>
   <string name="settings_playback_desktop_inverse_tone_mapping_peak_desc">Hvor lyse de lyseste høylysene blir. Rundt skjermens HDR-topp er en god start; lavere ligner mer på den opprinnelige SDR-en.</string>
   <string name="settings_playback_nvidia_rtx_hdr_anime_shaders">Også med anime-shadere</string>
@@ -1985,8 +1993,6 @@
   <string name="settings_playback_selected_count">%1$d valgt</string>
   <string name="settings_playback_show_loading_overlay">Laste-overlay</string>
   <string name="settings_playback_show_loading_overlay_description">Vis lasts skjerm til første bilde vises.</string>
-  <string name="settings_playback_pip_browse">Bla mens bilde-i-bilde er på</string>
-  <string name="settings_playback_pip_browse_description">Bilde-i-bilde får en knapp som henter appen tilbake med videoen i et hjørne, så du kan bla mens den spilles. Trailere er av så lenge. Gjelder fra neste video.</string>
   <string name="settings_playback_double_click">Dobbeltklikk på videoen</string>
   <string name="settings_playback_double_click_description">Hva et dobbeltklikk på videoen som spilles av gjør. I bilde-i-bilde henter det alltid videoen tilbake.</string>
   <string name="settings_playback_double_click_pip">Bilde i bilde</string>
@@ -3763,6 +3769,7 @@
   <string name="settings_home_hero_info_none">Ingen hero-info vises</string>
   <string name="settings_home_hero_info_priority">Prioritet for hero-info</string>
   <string name="settings_home_hero_info_priority_description">Velg hvilke hero-merker som foretrekkes først.</string>
+  <string name="settings_home_hero_info_priority_keys">Enter slår av eller på; Venstre/Høyre eller Skift+Opp/Ned flytter det fram eller bak.</string>
   <string name="settings_home_hero_info_release_status">Utgivelsesstatus</string>
   <string name="settings_home_hero_info_release_status_description">Viser om en film er på strømming, på kino, i produksjon eller tilgjengelig fysisk.</string>
   <string name="settings_home_hero_info_short_film">Kortfilm</string>
@@ -3880,6 +3887,18 @@
   <string name="setup_wizard_trailers_start_auto">Auto</string>
   <string name="setup_wizard_shortcuts_after_finish">Etter at du klikker Fullfør, åpner Nuvio siden for hurtigtaster, slik at du kan se kontrollene og velge mellom piltaster og WASD.</string>
   <string name="setup_wizard_renderer_note">Nuvio tegner grensesnittet med Direct3D 11 for bredest mulig kompatibilitet. For et mer polert utseende kan du bytte til OpenGL i Innstillinger › Video &amp; lyd › Grensesnittrenderer. Hvis avspilling i fullskjerm da viser en svart skjerm, bytter du tilbake til Direct3D 11.</string>
+  <string name="setup_wizard_scale_title">Størrelse</string>
+  <string name="setup_wizard_scale_subtitle">Gjør tekst og knapper behagelige å lese fra der du sitter. Dette panelet vokser og krymper med dem.</string>
+  <string name="setup_wizard_scale_description">Alt i Nuvio, også menyer og tekst.</string>
+  <string name="setup_wizard_scale_shortcut">Ctrl + pluss og Ctrl + minus endrer den når som helst.</string>
+  <string name="setup_wizard_panels_title">Paneler</string>
+  <string name="setup_wizard_panels_subtitle">Nuvio gjør mer enn filmer og serier. Velg hva som vises i navigasjonen; Hjem, Søk og Bibliotek er alltid der.</string>
+  <string name="setup_wizard_panels_tonight">Hjelper deg å velge noe å se i kveld, med noen raske spørsmål eller et myntkast.</string>
+  <string name="setup_wizard_panels_live_tv">TV-kanaler og programguide fra en IPTV-spilleliste du legger til.</string>
+  <string name="setup_wizard_panels_youtube">YouTube-forsiden og abonnementene dine, når du har logget inn.</string>
+  <string name="setup_wizard_panels_music">Album, artister, sangtekster og radio fra YouTube Music.</string>
+  <string name="setup_wizard_panels_games">En spillmodus for å starte PC-spillene dine fra sofaen.</string>
+  <string name="setup_wizard_panels_later">Alle kan slås på igjen i Innstillinger, der hver av dem også har egne valg.</string>
   <string name="settings_account_setup">Oppsett</string>
   <string name="settings_account_run_wizard">Kjør oppsettveiviseren</string>
   <string name="settings_account_run_wizard_description">Gå gjennom visningsmodus, kilder, trailere, kontroller og metadatanøkler.</string>
@@ -4664,6 +4683,8 @@
   <string name="player_hud_custom_shadow_color">Egendefinert skyggefarge</string>
   <string name="player_hud_enter_a_hex_color_like_ffd700">Skriv inn en hex-farge som #FFD700 eller #B3000000.</string>
   <string name="player_hud_mpv_diagnostics">MPV-diagnostikk</string>
+  <string name="player_hud_diagnostics">Diagnostikk</string>
+  <string name="player_hud_stream_info">Strøminfo</string>
   <string name="player_hud_option">Alternativ</string>
   <string name="player_hud_no_addon_subtitles_loaded">Ingen tilleggsundertekster lastet</string>
   <string name="player_hud_no_tracks_available">Ingen spor tilgjengelig</string>
@@ -5019,6 +5040,15 @@
     <string name="gamepad_cursor_speed_slow">Sakte</string>
     <string name="gamepad_cursor_speed_medium">Middels</string>
     <string name="gamepad_cursor_speed_fast">Rask</string>
+    <string name="gamepad_lights_section">Kontrollerlys</string>
+    <string name="gamepad_lights_note">Kun PlayStation DualSense. La være skriver aldri til kontrolleren; alle andre valg setter også en Bluetooth-kontroller over på full rapport, som bruker litt mer batteri.</string>
+    <string name="gamepad_light_bar">Lyslist</string>
+    <string name="gamepad_light_bar_description">Den fargede stripen rundt styreflaten.</string>
+    <string name="gamepad_light_bar_leave">La være</string>
+    <string name="gamepad_light_bar_off">Av</string>
+    <string name="gamepad_light_bar_accent">Aksentfarge</string>
+    <string name="gamepad_player_light">Spillerlys</string>
+    <string name="gamepad_player_light_description">Det lille hvite lyset under styreflaten.</string>
     <string name="gamepad_cursor_default">Peker som standard</string>
     <string name="gamepad_cursor_default_description">Venstre stikke er alltid musepekeren mens Nuvio er i front. D-pad flytter fortsatt fokus, og A klikker eller velger etter hva du brukte sist. Hold opplåsingsknappen for å legge bort pekeren.</string>
     <string name="gamepad_cursor_hint">Knappehint</string>
@@ -5048,4 +5078,19 @@
     <string name="gamepad_rebind_player">Under avspilling</string>
     <string name="gamepad_rebind_changed">Endret</string>
     <string name="gamepad_rebind_search_description">Tilordne kontrollerknapper på nytt, for surfing og avspilling</string>
+    <string name="servers_show_in_local_library">Vis i lokalt bibliotek</string>
+    <string name="servers_show_in_local_library_description">Filmer og serier fra denne serveren kommer med i katalogene i det lokale biblioteket, ved siden av filene på denne PC-en. De spilles fortsatt av fra serveren. Titler uten IMDb- eller TMDB-ID blir værende i serverens rader.</string>
+    <string name="usenet_unpacking_7z">Pakker ut komprimert 7z</string>
+    <string name="settings_stream_scoring_trait_compressed_archive_movie">Komprimert 7z (filmer)</string>
+    <string name="settings_stream_scoring_trait_compressed_archive_series">Komprimert 7z (serier og anime)</string>
+    <string name="settings_stream_scoring_trait_compressed_archive_caption">Usenet-utgivelser som viste seg å være komprimert 7z da de ble åpnet. De spilles av, men å hoppe fremover venter til alt før det punktet er lastet ned.</string>
+    <string name="usenet_compressed_releases">Komprimerte 7z-utgivelser</string>
+    <string name="usenet_compressed_releases_description">En komprimert 7z vises først når den åpnes. Den spilles av, men å hoppe fremover venter til alt før er lastet ned. Hoppede over prøves ikke igjen.</string>
+    <string name="usenet_compressed_play_all">Spill alltid av</string>
+    <string name="usenet_compressed_skip_over">Hopp over over %1$s</string>
+    <string name="usenet_compressed_skip_all">Hopp alltid over</string>
+    <string name="usenet_compressed_skipped">Komprimert 7z hoppet over - prøver neste kilde</string>
+    <string name="usenet_compressed_unplayable">Denne utgivelsen er en komprimert 7z, hoppet over av Usenet-innstillingene</string>
+    <string name="tonight_twelve_hour">12-timers klokke</string>
+    <string name="tonight_twelve_hour_description">Vis klokkeslett som 11:30 PM i stedet for 23:30.</string>
 </resources>

@@ -40,6 +40,9 @@
   <string name="addons_error_enter_url">Zadejte URL doplňku.</string>
   <string name="addons_input_placeholder">URL doplňku</string>
   <string name="addons_install_button">Nainstalovat doplněk</string>
+  <string name="addons_tracking_consent_title">Sledovací doplněk</string>
+  <string name="addons_tracking_consent_body">%1$s je sledovací doplněk. Nuvio mu bude posílat vaši aktivitu: co přehráváte, pozastavujete a zastavujete i s pozicí přehrávání, co přidáváte do knihovny nebo z ní odebíráte a co označujete jako zhlédnuté či nezhlédnuté. Tato data opouštějí Nuvio a zpracovává je vývojář doplňku a služba, ke které se připojuje.</string>
+  <string name="addons_tracking_consent_checkbox">Souhlasím se sdílením své aktivity a knihovny s tímto doplňkem</string>
   <string name="addons_loading_manifest_details">Načítání podrobností manifestu...</string>
   <string name="addons_modal_checking_message">Ověřování URL manifestu a načítání podrobností o doplňku před instalací.</string>
   <string name="addons_modal_checking_title">Kontrola doplňku</string>
@@ -1224,6 +1227,7 @@
   <string name="settings_continue_watching_click_action_description">Možnost levého kliknutí.</string>
   <string name="settings_continue_watching_click_action_play">Přehrát</string>
   <string name="settings_continue_watching_click_action_details">Podrobnosti</string>
+  <string name="settings_continue_watching_click_action_details_upcoming">Podrobnosti jen u nadcházejících</string>
   <string name="settings_continue_watching_source_shortcut_title">Zástupce zdroje</string>
   <string name="settings_continue_watching_source_shortcut_description">Tlačítko při najetí myší, které dělá opak kliknutí: otevře výběr zdroje, je-li zapnuto Znovu použít poslední odkaz, jinak přehraje poslední odkaz. Střed z něj udělá velké tlačítko přes obrázek.</string>
   <string name="settings_continue_watching_source_shortcut_off">Vypnuto</string>
@@ -1331,6 +1335,8 @@
   <string name="settings_stream_player_badges_same">Stejný jako odznaky streamů</string>
   <string name="settings_stream_addon_logo_title">Logo doplňku</string>
   <string name="settings_stream_addon_logo_description">Zobrazit logo a název doplňku vedle zdrojů streamů.</string>
+  <string name="settings_stream_usenet_formatter_title">Použít formát Usenetu pro všechny výsledky</string>
+  <string name="settings_stream_usenet_formatter_description">Formátovat streamy z doplňků a debridu podle vestavěného rozvržení Usenetu (rozlišení, název, HDR, skupina vydání a zvuk).</string>
   <string name="settings_stream_display_section">Zobrazení</string>
   <string name="settings_stream_badge_position_title">Poloha odznaků</string>
   <string name="settings_stream_badge_position_description">Vyberte, zda se odznaky Fusion a velikosti zobrazí nad kartami streamů, nebo pod nimi.</string>
@@ -1964,6 +1970,8 @@
   <string name="settings_playback_nvidia_rtx_hdr_anime_desc">Ve výchozím stavu vypnuto: převod SDR na HDR může přesytit plošné barvy anime. Nepoužije se, když běží Anime4K, vlastní shader nebo SVP, pokud není zapnuta možnost níže.</string>
   <string name="settings_playback_desktop_inverse_tone_mapping">SDR na HDR (mpv)</string>
   <string name="settings_playback_desktop_inverse_tone_mapping_desc">Převede video SDR na HDR na libovolném GPU (inverzní tone mapping v mpv). Vyžaduje zapnuté HDR ve Windows; při běhu ho přebírá RTX Video True HDR. Funguje s Anime4K, shadery i SVP.</string>
+    <string name="settings_playback_desktop_match_refresh_rate">Přizpůsobit obnovovací frekvenci</string>
+    <string name="settings_playback_desktop_match_refresh_rate_desc">Během přehrávání přepne monitor na obnovovací frekvenci, kterou snímková frekvence videa rovnoměrně dělí (24 fps na 24 nebo 120 Hz, 25 fps na 50 Hz), aby se odstranilo trhání, a po zavření přehrávače ji vrátí zpět. Obrazovka může při každém přepnutí na chvíli zčernat.</string>
   <string name="settings_playback_desktop_inverse_tone_mapping_peak">Špičkový jas při převodu SDR na HDR</string>
   <string name="settings_playback_desktop_inverse_tone_mapping_peak_desc">Jak jasné budou nejsvětlejší partie. Dobrým začátkem je hodnota kolem špičkového jasu HDR vašeho displeje; nižší hodnota je blíže původnímu SDR.</string>
   <string name="settings_playback_nvidia_rtx_hdr_anime_shaders">Také se shadery pro anime</string>
@@ -1985,8 +1993,6 @@
   <string name="settings_playback_selected_count">%1$d vybráno</string>
   <string name="settings_playback_show_loading_overlay">Načítací obrazovka</string>
   <string name="settings_playback_show_loading_overlay_description">Zobrazovat načítací obrazovku, dokud se neobjeví první snímek videa.</string>
-  <string name="settings_playback_pip_browse">Procházet během obrazu v obraze</string>
-  <string name="settings_playback_pip_browse_description">Obraz v obraze dostane tlačítko, které vrátí aplikaci s videem v jejím rohu, takže můžete procházet, zatímco video hraje. Upoutávky mezitím zůstanou vypnuté. Platí od dalšího videa.</string>
   <string name="settings_playback_double_click">Dvojklik na video</string>
   <string name="settings_playback_double_click_description">Co udělá dvojklik na přehrávané video. V režimu obraz v obraze video vždy vrátí zpět.</string>
   <string name="settings_playback_double_click_pip">Obraz v obraze</string>
@@ -3773,6 +3779,7 @@
   <string name="settings_home_hero_info_none">Žádné informace banneru</string>
   <string name="settings_home_hero_info_priority">Priorita informací banneru</string>
   <string name="settings_home_hero_info_priority_description">Vyberte, které odznaky banneru se upřednostní.</string>
+  <string name="settings_home_hero_info_priority_keys">Enter zapne či vypne; Vlevo/Vpravo nebo Shift+Nahoru/Dolů posune dřív či později.</string>
   <string name="settings_home_hero_info_release_status">Stav vydání</string>
   <string name="settings_home_hero_info_release_status_description">Zobrazí, zda je film ve streamování, v kinech, ve výrobě nebo dostupný na fyzickém nosiči.</string>
   <string name="settings_home_hero_info_short_film">Krátký film</string>
@@ -3890,6 +3897,18 @@
   <string name="setup_wizard_trailers_start_auto">Automaticky</string>
   <string name="setup_wizard_shortcuts_after_finish">Po kliknutí na Dokončit Nuvio otevře stránku klávesových zkratek, kde uvidíte ovládání a můžete si vybrat mezi šipkami a WASD.</string>
   <string name="setup_wizard_renderer_note">Nuvio vykresluje rozhraní pomocí Direct3D 11 pro nejširší kompatibilitu. Pro propracovanější vzhled můžete přepnout na OpenGL v Nastavení › Video a zvuk › Vykreslovač rozhraní. Pokud pak přehrávání na celou obrazovku ukáže černou obrazovku, přepněte zpět na Direct3D 11.</string>
+  <string name="setup_wizard_scale_title">Velikost</string>
+  <string name="setup_wizard_scale_subtitle">Nastavte text a tlačítka tak, aby se vám pohodlně četla z místa, kde sedíte. Tento panel se mění spolu s nimi.</string>
+  <string name="setup_wizard_scale_description">Vše v Nuviu, včetně nabídek a textu.</string>
+  <string name="setup_wizard_scale_shortcut">Ctrl + plus a Ctrl + minus ji kdykoli změní.</string>
+  <string name="setup_wizard_panels_title">Panely</string>
+  <string name="setup_wizard_panels_subtitle">Nuvio umí víc než filmy a seriály. Vyberte, co se zobrazí v navigaci; Domů, Hledat a Knihovna jsou tam vždy.</string>
+  <string name="setup_wizard_panels_tonight">Pomůže vybrat, co dnes večer sledovat, pomocí pár rychlých otázek nebo hodu mincí.</string>
+  <string name="setup_wizard_panels_live_tv">TV kanály a programový průvodce z IPTV playlistu, který přidáte.</string>
+  <string name="setup_wizard_panels_youtube">Vaše domovská stránka a odběry YouTube po přihlášení.</string>
+  <string name="setup_wizard_panels_music">Alba, interpreti, texty písní a rádio z YouTube Music.</string>
+  <string name="setup_wizard_panels_games">Herní režim pro spouštění her z PC přímo z gauče.</string>
+  <string name="setup_wizard_panels_later">Kterýkoli z nich lze znovu zapnout v Nastavení, kde má každý i vlastní možnosti.</string>
   <string name="settings_account_setup">Nastavení</string>
   <string name="settings_account_run_wizard">Spustit průvodce nastavením</string>
   <string name="settings_account_run_wizard_description">Zkontrolujte režim zobrazení, zdroje, trailery, ovládání a klíče metadat.</string>
@@ -4674,6 +4693,8 @@
   <string name="player_hud_custom_shadow_color">Vlastní barva stínu</string>
   <string name="player_hud_enter_a_hex_color_like_ffd700">Zadejte barvu hex, například #FFD700 nebo #B3000000.</string>
   <string name="player_hud_mpv_diagnostics">Diagnostika MPV</string>
+  <string name="player_hud_diagnostics">Diagnostika</string>
+  <string name="player_hud_stream_info">Informace o streamu</string>
   <string name="player_hud_option">Možnost</string>
   <string name="player_hud_no_addon_subtitles_loaded">Nebyly načteny žádné titulky z doplňků</string>
   <string name="player_hud_no_tracks_available">Nejsou k dispozici žádné stopy</string>
@@ -5029,6 +5050,15 @@
     <string name="gamepad_cursor_speed_slow">Pomalá</string>
     <string name="gamepad_cursor_speed_medium">Střední</string>
     <string name="gamepad_cursor_speed_fast">Rychlá</string>
+    <string name="gamepad_lights_section">Světla ovladače</string>
+    <string name="gamepad_lights_note">Jen PlayStation DualSense. Ponechat neposílá ovladači nic; jakákoli jiná volba přepne ovladač na Bluetooth do plného hlášení, které spotřebuje trochu víc baterie.</string>
+    <string name="gamepad_light_bar">Světelná lišta</string>
+    <string name="gamepad_light_bar_description">Barevný pruh kolem touchpadu.</string>
+    <string name="gamepad_light_bar_leave">Ponechat</string>
+    <string name="gamepad_light_bar_off">Vypnuto</string>
+    <string name="gamepad_light_bar_accent">Barva zvýraznění</string>
+    <string name="gamepad_player_light">Světlo hráče</string>
+    <string name="gamepad_player_light_description">Malé bílé světlo pod touchpadem.</string>
     <string name="gamepad_cursor_default">Ukazatel jako výchozí</string>
     <string name="gamepad_cursor_default_description">Levá páčka je vždy ukazatel myši, když je Nuvio vepředu. D-pad dál posouvá výběr a A klikne nebo vybere podle toho, co jste použili naposledy. Podržením tlačítka odemknutí ukazatel schováte.</string>
     <string name="gamepad_cursor_hint">Nápověda tlačítek</string>
@@ -5058,4 +5088,19 @@
     <string name="gamepad_rebind_player">Při přehrávání</string>
     <string name="gamepad_rebind_changed">Změněno</string>
     <string name="gamepad_rebind_search_description">Přemapovat tlačítka ovladače pro procházení i přehrávání</string>
+    <string name="servers_show_in_local_library">Zobrazit v místní knihovně</string>
+    <string name="servers_show_in_local_library_description">Filmy a seriály z tohoto serveru se přidají do katalogů místní knihovny vedle souborů v tomto PC. Přehrávají se dál ze serveru. Tituly bez ID z IMDb nebo TMDB zůstanou jen v řádcích serveru.</string>
+    <string name="usenet_unpacking_7z">Rozbalování komprimovaného 7z</string>
+    <string name="settings_stream_scoring_trait_compressed_archive_movie">Komprimované 7z (filmy)</string>
+    <string name="settings_stream_scoring_trait_compressed_archive_series">Komprimované 7z (seriály a anime)</string>
+    <string name="settings_stream_scoring_trait_compressed_archive_caption">Usenet vydání, u kterých se po otevření ukázalo, že jsou komprimované 7z. Přehrají se, ale přeskočení vpřed čeká, než se stáhne vše před daným místem.</string>
+    <string name="usenet_compressed_releases">Komprimovaná vydání 7z</string>
+    <string name="usenet_compressed_releases_description">Komprimované 7z se pozná až při otevření. Přehraje se, ale přeskočení vpřed čeká, než se stáhne vše před daným místem. Přeskočená vydání se už nezkoušejí.</string>
+    <string name="usenet_compressed_play_all">Vždy přehrát</string>
+    <string name="usenet_compressed_skip_over">Přeskočit nad %1$s</string>
+    <string name="usenet_compressed_skip_all">Vždy přeskočit</string>
+    <string name="usenet_compressed_skipped">Komprimované 7z přeskočeno - zkouším další zdroj</string>
+    <string name="usenet_compressed_unplayable">Toto vydání je komprimované 7z, přeskočené podle nastavení Usenetu</string>
+    <string name="tonight_twelve_hour">12hodinový formát času</string>
+    <string name="tonight_twelve_hour_description">Zobrazovat časy jako 11:30 PM místo 23:30.</string>
 </resources>

@@ -356,6 +356,12 @@ internal class PlayerScreenRuntime(
     var nextEpisodePreloadRequestedFor by mutableStateOf<String?>(null)
     var pendingP2pSwitch by mutableStateOf<PendingPlayerP2pSwitch?>(null)
     var credentialRefreshJob by mutableStateOf<Job?>(null)
+    /** Subtitle files that come with the playing stream (a media server's); see PlayerScreenRuntimeServer. */
+    var externalSubtitles by mutableStateOf(args.stream?.externalSubtitles.orEmpty())
+    var activeAddonPlayerEventTarget: com.nuvio.app.features.addons.AddonPlayerEventTarget? = null
+    var lastAddonPlayerAction: com.nuvio.app.features.addons.AddonPlayerAction? = null
+    /** URL opened from the reuse-last-link cache; it is refreshed after a playback error even without a token. */
+    var linkCacheSourceUrl: String? = args.sourceUrl.takeIf { args.sourceFromLinkCache && it.isNotBlank() }
     var credentialRefreshAttemptedSourceUrl by mutableStateOf<String?>(null)
 
     var showAudioModal by mutableStateOf(false)
@@ -401,6 +407,9 @@ internal class PlayerScreenRuntime(
     val failoverTriedIdentityKeys: MutableSet<String> = mutableSetOf()
     var failoverInProgress by mutableStateOf(false)
     var failoverJob: Job? = null
+    // Set when a Usenet open failed for the engine or the providers, not the release: failover then
+    // passes over every Usenet row until the next manual pick.
+    var failoverSkipsUsenet: Boolean = false
 
     /** Live TV: no metadata, skip lookups, addon failover or redirect probe; see PlayerScreenRuntimeIptv. */
     val isIptvPlayback: Boolean get() = parentMetaType == com.nuvio.app.features.iptv.IPTV_META_TYPE

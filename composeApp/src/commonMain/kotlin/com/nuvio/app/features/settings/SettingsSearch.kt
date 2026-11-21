@@ -25,6 +25,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Newspaper
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.CloudUpload
@@ -592,6 +594,20 @@ private fun settingsSearchEntries(
         icon = Icons.Rounded.CollectionsBookmark,
     )
     addPage(
+        page = SettingsPage.Usenet,
+        key = "usenet",
+        title = resolve(Res.string.compose_settings_page_usenet),
+        description = "Usenet · NNTP · Newznab · NZB · User-Agent · 7z · Usenet info · statistics",
+        icon = Icons.Rounded.Newspaper,
+    )
+    addPage(
+        page = SettingsPage.MediaServers,
+        key = "media-servers",
+        title = resolve(Res.string.compose_settings_page_media_servers),
+        description = "Jellyfin, Emby, Plex, Silo",
+        icon = Icons.Rounded.Dns,
+    )
+    addPage(
         page = SettingsPage.Games,
         key = "games",
         title = gamesPage,
@@ -819,6 +835,15 @@ private fun settingsSearchEntries(
             description = resolve(Res.string.gamepad_cursor_search_description),
             pageLabel = resolve(Res.string.compose_settings_page_keyboard_shortcuts),
             section = resolve(Res.string.gamepad_cursor_section),
+            icon = Icons.Rounded.Keyboard,
+        )
+        addRow(
+            page = SettingsPage.KeyboardShortcuts,
+            key = "controller-lights",
+            title = resolve(Res.string.gamepad_lights_section),
+            description = resolve(Res.string.gamepad_light_bar_description),
+            pageLabel = resolve(Res.string.compose_settings_page_keyboard_shortcuts),
+            section = resolve(Res.string.gamepad_lights_section),
             icon = Icons.Rounded.Keyboard,
         )
         addRow(
@@ -1551,6 +1576,15 @@ private fun settingsSearchEntries(
     )
     addRow(
         page = SettingsPage.Streams,
+        key = "stream-usenet-formatter",
+        title = resolve(Res.string.settings_stream_usenet_formatter_title),
+        description = resolve(Res.string.settings_stream_usenet_formatter_description),
+        pageLabel = streamsPage,
+        section = resolve(Res.string.settings_stream_display_section),
+        icon = Icons.Rounded.Style,
+    )
+    addRow(
+        page = SettingsPage.Streams,
         key = "stream-size-badges",
         title = resolve(Res.string.settings_stream_size_badges_title),
         description = resolve(Res.string.settings_stream_size_badges_description),
@@ -1675,12 +1709,6 @@ private fun settingsSearchEntries(
                 resolve(Res.string.settings_playback_show_loading_overlay),
                 resolve(Res.string.settings_playback_show_loading_overlay_description),
             ),
-            // fork:pip-browse
-            PlaybackSearchRow(
-                "pip-browse",
-                resolve(Res.string.settings_playback_pip_browse),
-                resolve(Res.string.settings_playback_pip_browse_description),
-            ),
             PlaybackSearchRow(
                 "double-click",
                 resolve(Res.string.settings_playback_double_click),
@@ -1759,6 +1787,12 @@ private fun settingsSearchEntries(
                 resolve(Res.string.settings_playback_desktop_inverse_tone_mapping),
                 resolve(Res.string.settings_playback_desktop_inverse_tone_mapping_desc),
                 anchor = SettingsScrollAnchor.InverseToneMapping,
+            ) else null,
+            if (isDesktop) PlaybackSearchRow(
+                "desktop-match-refresh-rate",
+                resolve(Res.string.settings_playback_desktop_match_refresh_rate),
+                resolve(Res.string.settings_playback_desktop_match_refresh_rate_desc),
+                anchor = SettingsScrollAnchor.MatchRefreshRate,
             ) else null,
             if (isDesktop) PlaybackSearchRow(
                 "desktop-color-profile",
@@ -2979,6 +3013,8 @@ private fun settingsSearchEntries(
     // builds instead of silently producing another unreachable option.
     val unavailablePages = buildSet {
         add(SettingsPage.Root)
+        // One server's page: reached from Media servers after picking a server, never on its own.
+        add(SettingsPage.MediaServer)
         if (!pluginsEnabled) add(SettingsPage.Plugins)
         if (!downloadsEnabled) {
             add(SettingsPage.AutoDownloads)

@@ -66,7 +66,10 @@ import com.nuvio.app.features.streams.BingeGroupCacheRepository
 import com.nuvio.app.features.streams.StreamLinkCacheRepository
 import com.nuvio.app.features.streams.StreamItem
 import com.nuvio.app.features.streams.hasLikelyExpiringPlaybackCredentials
+import com.nuvio.app.features.debrid.DirectDebridPlayableResult
+import com.nuvio.app.features.debrid.DirectDebridPlaybackResolver
 import com.nuvio.app.features.watchprogress.WatchProgressRepository
+import com.nuvio.app.features.addons.AddonPlayerAction
 import com.nuvio.app.isDesktop
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.buildJsonObject
@@ -513,6 +516,7 @@ internal fun PlayerScreenRuntime.BindPlayerRuntimeEffects() {
     BindYouTubeRelatedEffect() // fork:youtube-mode
     BindStreamFailoverWatchdogEffect()
     BindIptvLiveEffects()
+    BindServerPlaybackEffects()
 
     DisposableEffect(playbackSession.videoId, activeSourceUrl, activeSourceAudioUrl) {
         val effectVideoId = playbackSession.videoId
@@ -1042,6 +1046,7 @@ private fun PlayerScreenRuntime.phoneRemoteSubtitleName(): String? {
  * it clears the failover tried-set so a later, unrelated mid-playback failure gets a fresh budget.
  */
 private const val STREAM_FAILOVER_WATCHDOG_STEP_MS = 500L
+private const val USENET_DECODE_PROBE_MS = 2_000L
 private const val IPTV_STARTUP_TIMEOUT_MS = 45_000L
 private const val STREAM_FAILOVER_SUSTAINED_PLAYBACK_RESET_MS = 30_000L
 private const val INITIAL_TRACK_RESTORE_POLL_INTERVAL_MS = 250L
@@ -1085,6 +1090,12 @@ private fun PlayerScreenRuntime.BindStreamFailoverWatchdogEffect() {
         }
         var elapsed = 0L
         var started = false
+        // A compressed 7z decodes everything before a resume point first (it cannot jump): as
+        // long as the engine reports the decoder moving towards it, the start is not stuck, and
+        // the wait shows how far it is instead of failing over a release that is playing.
+        val usenetSession = com.nuvio.app.features.usenet.UsenetEngine.isSessionUrl(watchedUrl)
+        var sinceDecodeProbe = 0L
+        var lastDecoded = -1L
         while (elapsed < timeoutMs) {
             // A debrid URL can open and publish duration/position while waiting for the actual
             // torrent. Only mpv's first rendered-frame event proves this source really started.
@@ -1104,6 +1115,23 @@ private fun PlayerScreenRuntime.BindStreamFailoverWatchdogEffect() {
             ) return@LaunchedEffect
             delay(STREAM_FAILOVER_WATCHDOG_STEP_MS)
             elapsed += STREAM_FAILOVER_WATCHDOG_STEP_MS
+            if (usenetSession) {
+                sinceDecodeProbe += STREAM_FAILOVER_WATCHDOG_STEP_MS
+                if (sinceDecodeProbe >= USENET_DECODE_PROBE_MS) {
+                    sinceDecodeProbe = 0L
+                    val progress = com.nuvio.app.features.usenet.usenetDecodeProgress(
+                        com.nuvio.app.features.usenet.UsenetEngine.diagnostics(watchedUrl),
+                    )
+                    if (progress != null && progress.decodedBytes > lastDecoded) {
+                        lastDecoded = progress.decodedBytes
+                        elapsed = 0L
+                        playerController?.showTransientMessage(
+                            getString(Res.string.usenet_unpacking_7z),
+                            com.nuvio.app.features.usenet.usenetDecodeProgressLabel(progress),
+                        )
+                    }
+                }
+            }
         }
         if (!started &&
             playbackAttemptId == watchedAttemptId &&
@@ -1424,6 +1452,9 @@ private fun PlayerScreenRuntime.BindPlayerUiVisibilityEffects() {
             emitTrackingScrobbleStart()
         } else if (!previousIsPlaying && playbackSnapshot.isPlaying) {
             emitTrackingScrobbleStart()
+        }
+        if (!previousIsPlaying && playbackSnapshot.isPlaying) {
+            emitAddonPlayerEvent(AddonPlayerAction.START)
         }
 
         if (!playbackSnapshot.isLoading) {
@@ -1881,11 +1912,10 @@ private fun PlayerScreenRuntime.BindPlayerMetadataAndSkipEffects() {
         playbackSnapshot.durationMs,
         nextEpisodeInfo,
         playerSettingsUiState.preloadNextEpisodeSources,
-        playerSettingsUiState.streamAutoPlayNextEpisodeEnabled,
     ) {
         val next = nextEpisodeInfo ?: return@LaunchedEffect
         val settings = playerSettingsUiState
-        if (!settings.preloadNextEpisodeSources || !settings.streamAutoPlayNextEpisodeEnabled) return@LaunchedEffect
+        if (!settings.preloadNextEpisodeSources) return@LaunchedEffect
         if (!next.hasAired || nextEpisodePreloadRequestedFor == next.videoId) return@LaunchedEffect
         if (sourceAffinity == PlayerSourceAffinity.Local || isProviderDiagnosticVideoPlayback) return@LaunchedEffect
         if (playbackSnapshot.isLoading || playbackSnapshot.isEnded || playbackSnapshot.durationMs <= 0L || errorMessage != null) {
@@ -1980,18 +2010,23 @@ private fun PlayerScreenRuntime.BindPlayerMetadataAndSkipEffects() {
             errorMessage != null ||
             nextEpisodeInfo == null ||
             playbackSnapshot.durationMs <= 0L
-        // "Apply To Next Episode" never advances on its own, so the card is the only control the
-        // user has left once the episode ends — and clearing it here (the card normally dies with
-        // playback, because something else was always about to advance) took it away at exactly the
-        // moment it was needed. Hold it instead, until they click it or dismiss it.
+        // Hold the card across EOF when manual selection is active OR when the card is already
+        // up / auto-advance is searching so it flows seamlessly from the outro progress bar into
+        // "Finding source..." instead of vanishing at 100% and popping back in a frame later.
         val holdCardAtEnd = !cardBlocked &&
             playbackSnapshot.isEnded &&
             nextEpisodeInfo?.hasAired == true &&
-            shouldOpenManualNextEpisodeSelection(
-                mode = playerSettingsUiState.streamAutoPlayMode,
-                manualNextEpisodeEnabled = playerSettingsUiState.streamAutoPlayManualNextEpisode,
-                sourceAffinity = sourceAffinity,
-            )
+            (
+                showNextEpisodeCard ||
+                    nextEpisodeAutoPlaySearching ||
+                    nextEpisodeAutoPlayCountdown != null ||
+                    nextEpisodeAdvanceInProgress ||
+                    shouldOpenManualNextEpisodeSelection(
+                        mode = playerSettingsUiState.streamAutoPlayMode,
+                        manualNextEpisodeEnabled = playerSettingsUiState.streamAutoPlayManualNextEpisode,
+                        sourceAffinity = sourceAffinity,
+                    )
+                )
         if (cardBlocked || (playbackSnapshot.isEnded && !holdCardAtEnd)) {
             showNextEpisodeCard = false
             nextEpisodeThresholdStableSamples = 0
@@ -2328,17 +2363,29 @@ internal fun PlayerScreenRuntime.removeFailedStreamFromCache() {
     StreamLinkCacheRepository.remove(cacheKey)
 }
 
+/**
+ * Fetches the playing source again from its add-on (re-resolving debrid) and continues from the
+ * same position when its link has likely expired (upstream 3d70db683):
+ * - a link reopened from the reuse-last-link cache, which may have expired since it was saved;
+ * - a link with expiring credentials in its URL, which may already be stale when picked from
+ *   warmed-up results or may expire during playback.
+ * Each failed URL is refreshed at most once.
+ */
 internal fun PlayerScreenRuntime.tryRefreshCredentialedSourceAfterError(message: String?): Boolean {
     // A YouTube tab video has no addon to ask again: its streams are looked up again instead.
     if (isYouTubeVideoPlayback) return tryReresolveYouTubeAfterError(message)
-    val failedUrl = activeSourceUrl
-    if (!failedUrl.hasLikelyExpiringPlaybackCredentials()) return false
+    if (isServerSourcePlaying()) return retryServerSourceAfterError(message)
     if (credentialRefreshJob?.isActive == true) return true
+    val failedUrl = activeSourceUrl
+    if (failedUrl.isBlank()) return false
+    val fromLinkCache = failedUrl == linkCacheSourceUrl
+    if (!fromLinkCache && !failedUrl.hasLikelyExpiringPlaybackCredentials()) return false
     if (credentialRefreshAttemptedSourceUrl == failedUrl) return false
 
     val currentVideoId = activeVideoId ?: return false
     val failedAttemptId = playbackAttemptId
     credentialRefreshAttemptedSourceUrl = failedUrl
+    linkCacheSourceUrl = null
     removeFailedStreamFromCache()
 
     val savedPositionMs = playbackSnapshot.positionMs.coerceAtLeast(0L)
@@ -2346,6 +2393,8 @@ internal fun PlayerScreenRuntime.tryRefreshCredentialedSourceAfterError(message:
     val expectedProviderName = activeProviderName
     val expectedStreamTitle = activeStreamTitle
     val expectedBingeGroup = currentStreamBingeGroup
+    val expectedInfoHash = activeStream?.infoHash
+    val expectedFilename = activeStream?.behaviorHints?.filename ?: activeStreamFilename
     val type = contentType ?: parentMetaType
     val season = activeSeasonNumber
     val episode = activeEpisodeNumber
@@ -2380,6 +2429,8 @@ internal fun PlayerScreenRuntime.tryRefreshCredentialedSourceAfterError(message:
                 expectedProviderName = expectedProviderName,
                 expectedStreamTitle = expectedStreamTitle,
                 expectedBingeGroup = expectedBingeGroup,
+                expectedInfoHash = expectedInfoHash,
+                expectedFilename = expectedFilename,
             )
             if (
                 refreshedStream != null ||
@@ -2392,17 +2443,39 @@ internal fun PlayerScreenRuntime.tryRefreshCredentialedSourceAfterError(message:
             pollCount++
         }
 
-        val stream = refreshedStream
+        val candidate = refreshedStream
         if (
             playbackAttemptId != failedAttemptId ||
             activeVideoId != currentVideoId ||
             activeSourceUrl != failedUrl
         ) return@launch
-        if (stream == null) {
+        if (candidate == null) {
             errorMessage = message
             controlsVisible = !playerControlsLocked
             return@launch
         }
+        // Debrid links are always requested anew; a prepared or in-memory one may be the expired link.
+        val unresolved = if (candidate.debridResolved) candidate.copy(url = null, debridResolved = false) else candidate
+        val stream = when (
+            val resolved = DirectDebridPlaybackResolver.resolveToPlayableStream(
+                stream = unresolved,
+                season = season,
+                episode = episode,
+                forceRefresh = true,
+            )
+        ) {
+            is DirectDebridPlayableResult.Success -> resolved.stream
+            else -> {
+                errorMessage = message
+                controlsVisible = !playerControlsLocked
+                return@launch
+            }
+        }
+        if (
+            playbackAttemptId != failedAttemptId ||
+            activeVideoId != currentVideoId ||
+            activeSourceUrl != failedUrl
+        ) return@launch
 
         val refreshedUrl = stream.playableDirectUrl
         if (refreshedUrl.isNullOrBlank() || refreshedUrl == failedUrl) {
@@ -2411,6 +2484,16 @@ internal fun PlayerScreenRuntime.tryRefreshCredentialedSourceAfterError(message:
             return@launch
         }
 
+        if (playerSettingsUiState.streamReuseLastLinkEnabled) {
+            saveDirectStreamForReuse(
+                stream = stream,
+                url = refreshedUrl,
+                videoId = currentVideoId,
+                season = season,
+                episode = episode,
+                sourceIdentityKey = stream.playerSourceIdentityKey(),
+            )
+        }
         flushWatchProgress()
         stopActiveP2pStream()
         activeSourceAudioUrl = null
@@ -2435,19 +2518,22 @@ internal fun PlayerScreenRuntime.tryRefreshCredentialedSourceAfterError(message:
     return true
 }
 
-private fun findCredentialRefreshCandidate(
+internal fun findCredentialRefreshCandidate(
     streams: List<StreamItem>,
     failedUrl: String,
     expectedProviderAddonId: String?,
     expectedProviderName: String,
     expectedStreamTitle: String,
     expectedBingeGroup: String?,
+    expectedInfoHash: String? = null,
+    expectedFilename: String? = null,
+    canResolveDebrid: (StreamItem) -> Boolean = DirectDebridPlaybackResolver::shouldResolveToPlayableStream,
 ): StreamItem? =
     streams
         .asSequence()
         .mapNotNull { stream ->
-            val refreshedUrl = stream.playableDirectUrl?.takeIf { it.isNotBlank() && it != failedUrl }
-                ?: return@mapNotNull null
+            val hasFreshUrl = stream.playableDirectUrl?.let { it.isNotBlank() && it != failedUrl } == true
+            if (!hasFreshUrl && !stream.debridResolved && !canResolveDebrid(stream)) return@mapNotNull null
             val providerMatches = if (!expectedProviderAddonId.isNullOrBlank()) {
                 stream.addonId == expectedProviderAddonId
             } else {
@@ -2456,11 +2542,15 @@ private fun findCredentialRefreshCandidate(
             if (!providerMatches) return@mapNotNull null
 
             var score = 100
+            if (!expectedInfoHash.isNullOrBlank() && stream.infoHash.equals(expectedInfoHash, ignoreCase = true)) {
+                score += 60
+            }
             if (stream.streamLabel == expectedStreamTitle) score += 40
+            if (!expectedFilename.isNullOrBlank() && stream.behaviorHints.filename == expectedFilename) score += 30
             if (!expectedBingeGroup.isNullOrBlank() && stream.behaviorHints.bingeGroup == expectedBingeGroup) {
                 score += 20
             }
-            if (refreshedUrl.hasLikelyExpiringPlaybackCredentials()) score += 5
+            if (stream.playableDirectUrl?.hasLikelyExpiringPlaybackCredentials() == true) score += 5
             score to stream
         }
         .maxByOrNull { (score, _) -> score }

@@ -40,6 +40,9 @@
   <string name="addons_error_enter_url">Bir eklenti URL'si gir.</string>
   <string name="addons_input_placeholder">Eklenti URL'si</string>
   <string name="addons_install_button">Eklentiyi kur</string>
+  <string name="addons_tracking_consent_title">İzleme eklentisi</string>
+  <string name="addons_tracking_consent_body">%1$s bir izleme eklentisidir. Nuvio etkinliğinizi ona gönderir: oynattığınız, duraklattığınız ve durdurduğunuz içerikler ile oynatma konumu, kitaplığınıza eklediğiniz veya çıkardığınız öğeler ve izlendi ya da izlenmedi olarak işaretledikleriniz. Bu veriler Nuvio'dan çıkar ve eklentinin geliştiricisi ile bağlandığı hizmet tarafından işlenir.</string>
+  <string name="addons_tracking_consent_checkbox">İzleme etkinliğimi ve kitaplığımı bu eklentiyle paylaşmayı kabul ediyorum</string>
   <string name="addons_loading_manifest_details">Manifest detayları yükleniyor...</string>
   <string name="addons_modal_checking_message">Kurulumdan önce manifest URL'si doğrulanıyor ve eklenti detayları yükleniyor.</string>
   <string name="addons_modal_checking_title">Eklenti kontrol ediliyor</string>
@@ -1224,6 +1227,7 @@
   <string name="settings_continue_watching_click_action_description">Sol tık seçeneği.</string>
   <string name="settings_continue_watching_click_action_play">Oynat</string>
   <string name="settings_continue_watching_click_action_details">Detaylar</string>
+  <string name="settings_continue_watching_click_action_details_upcoming">Yalnızca yaklaşanlar için detaylar</string>
   <string name="settings_continue_watching_source_shortcut_title">Kaynak kısayolu</string>
   <string name="settings_continue_watching_source_shortcut_description">Tıklamanın tersini yapan bir üzerine gelme düğmesi: Son Bağlantıyı Yeniden Kullan açıkken kaynak seçiciyi açar, kapalıyken son bağlantıyı oynatır. Orta, düğmeyi görselin üzerinde büyük bir düğme yapar.</string>
   <string name="settings_continue_watching_source_shortcut_off">Kapalı</string>
@@ -1331,6 +1335,8 @@
   <string name="settings_stream_player_badges_same">Yayın rozetleriyle aynı</string>
   <string name="settings_stream_addon_logo_title">Eklenti logosu</string>
   <string name="settings_stream_addon_logo_description">Yayın kaynaklarının yanında eklenti logosunu ve adını göster.</string>
+  <string name="settings_stream_usenet_formatter_title">Tüm sonuçlarda Usenet biçimini kullan</string>
+  <string name="settings_stream_usenet_formatter_description">Eklenti ve debrid yayınlarını yerleşik Usenet düzeniyle biçimlendir (çözünürlük, başlık, HDR, sürüm grubu ve ses).</string>
   <string name="settings_stream_display_section">Görünüm</string>
   <string name="settings_stream_badge_position_title">Rozet konumu</string>
   <string name="settings_stream_badge_position_description">Fusion ve boyut rozetlerinin yayın kartlarının üstünde mi altında mı görüneceğini seç.</string>
@@ -1964,6 +1970,8 @@
   <string name="settings_playback_nvidia_rtx_hdr_anime_desc">Varsayılan olarak kapalı: SDR'den HDR'ye dönüşüm düz anime renklerini aşırı doygunlaştırabilir. Aşağıdaki seçenek açık olmadıkça Anime4K, özel gölgelendirici veya SVP çalışırken asla uygulanmaz.</string>
   <string name="settings_playback_desktop_inverse_tone_mapping">SDR'den HDR'ye (mpv)</string>
   <string name="settings_playback_desktop_inverse_tone_mapping_desc">SDR videoyu herhangi bir GPU'da HDR'ye genişletir (mpv'nin ters ton eşlemesi). Windows HDR'nin açık olması gerekir; RTX Video True HDR çalışırken o devralır. Anime4K, gölgelendiriciler ve SVP ile çalışır.</string>
+    <string name="settings_playback_desktop_match_refresh_rate">Yenileme hızını eşleştir</string>
+    <string name="settings_playback_desktop_match_refresh_rate_desc">Video oynarken monitörü, videonun kare hızına tam bölünen bir yenileme hızına geçirir (24 fps için 24 veya 120 Hz, 25 fps için 50 Hz) ve takılmayı giderir; oynatıcı kapanınca eski hıza döner. Her geçişte ekran bir an kararabilir.</string>
   <string name="settings_playback_desktop_inverse_tone_mapping_peak">SDR'den HDR'ye tepe parlaklık</string>
   <string name="settings_playback_desktop_inverse_tone_mapping_peak_desc">En parlak vurguların ne kadar parlak olacağı. Ekranının HDR tepe değerine yakın bir değer iyi bir başlangıçtır; düşük değerler özgün SDR'ye daha yakın görünür.</string>
   <string name="settings_playback_nvidia_rtx_hdr_anime_shaders">Anime gölgelendiricileriyle de</string>
@@ -1985,8 +1993,6 @@
   <string name="settings_playback_selected_count">%1$d seçili</string>
   <string name="settings_playback_show_loading_overlay">Yükleme ekranını göster</string>
   <string name="settings_playback_show_loading_overlay_description">Yayın başlarken açılış yükleme katmanını göster.</string>
-  <string name="settings_playback_pip_browse">Resim içinde resimdeyken gezin</string>
-  <string name="settings_playback_pip_browse_description">Resim içinde resme, uygulamayı video bir köşesinde olacak şekilde geri getiren bir düğme eklenir; böylece video oynarken gezinebilirsiniz. Bu sırada fragmanlar kapalı kalır. Bir sonraki videodan itibaren geçerlidir.</string>
   <string name="settings_playback_double_click">Videoya çift tıklama</string>
   <string name="settings_playback_double_click_description">Oynatılan videoya çift tıklamanın ne yapacağı. Resim içinde resimde videoyu her zaman geri getirir.</string>
   <string name="settings_playback_double_click_pip">Resim içinde resim</string>
@@ -3762,6 +3768,7 @@
   <string name="settings_home_hero_info_none">Hero bilgisi gösterilmiyor</string>
   <string name="settings_home_hero_info_priority">Hero bilgisi önceliği</string>
   <string name="settings_home_hero_info_priority_description">Hangi hero rozetlerinin önce tercih edileceğini seç.</string>
+  <string name="settings_home_hero_info_priority_keys">Enter açar ya da kapatır; Sol/Sağ ya da Shift+Yukarı/Aşağı öne ya da arkaya taşır.</string>
   <string name="settings_home_hero_info_release_status">Yayın durumu</string>
   <string name="settings_home_hero_info_release_status_description">Bir filmin yayında, vizyonda, yapım aşamasında veya fiziksel olarak mevcut olup olmadığını gösterir.</string>
   <string name="settings_home_hero_info_short_film">Kısa film</string>
@@ -3879,6 +3886,18 @@
   <string name="setup_wizard_trailers_start_auto">Otomatik</string>
   <string name="setup_wizard_shortcuts_after_finish">Bitir'e tıkladıktan sonra Nuvio, kontrolleri görebilmen ve yön tuşları ile WASD arasında seçim yapabilmen için klavye kısayolları sayfasını açar.</string>
   <string name="setup_wizard_renderer_note">Nuvio, en geniş uyumluluk için arayüzünü Direct3D 11 ile çizer. Daha cilalı bir görünüm için Ayarlar › Video &amp; Ses › Arayüz oluşturucu bölümünden OpenGL'e geçebilirsin. Tam ekran oynatma siyah ekran gösterirse Direct3D 11'e geri dön.</string>
+  <string name="setup_wizard_scale_title">Boyut</string>
+  <string name="setup_wizard_scale_subtitle">Metinleri ve düğmeleri oturduğunuz yerden rahatça okunur hale getirin. Bu panel de onlarla birlikte büyüyüp küçülür.</string>
+  <string name="setup_wizard_scale_description">Menüler ve metinler dahil Nuvio’daki her şey.</string>
+  <string name="setup_wizard_scale_shortcut">Ctrl + artı ve Ctrl + eksi bunu istediğiniz an değiştirir.</string>
+  <string name="setup_wizard_panels_title">Paneller</string>
+  <string name="setup_wizard_panels_subtitle">Nuvio filmlerden ve dizilerden fazlasını sunar. Gezinmede neyin görüneceğini seçin; Ana Sayfa, Ara ve Kitaplık her zaman oradadır.</string>
+  <string name="setup_wizard_panels_tonight">Birkaç hızlı soru ya da yazı tura ile bu akşam ne izleyeceğinizi seçmenize yardım eder.</string>
+  <string name="setup_wizard_panels_live_tv">Eklediğiniz bir IPTV listesinden TV kanalları ve yayın akışı.</string>
+  <string name="setup_wizard_panels_youtube">Giriş yaptıktan sonra YouTube ana sayfanız ve abonelikleriniz.</string>
+  <string name="setup_wizard_panels_music">YouTube Music’ten albümler, sanatçılar, şarkı sözleri ve radyo.</string>
+  <string name="setup_wizard_panels_games">PC oyunlarınızı kanepeden başlatmak için bir oyun modu.</string>
+  <string name="setup_wizard_panels_later">Hepsi Ayarlar’dan yeniden açılabilir; her birinin orada kendi seçenekleri de vardır.</string>
   <string name="settings_account_setup">Kurulum</string>
   <string name="settings_account_run_wizard">Kurulum sihirbazını çalıştır</string>
   <string name="settings_account_run_wizard_description">Görüntüleme modunu, kaynakları, fragmanları, kontrolleri ve meta veri anahtarlarını gözden geçir.</string>
@@ -4663,6 +4682,8 @@
   <string name="player_hud_custom_shadow_color">Özel gölge rengi</string>
   <string name="player_hud_enter_a_hex_color_like_ffd700">#FFD700 veya #B3000000 gibi bir hex renk gir.</string>
   <string name="player_hud_mpv_diagnostics">MPV tanılama</string>
+  <string name="player_hud_diagnostics">Tanılama</string>
+  <string name="player_hud_stream_info">Yayın bilgisi</string>
   <string name="player_hud_option">Seçenek</string>
   <string name="player_hud_no_addon_subtitles_loaded">Eklenti altyazısı yüklenmedi</string>
   <string name="player_hud_no_tracks_available">Kullanılabilir parça yok</string>
@@ -5018,6 +5039,15 @@
     <string name="gamepad_cursor_speed_slow">Yavaş</string>
     <string name="gamepad_cursor_speed_medium">Orta</string>
     <string name="gamepad_cursor_speed_fast">Hızlı</string>
+    <string name="gamepad_lights_section">Kumanda ışıkları</string>
+    <string name="gamepad_lights_note">Yalnızca PlayStation DualSense. Olduğu gibi bırak kumandaya hiçbir şey yazmaz; diğer seçenekler Bluetooth kumandayı tam raporuna da geçirir, bu biraz daha fazla pil harcar.</string>
+    <string name="gamepad_light_bar">Işık çubuğu</string>
+    <string name="gamepad_light_bar_description">Dokunmatik yüzeyin çevresindeki renkli şerit.</string>
+    <string name="gamepad_light_bar_leave">Olduğu gibi bırak</string>
+    <string name="gamepad_light_bar_off">Kapalı</string>
+    <string name="gamepad_light_bar_accent">Vurgu rengi</string>
+    <string name="gamepad_player_light">Oyuncu ışığı</string>
+    <string name="gamepad_player_light_description">Dokunmatik yüzeyin altındaki küçük beyaz ışık.</string>
     <string name="gamepad_cursor_default">Varsayılan olarak imleç</string>
     <string name="gamepad_cursor_default_description">Nuvio öndeyken sol çubuk her zaman fare imlecidir. D-pad odağı taşımaya devam eder, A ise en son neyi kullandıysanız tıklar ya da seçer. İmleci kaldırmak için kilit açma düğmesini basılı tutun.</string>
     <string name="gamepad_cursor_hint">Düğme ipuçları</string>
@@ -5047,4 +5077,17 @@
     <string name="gamepad_rebind_player">Oynatma sırasında</string>
     <string name="gamepad_rebind_changed">Değiştirildi</string>
     <string name="gamepad_rebind_search_description">Kumanda düğmelerini gezinme ve oynatma için yeniden atayın</string>
+    <string name="usenet_unpacking_7z">Sıkıştırılmış 7z açılıyor</string>
+    <string name="settings_stream_scoring_trait_compressed_archive_movie">Sıkıştırılmış 7z (filmler)</string>
+    <string name="settings_stream_scoring_trait_compressed_archive_series">Sıkıştırılmış 7z (diziler ve anime)</string>
+    <string name="settings_stream_scoring_trait_compressed_archive_caption">Açıldığında sıkıştırılmış 7z olduğu anlaşılan Usenet yayınları. Oynatılırlar ama ileri atlamak, o noktaya kadar her şeyin inmesini bekler.</string>
+    <string name="usenet_compressed_releases">Sıkıştırılmış 7z yayınları</string>
+    <string name="usenet_compressed_releases_description">Sıkıştırılmış 7z ancak açıldığında anlaşılır. Oynatılır ama ileri atlamak, öncesindeki her şeyin inmesini bekler. Atlananlar bir daha denenmez.</string>
+    <string name="usenet_compressed_play_all">Her zaman oynat</string>
+    <string name="usenet_compressed_skip_over">%1$s üzerini atla</string>
+    <string name="usenet_compressed_skip_all">Her zaman atla</string>
+    <string name="usenet_compressed_skipped">Sıkıştırılmış 7z atlandı - sonraki kaynak deneniyor</string>
+    <string name="usenet_compressed_unplayable">Bu yayın sıkıştırılmış 7z, Usenet ayarlarınız gereği atlandı</string>
+    <string name="tonight_twelve_hour">12 saat biçimi</string>
+    <string name="tonight_twelve_hour_description">Saatleri 23:30 yerine 11:30 PM olarak göster.</string>
 </resources>
