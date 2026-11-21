@@ -1002,12 +1002,10 @@ Upstream's windows-tv-adaptive (43492138) merged into Spyder. Its new things, an
 
 ## Lights out: Govee Movie DreamView (Nov 18)
 
-Settings > Lights out > Govee. Needs the Movie DreamView group set up in the Govee Home app first.
-
-- [ ] Load the Govee devices again: a **Movie DreamView** row lists the device(s) that offer it (the AI Sync Box at least); if it says none offers it, send nuvio.log (it lists every device's capabilities)
-- [ ] Pick the device, press **Start Movie DreamView now**: all the Govee lights grouped in the DreamView start following the TV
-- [ ] Close and reopen Nuvio with **Start Movie DreamView with Nuvio** on: the DreamView starts by itself within a few seconds
-- [ ] Play and pause a film: the DreamView lights are not dimmed
+- Movie DreamView in Settings > Lights out: dropped, Switchboard on the phone starts and stops it (2026-11-21)
+- [ ] Settings > Lights out > Govee has no Movie DreamView rows, and loading the Govee devices still lists the lights
+- [ ] Close and reopen Nuvio: the Govee lights stay as Switchboard left them (no DreamView starting by itself)
+- [ ] With Lights out on, play and pause a film: the lights ticked under Lights to control still dim and come back
 
 ## Phone remote: picture shape (Nov 21)
 

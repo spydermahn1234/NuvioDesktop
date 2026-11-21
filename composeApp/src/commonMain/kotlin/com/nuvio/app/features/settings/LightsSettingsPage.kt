@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.features.lights.GoveeDeviceLoadState
-import com.nuvio.app.features.lights.GoveeDreamViewState
 import com.nuvio.app.features.lights.LightsController
 import com.nuvio.app.features.lights.LightsEndBehavior
 import com.nuvio.app.features.lights.LightsPauseBehavior
@@ -28,15 +27,6 @@ import com.nuvio.app.features.lights.LightsWebhookMethod
 import com.nuvio.app.features.lights.MINUTES_PER_DAY
 import com.nuvio.app.features.lights.normalizeWebhookUrl
 import nuvio.composeapp.generated.resources.Res
-import nuvio.composeapp.generated.resources.settings_lights_dreamview_none
-import nuvio.composeapp.generated.resources.settings_lights_dreamview_devices
-import nuvio.composeapp.generated.resources.settings_lights_dreamview_devices_description
-import nuvio.composeapp.generated.resources.settings_lights_dreamview_on_start
-import nuvio.composeapp.generated.resources.settings_lights_dreamview_on_start_description
-import nuvio.composeapp.generated.resources.settings_lights_dreamview_start
-import nuvio.composeapp.generated.resources.settings_lights_dreamview_start_idle
-import nuvio.composeapp.generated.resources.settings_lights_dreamview_started
-import nuvio.composeapp.generated.resources.settings_lights_dreamview_failed
 import nuvio.composeapp.generated.resources.settings_lights_dim_level
 import nuvio.composeapp.generated.resources.settings_lights_dim_level_description
 import nuvio.composeapp.generated.resources.settings_lights_enable
@@ -387,63 +377,6 @@ private fun GoveeDevicesRows(isTablet: Boolean, settings: LightsSettings) {
             isTablet = isTablet,
             summaryForCount = { stringResource(Res.string.settings_lights_govee_devices_count, it) },
             onToggle = LightsSettingsRepository::toggleGoveeDevice,
-        )
-        GoveeDreamViewRows(isTablet = isTablet, settings = settings)
-    }
-}
-
-/**
- * fork:govee-dreamview - the devices whose Movie DreamView Nuvio starts (the group set up in the Govee Home app
- * follows the device), whether it starts with Nuvio, and a button to start it now. A device running DreamView is
- * never dimmed by Lights out.
- */
-@Composable
-private fun GoveeDreamViewRows(isTablet: Boolean, settings: LightsSettings) {
-    val capable = settings.goveeDevices.filter { it.dreamView != null }
-    SettingsGroupDivider(isTablet = isTablet)
-    if (capable.isEmpty()) {
-        LightsInfoRow(isTablet = isTablet, text = stringResource(Res.string.settings_lights_dreamview_none))
-        return
-    }
-    SettingsMultiSelectRow(
-        title = stringResource(Res.string.settings_lights_dreamview_devices),
-        description = stringResource(Res.string.settings_lights_dreamview_devices_description),
-        options = capable.map { device -> SettingsChoiceOption(device.deviceId, "${device.name} (${device.sku})") },
-        selectedValues = settings.goveeDreamViewDeviceIds,
-        emptyLabel = stringResource(Res.string.settings_lights_govee_devices_empty),
-        isTablet = isTablet,
-        summaryForCount = { stringResource(Res.string.settings_lights_govee_devices_count, it) },
-        onToggle = LightsSettingsRepository::toggleGoveeDreamViewDevice,
-    )
-    SettingsGroupDivider(isTablet = isTablet)
-    SettingsSwitchRow(
-        title = stringResource(Res.string.settings_lights_dreamview_on_start),
-        description = stringResource(Res.string.settings_lights_dreamview_on_start_description),
-        checked = settings.dreamViewOnStart,
-        isTablet = isTablet,
-        onCheckedChange = LightsSettingsRepository::setDreamViewOnStart,
-    )
-    SettingsGroupDivider(isTablet = isTablet)
-    val state = settings.dreamViewState
-    SettingsActionRow(
-        title = stringResource(Res.string.settings_lights_dreamview_start),
-        description = when (state) {
-            GoveeDreamViewState.Idle, GoveeDreamViewState.Running -> stringResource(Res.string.settings_lights_dreamview_start_idle)
-            is GoveeDreamViewState.Done -> if (state.failed == 0) {
-                stringResource(Res.string.settings_lights_dreamview_started, state.started)
-            } else {
-                stringResource(Res.string.settings_lights_dreamview_failed, state.failed)
-            }
-        },
-        descriptionColor = if (state is GoveeDreamViewState.Done && state.failed > 0) MaterialTheme.colorScheme.error else null,
-        isTablet = isTablet,
-    ) {
-        SettingsGlassButton(
-            text = stringResource(Res.string.settings_action_run),
-            onClick = { LightsController.startDreamView() },
-            enabled = settings.goveeDreamViewDevices.isNotEmpty(),
-            accent = true,
-            loading = state is GoveeDreamViewState.Running,
         )
     }
 }
