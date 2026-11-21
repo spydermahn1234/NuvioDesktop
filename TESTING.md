@@ -998,19 +998,7 @@ Upstream's windows-tv-adaptive (43492138) merged into Spyder. Its new things, an
 
 ## Nuvio Lights (Nov 18)
 
-The tray app in `lights/` (NuvioLights.exe from the NuvioLights release). Phone remote must be on in Nuvio.
-
-- [ ] NuvioLights.exe starts to the tray; the Lights window opens and Find lights lists the WiZ ceiling bulb and the Govee lights (LAN Control on in the Govee app)
-- [ ] Flash on a row blinks that light twice and leaves it as it was
-- [ ] It asks for the phone remote's six-digit code once; after that the tray menu says Connected
-- [ ] Play a film: the WiZ ceiling light fades down to 10 % within about two seconds
-- [ ] Pause it: the ceiling light fades straight back to the brightness it had before
-- [ ] Next episode plays on its own: the light stays dimmed through the gap
-- [ ] Stop the film: the light comes back after about four seconds
-- [ ] Play music: the light dims too; untick Music in the tray menu and it no longer does
-- [ ] A Govee light set to Dim (or Turn off) in the Lights window follows play and pause the same way
-- [ ] Exit from the tray menu while dimmed: the lights come back before it quits
-- [ ] Restart the PC: Nuvio Lights starts with Windows and reconnects to Nuvio without asking for the code
+- Nuvio Lights, the tray app: dropped, film-night lighting belongs to Switchboard on the phone (2026-11-21)
 
 ## Lights out: Govee Movie DreamView (Nov 18)
 
@@ -1019,7 +1007,7 @@ Settings > Lights out > Govee. Needs the Movie DreamView group set up in the Gov
 - [ ] Load the Govee devices again: a **Movie DreamView** row lists the device(s) that offer it (the AI Sync Box at least); if it says none offers it, send nuvio.log (it lists every device's capabilities)
 - [ ] Pick the device, press **Start Movie DreamView now**: all the Govee lights grouped in the DreamView start following the TV
 - [ ] Close and reopen Nuvio with **Start Movie DreamView with Nuvio** on: the DreamView starts by itself within a few seconds
-- [ ] Play and pause a film: the DreamView lights are not dimmed (the WiZ ceiling light still is, through Nuvio Lights)
+- [ ] Play and pause a film: the DreamView lights are not dimmed
 
 ## Phone remote: picture shape (Nov 21)
 
