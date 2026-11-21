@@ -914,6 +914,10 @@ private fun PlayerScreenRuntime.BindPhoneRemoteNowPlayingEffect() {
                 runtime.playNextEpisode()
                 return true
             }
+            override fun setAspect(mode: Int) {
+                val next = com.nuvio.app.features.player.PlayerResizeMode.entries.getOrNull(mode) ?: return
+                runtime.scope.launch { runtime.setPlayerResizeMode(next) }
+            }
         }
         com.nuvio.app.features.remote.RemotePlayerHub.publishFilm(null, controls)
         onDispose { com.nuvio.app.features.remote.RemotePlayerHub.publishFilm(null, null) }
@@ -957,6 +961,7 @@ private fun PlayerScreenRuntime.phoneRemoteNowPlaying(): com.nuvio.app.features.
         speedPercent = (snapshot.playbackSpeed * 100f).toInt().coerceIn(50, 400),
         skipLabel = activeSkipInterval?.takeUnless { skipIntervalDismissed }?.let { phoneRemoteSkipLabel(it.type) },
         canNextEpisode = isSeries && nextEpisodeInfo?.hasAired == true,
+        aspect = resizeMode.ordinal,
     )
 }
 

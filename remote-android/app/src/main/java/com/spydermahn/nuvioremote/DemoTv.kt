@@ -125,6 +125,7 @@ object DemoTv {
     private var baseAtMs = 0L
     private var volume = 70
     private var speedPercent = 100
+    private var aspect = 0
     private var sleepMinutes = 0
     private var shuffle = false
     private var repeat = 0
@@ -167,7 +168,7 @@ object DemoTv {
                 val f = film ?: return "IDLE"
                 "STATE film ${if (playing) 1 else 0} $position ${f.durationMs} $shownVolume 100 0 ${field(f.title)} " +
                     "${field(f.subtitle)} ${field(f.image)} ${field(subtitleTracks[subtitleIndex])} ${field(audioTracks[audioIndex])} " +
-                    "$speedPercent ${if (position < 60_000L) "Skip%20intro" else "-"} 1 $sleepMinutes - - -"
+                    "$speedPercent ${if (position < 60_000L) "Skip%20intro" else "-"} 1 $sleepMinutes - - - $aspect"
             }
             Mode.Music -> {
                 val s = songs.getOrNull(songIndex) ?: return "IDLE"
@@ -715,6 +716,11 @@ object DemoTv {
                 "SPEED" -> {
                     synchronized(DemoTv) { speedPercent = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(50, 400) ?: return }
                     note("Speed $speedPercent%")
+                    broadcastState()
+                }
+                "ASPECT" -> {
+                    synchronized(DemoTv) { aspect = parts.getOrNull(1)?.toIntOrNull()?.takeIf { it in 0..3 } ?: return }
+                    note("Picture: ${listOf("Fit", "Stretch", "Zoom", "Auto crop")[aspect]}")
                     broadcastState()
                 }
                 "SKIP_INTRO" -> {

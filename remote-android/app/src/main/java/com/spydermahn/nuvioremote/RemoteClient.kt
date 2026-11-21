@@ -81,6 +81,8 @@ data class NowPlaying(
     val shuffle: Boolean? = null,
     val repeat: Int? = null,
     val liked: Boolean? = null,
+    /** The film's picture shape: 0 Fit, 1 Stretch, 2 Zoom, 3 Auto crop; null from a PC that does not say. */
+    val aspect: Int? = null,
 ) {
     val hasTimeline: Boolean get() = durationMs > 0L
 
@@ -225,6 +227,7 @@ sealed interface ServerLine {
                 shuffle = parts.getOrNull(17)?.let { if (it == "1") true else if (it == "0") false else null },
                 repeat = parts.getOrNull(18)?.toIntOrNull(),
                 liked = parts.getOrNull(19)?.let { if (it == "1") true else if (it == "0") false else null },
+                aspect = parts.getOrNull(20)?.toIntOrNull()?.takeIf { it in 0..3 },
             )
         }
     }

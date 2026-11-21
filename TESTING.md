@@ -1020,3 +1020,11 @@ Settings > Lights out > Govee. Needs the Movie DreamView group set up in the Gov
 - [ ] Pick the device, press **Start Movie DreamView now**: all the Govee lights grouped in the DreamView start following the TV
 - [ ] Close and reopen Nuvio with **Start Movie DreamView with Nuvio** on: the DreamView starts by itself within a few seconds
 - [ ] Play and pause a film: the DreamView lights are not dimmed (the WiZ ceiling light still is, through Nuvio Lights)
+
+## Phone remote: picture shape (Nov 21)
+
+- [ ] During a film, More › Playback shows a Shape row (Fit, Stretch, Zoom, Auto crop) with the TV's current one lit
+- [ ] Each of Fit, Stretch, Zoom and Auto crop changes the picture on the TV, and the TV briefly shows its name
+- [ ] Changing the shape from the TV's own Aspect ratio menu lights the matching chip on the phone within a second
+- [ ] The shape picked from the phone is still in use when the next film starts
+- [ ] During music the Shape row is not shown

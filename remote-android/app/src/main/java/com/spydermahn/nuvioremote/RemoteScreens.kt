@@ -1095,6 +1095,18 @@ private fun SpeedChips(speed: Int, viewModel: RemoteViewModel) {
     }
 }
 
+/** The film's picture shape, as the player's Aspect ratio menu: Fit (bars), Stretch, Zoom (crops the edges), Auto crop (trims bars baked into the video). */
+@Composable
+private fun AspectChips(aspect: Int, viewModel: RemoteViewModel) {
+    ChipRow("Shape") {
+        listOf("Fit", "Stretch", "Zoom", "Auto crop").forEachIndexed { mode, label ->
+            GlassTag(label, accent = aspect == mode, onClick = {
+                viewModel.control("ASPECT $mode") { it.copy(aspect = mode) }
+            })
+        }
+    }
+}
+
 /** The PC's sleep timer: pauses what is playing after 15, 30 or 60 minutes; shows the minutes left while it runs. */
 @Composable
 private fun SleepChips(playing: NowPlaying, viewModel: RemoteViewModel) {
@@ -1325,6 +1337,7 @@ private fun MoreSheet(state: UiState, viewModel: RemoteViewModel, onType: () -> 
             }
             state.nowPlaying?.let { playing ->
                 playing.speedPercent?.let { speed -> SpeedChips(speed, viewModel) }
+                playing.aspect?.takeIf { playing.kind == "film" }?.let { aspect -> AspectChips(aspect, viewModel) }
                 SleepChips(playing, viewModel)
             }
 

@@ -116,6 +116,8 @@ internal object PhoneRemoteProtocol {
             state.shuffle?.let { if (it) "1" else "0" } ?: "-",
             state.repeat?.toString() ?: "-",
             state.liked?.let { if (it) "1" else "0" } ?: "-",
+            // Added with the aspect ratio chips: 0 Fit, 1 Stretch, 2 Zoom, 3 Auto crop, `-` where the player cannot say.
+            state.aspect?.toString() ?: "-",
         ).joinToString(" ")
     }
 
@@ -224,7 +226,7 @@ internal object PhoneRemoteProtocol {
             "PICK_AUDIO" -> parts.getOrNull(1)?.toIntOrNull()?.takeIf { it >= 1 }?.let { RemoteMessage.PickAudio(it) }
             "PICK_SUBTITLE" -> parts.getOrNull(1)?.toIntOrNull()?.takeIf { it >= 1 }?.let { RemoteMessage.PickSubtitle(it) }
             // fork:phone-remote extras: speed, skip, next episode, sleep timer, shuffle, repeat, like, radio.
-            "SPEED", "SLEEP", "SHUFFLE", "REPEAT" -> ControlAction.fromWire(parts[0])?.let { action ->
+            "SPEED", "SLEEP", "SHUFFLE", "REPEAT", "ASPECT" -> ControlAction.fromWire(parts[0])?.let { action ->
                 parts.getOrNull(1)?.toIntOrNull()?.takeIf { it >= 0 }?.let { RemoteMessage.Control(action, it) }
             }
             "SKIP_INTRO", "NEXT_EPISODE", "LIKE", "RADIO" -> ControlAction.fromWire(parts[0])?.let { RemoteMessage.Control(it, 0) }
@@ -319,7 +321,9 @@ internal enum class PointerButton(val wire: String) {
 /** The film and music extras the phone can ask for. [value] is the speed in percent, the sleep minutes (0 off), 0/1, or the repeat mode. */
 internal enum class ControlAction(val wire: String) {
     Speed("SPEED"), SkipIntro("SKIP_INTRO"), NextEpisode("NEXT_EPISODE"), Sleep("SLEEP"),
-    Shuffle("SHUFFLE"), Repeat("REPEAT"), Like("LIKE"), Radio("RADIO");
+    Shuffle("SHUFFLE"), Repeat("REPEAT"), Like("LIKE"), Radio("RADIO"),
+    /** The film's picture shape, 0..3 as in [com.nuvio.app.features.remote.RemoteNowPlaying.aspect]. */
+    Aspect("ASPECT");
 
     companion object {
         fun fromWire(wire: String): ControlAction? = entries.firstOrNull { it.wire == wire }

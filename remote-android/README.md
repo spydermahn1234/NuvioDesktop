@@ -42,7 +42,8 @@ queue, and can "sleep" to try Wake. A strip shows what it was sent. This is for 
 - Works everywhere in Nuvio, including Settings (arrow keys there show a focus ring in the theme's colour).
 - **During a film:** a Now playing card, Subtitles and Audio tiles (tap for the next track), back 10s / play-pause /
   ahead 10s, Back, Sources, More. **Sources** shows the TV's source list on the phone, in the same order, and tapping
-  one plays it.
+  one plays it. **More › Playback › Shape** sets the picture's aspect: Fit (bars), Stretch, Zoom (fills the screen,
+  cropping the edges) or Auto crop (trims bars baked into the video), as the player's Aspect ratio menu does.
 - **During music:** the cover, title and artist, a seek bar, previous / play-pause / next, and Back, Queue, Lyrics,
   Dark, More.
   - **Queue** lists what the TV will play. Tap a song to play it; Play next and Remove work on songs still to come.

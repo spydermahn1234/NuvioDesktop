@@ -43,6 +43,8 @@ data class RemoteNowPlaying(
     val shuffle: Boolean? = null,
     val repeat: Int? = null,
     val liked: Boolean? = null,
+    /** The film's picture shape: 0 Fit, 1 Stretch, 2 Zoom, 3 Auto crop (the player's resize modes, in order); null when it cannot say. */
+    val aspect: Int? = null,
 )
 
 /** What the phone can do to the film player beyond the keys a controller sends. */
@@ -74,6 +76,9 @@ interface RemoteFilmControls {
 
     /** Moves on to the next episode as the player's next-episode button does. False when there is none. */
     fun nextEpisode(): Boolean = false
+
+    /** Sets the picture shape (see [RemoteNowPlaying.aspect]) as the player's Aspect ratio menu does. */
+    fun setAspect(mode: Int) = Unit
 
     /** Asks the add-ons for subtitles again; used when the phone opens its list and nothing is there yet. */
     fun fetchSubtitles() = Unit

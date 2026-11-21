@@ -69,6 +69,12 @@ class RemoteProtocolTest {
         assertTrue(film.canNextEpisode)
         assertEquals(30, film.sleepMinutes)
         assertEquals(null, film.shuffle)
+        assertEquals(null, film.aspect)
+
+        val shaped = (ServerLine.parse(
+            "STATE film 1 5000 7200000 80 100 0 Show - - - - 100 - 0 0 - - - 2", 0L,
+        ) as ServerLine.State).nowPlaying
+        assertEquals(2, shaped.aspect)
 
         val music = (ServerLine.parse("STATE music 1 1000 200000 50 100 1 Song - - - - - - 0 0 1 2 1", 0L) as ServerLine.State).nowPlaying
         assertEquals(true, music.shuffle)

@@ -347,6 +347,7 @@ internal object PhoneRemote {
                 }
                 ControlAction.Like -> likeCurrent()
                 ControlAction.Radio -> startRadio()
+                ControlAction.Aspect -> film?.setAspect(value.coerceIn(0, 3))
             }
         }
     }
