@@ -1534,6 +1534,8 @@
     <string name="settings_beat_lights_govee_scan_found">Found %1$d. Tick the ones to flash below</string>
     <string name="settings_beat_lights_govee_scan_none">None answered. Check LAN Control is on for the light in Govee Home, and that this PC is on the same Wi-Fi</string>
     <string name="settings_beat_lights_govee_scan_failed">Could not look: %1$s</string>
+    <string name="settings_beat_lights_govee_add">Add a Govee light by address</string>
+    <string name="settings_beat_lights_govee_add_description">For a light Find can't reach (some routers keep the search from crossing between the 2.4 and 5 GHz networks): its IP address from your router's device list. It is added and ticked</string>
     <string name="settings_beat_lights_govee_lights">Govee lights to flash</string>
     <string name="settings_beat_lights_govee_lights_description">Each picked light goes into Govee's real-time mode while music plays (instant changes, no fade), and back to what it was doing when the music stops. Leave out the light the Sync Box uses for Movie</string>
     <string name="settings_beat_lights_govee_lights_none">None</string>

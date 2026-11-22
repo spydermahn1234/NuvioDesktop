@@ -175,4 +175,19 @@ class BeatLightsTest {
         assertFalse(BeatLightsSettings(enabled = true, goveeFound = listOf(light)).ready)
         assertTrue(BeatLightsSettings(enabled = true, goveeFound = listOf(light), goveeOn = setOf("A")).ready)
     }
+
+    @Test
+    fun aLightAddedByAddressIsPickedAndAScanFindingItTakesItsPlace() {
+        val repo = BeatLightsSettingsRepository
+        repo.addGovee("not an address")
+        repo.addGovee(" 192.168.1.60 ")
+        val added = repo.state.value
+        assertTrue(GoveeLanLight("address:192.168.1.60", "192.168.1.60", "Govee") in added.goveeFound)
+        assertTrue("address:192.168.1.60" in added.goveeOn)
+        repo.scanDone(listOf(GoveeLanLight("1F:80", "192.168.1.60", "H6056")))
+        val scanned = repo.state.value
+        assertEquals(listOf("1F:80"), scanned.goveeFound.filter { it.ip == "192.168.1.60" }.map { it.id })
+        assertTrue("1F:80" in scanned.goveeOn)
+        assertFalse("address:192.168.1.60" in scanned.goveeOn)
+    }
 }

@@ -20,6 +20,8 @@ import nuvio.composeapp.generated.resources.settings_beat_lights_early_descripti
 import nuvio.composeapp.generated.resources.settings_beat_lights_enable
 import nuvio.composeapp.generated.resources.settings_beat_lights_enable_description
 import nuvio.composeapp.generated.resources.settings_beat_lights_flash
+import nuvio.composeapp.generated.resources.settings_beat_lights_govee_add
+import nuvio.composeapp.generated.resources.settings_beat_lights_govee_add_description
 import nuvio.composeapp.generated.resources.settings_beat_lights_govee_lights
 import nuvio.composeapp.generated.resources.settings_beat_lights_govee_lights_count
 import nuvio.composeapp.generated.resources.settings_beat_lights_govee_lights_description
@@ -98,6 +100,16 @@ internal fun BeatLightsSettingsSection(isTablet: Boolean) {
                     loading = scan == GoveeScanState.Scanning,
                 )
             }
+            SettingsGroupDivider(isTablet = isTablet)
+            SettingsTextInputRow(
+                title = stringResource(Res.string.settings_beat_lights_govee_add),
+                description = stringResource(Res.string.settings_beat_lights_govee_add_description),
+                value = "",
+                placeholder = "192.168.1.60",
+                keyboardType = KeyboardType.Uri,
+                isTablet = isTablet,
+                onSave = BeatLightsSettingsRepository::addGovee,
+            )
             if (settings.goveeFound.isNotEmpty()) {
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsMultiSelectRow(

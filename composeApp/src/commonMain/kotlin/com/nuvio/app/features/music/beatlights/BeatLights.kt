@@ -186,6 +186,9 @@ internal object BeatLightsRules {
     /** A real-time packet as the JSON the light takes on its command port. */
     fun goveeRazerJson(packet: ByteArray): String = """{"msg":{"cmd":"razer","data":{"pt":"${base64(packet)}"}}}"""
 
+    /** The id given to a Govee light added by its address (the scan's own ids are the device's MAC-like id). */
+    fun manualGoveeId(ip: String): String = "address:$ip"
+
     /** A scan answer's light, or null for anything else. */
     fun goveeScanReply(text: String): GoveeLanLight? {
         fun field(name: String) = Regex(""""$name"\s*:\s*"([^"]*)"""").find(text)?.groupValues?.get(1)
@@ -294,6 +297,20 @@ object BeatLightsSettingsRepository {
     fun setFlashMs(value: Int) = change { it.copy(flashMs = value.coerceIn(40, 400)) }
     fun setRestPercent(value: Int) = change { it.copy(restPercent = value.coerceIn(10, 100)) }
 
+    /**
+     * Adds a Govee light typed in by its address (for a router that keeps the scan from reaching it), picked. A later scan
+     * that finds the same address puts the light's real entry in its place, still picked.
+     */
+    fun addGovee(address: String) {
+        val ip = address.trim()
+        if (!BeatLightsRules.validAddress(ip)) return
+        change { s ->
+            val existing = s.goveeFound.firstOrNull { it.ip == ip }
+            if (existing != null) s.copy(goveeOn = s.goveeOn + existing.id)
+            else s.copy(goveeFound = s.goveeFound + GoveeLanLight(BeatLightsRules.manualGoveeId(ip), ip, "Govee"), goveeOn = s.goveeOn + BeatLightsRules.manualGoveeId(ip))
+        }
+    }
+
     fun toggleGovee(id: String) = change { it.copy(goveeOn = if (id in it.goveeOn) it.goveeOn - id else it.goveeOn + id) }
 
     private val _scan = MutableStateFlow<GoveeScanState>(GoveeScanState.Idle)
@@ -317,8 +334,15 @@ object BeatLightsSettingsRepository {
         }
         change { s ->
             val byId = found.associateBy { it.id }
-            val kept = s.goveeFound.map { byId[it.id] ?: it }
-            s.copy(goveeFound = kept + found.filter { f -> kept.none { it.id == f.id } })
+            val foundIps = found.map { it.ip }.toSet()
+            // A light added by address and now found by the scan: the scan's entry takes its place, keeping the pick.
+            val replaced = s.goveeFound.filter { it.id == BeatLightsRules.manualGoveeId(it.ip) && it.ip in foundIps }
+            val carried = replaced.filter { it.id in s.goveeOn }.mapNotNull { m -> found.firstOrNull { it.ip == m.ip }?.id }
+            val kept = (s.goveeFound - replaced.toSet()).map { byId[it.id] ?: it }
+            s.copy(
+                goveeFound = kept + found.filter { f -> kept.none { it.id == f.id } },
+                goveeOn = s.goveeOn - replaced.map { it.id }.toSet() + carried,
+            )
         }
         _scan.value = GoveeScanState.Found(found.size)
     }
