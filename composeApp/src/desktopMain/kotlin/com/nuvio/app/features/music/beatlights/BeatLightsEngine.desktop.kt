@@ -204,7 +204,17 @@ object BeatLightsEngine {
                 val buffer = ByteArray(2048)
                 while (System.nanoTime() < until) {
                     if (asked < 3) {
-                        socket.send(DatagramPacket(ask, ask.size, group, BeatLightsRules.GOVEE_SCAN_PORT))
+                        // On every network the PC is on: a plain send goes out of one adapter only, and on a PC with
+                        // VMware's adapters (192.168.87.x, 192.168.160.x) that was not the home Wi-Fi (Nov 22).
+                        for (nic in scanAdapters()) {
+                            runCatching {
+                                java.net.MulticastSocket().use { out ->
+                                    out.networkInterface = nic
+                                    out.timeToLive = 2
+                                    out.send(DatagramPacket(ask, ask.size, group, BeatLightsRules.GOVEE_SCAN_PORT))
+                                }
+                            }.onFailure { if (asked == 0) log.w { "Govee scan could not ask on ${nic.displayName}: ${it.message}" } }
+                        }
                         asked++
                     }
                     try {
@@ -225,6 +235,15 @@ object BeatLightsEngine {
             BeatLightsSettingsRepository.scanDone(found.values.toList())
         }
     }
+
+    /** The adapters that are up, can multicast and have an IPv4 address (loopback left out). */
+    private fun scanAdapters(): List<java.net.NetworkInterface> =
+        java.net.NetworkInterface.networkInterfaces().toList().filter { nic ->
+            runCatching {
+                nic.isUp && !nic.isLoopback && nic.supportsMulticast() &&
+                    nic.inetAddresses().toList().any { it is java.net.Inet4Address }
+            }.getOrDefault(false)
+        }.also { list -> log.i { "Govee scan asks on: ${list.joinToString { it.displayName }}" } }
 
     private fun later(ms: Int, action: () -> Unit) {
         val drop = dropper ?: Executors.newSingleThreadScheduledExecutor { r ->
