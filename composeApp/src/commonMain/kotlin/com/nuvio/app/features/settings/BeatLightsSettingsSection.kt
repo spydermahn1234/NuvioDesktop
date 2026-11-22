@@ -1,6 +1,7 @@
 package com.nuvio.app.features.settings
 // FORK (Spyder): Nick's beat lights, not in UmbraProjects. See CLAUDE.md.
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -10,6 +11,7 @@ import com.nuvio.app.features.music.beatlights.BeatLightsOn
 import com.nuvio.app.features.music.beatlights.BeatLightsSettings
 import com.nuvio.app.features.music.beatlights.BeatLightsSettingsRepository
 import com.nuvio.app.features.music.beatlights.BeatLightsStyle
+import com.nuvio.app.features.music.beatlights.GoveeScanState
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.settings_beat_lights_address
 import nuvio.composeapp.generated.resources.settings_beat_lights_address_description
@@ -18,6 +20,16 @@ import nuvio.composeapp.generated.resources.settings_beat_lights_early_descripti
 import nuvio.composeapp.generated.resources.settings_beat_lights_enable
 import nuvio.composeapp.generated.resources.settings_beat_lights_enable_description
 import nuvio.composeapp.generated.resources.settings_beat_lights_flash
+import nuvio.composeapp.generated.resources.settings_beat_lights_govee_lights
+import nuvio.composeapp.generated.resources.settings_beat_lights_govee_lights_count
+import nuvio.composeapp.generated.resources.settings_beat_lights_govee_lights_description
+import nuvio.composeapp.generated.resources.settings_beat_lights_govee_lights_none
+import nuvio.composeapp.generated.resources.settings_beat_lights_govee_scan
+import nuvio.composeapp.generated.resources.settings_beat_lights_govee_scan_failed
+import nuvio.composeapp.generated.resources.settings_beat_lights_govee_scan_found
+import nuvio.composeapp.generated.resources.settings_beat_lights_govee_scan_idle
+import nuvio.composeapp.generated.resources.settings_beat_lights_govee_scan_none
+import nuvio.composeapp.generated.resources.settings_beat_lights_govee_scan_running
 import nuvio.composeapp.generated.resources.settings_beat_lights_on
 import nuvio.composeapp.generated.resources.settings_beat_lights_on_beat
 import nuvio.composeapp.generated.resources.settings_beat_lights_on_description
@@ -30,12 +42,14 @@ import nuvio.composeapp.generated.resources.settings_beat_lights_style_descripti
 import nuvio.composeapp.generated.resources.settings_beat_lights_style_dim
 import nuvio.composeapp.generated.resources.settings_beat_lights_style_strobe
 import nuvio.composeapp.generated.resources.settings_beat_lights_style_swap
+import nuvio.composeapp.generated.resources.settings_beat_lights_govee_scan_button
 import org.jetbrains.compose.resources.stringResource
 
 /** fork:beat-lights - Settings > Lights > Beat lights (music). The engine is BeatLightsEngine.desktop.kt. */
 @Composable
 internal fun BeatLightsSettingsSection(isTablet: Boolean) {
     val settings by BeatLightsSettingsRepository.state.collectAsState()
+    val scan by BeatLightsSettingsRepository.scan.collectAsState()
     SettingsSection(
         title = stringResource(Res.string.settings_beat_lights_section),
         isTablet = isTablet,
@@ -61,6 +75,42 @@ internal fun BeatLightsSettingsSection(isTablet: Boolean) {
                 isTablet = isTablet,
                 onSave = BeatLightsSettingsRepository::setWizAddress,
             )
+            SettingsGroupDivider(isTablet = isTablet)
+            SettingsActionRow(
+                title = stringResource(Res.string.settings_beat_lights_govee_scan),
+                description = when (val st = scan) {
+                    GoveeScanState.Idle -> stringResource(Res.string.settings_beat_lights_govee_scan_idle)
+                    GoveeScanState.Scanning -> stringResource(Res.string.settings_beat_lights_govee_scan_running)
+                    is GoveeScanState.Found -> if (st.count == 0) {
+                        stringResource(Res.string.settings_beat_lights_govee_scan_none)
+                    } else {
+                        stringResource(Res.string.settings_beat_lights_govee_scan_found, st.count)
+                    }
+                    is GoveeScanState.Failed -> stringResource(Res.string.settings_beat_lights_govee_scan_failed, st.detail)
+                },
+                descriptionColor = if (scan is GoveeScanState.Failed) MaterialTheme.colorScheme.error else null,
+                isTablet = isTablet,
+            ) {
+                SettingsGlassButton(
+                    text = stringResource(Res.string.settings_beat_lights_govee_scan_button),
+                    onClick = BeatLightsSettingsRepository::scanGovee,
+                    accent = true,
+                    loading = scan == GoveeScanState.Scanning,
+                )
+            }
+            if (settings.goveeFound.isNotEmpty()) {
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsMultiSelectRow(
+                    title = stringResource(Res.string.settings_beat_lights_govee_lights),
+                    description = stringResource(Res.string.settings_beat_lights_govee_lights_description),
+                    options = settings.goveeFound.map { SettingsChoiceOption(it.id, "${it.sku} · ${it.ip}") },
+                    selectedValues = settings.goveeOn,
+                    emptyLabel = stringResource(Res.string.settings_beat_lights_govee_lights_none),
+                    isTablet = isTablet,
+                    summaryForCount = { stringResource(Res.string.settings_beat_lights_govee_lights_count, it) },
+                    onToggle = BeatLightsSettingsRepository::toggleGovee,
+                )
+            }
             SettingsGroupDivider(isTablet = isTablet)
             SettingsChoiceRow(
                 title = stringResource(Res.string.settings_beat_lights_on),

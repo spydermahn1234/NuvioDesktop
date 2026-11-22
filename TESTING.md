@@ -361,8 +361,12 @@ Needs the new Nuvio Remote build (it updates itself); nothing changes on the PC.
 Settings > Lights out > Beat lights (music). Needs the WiZ bulb's IP address (your router's device list shows it).
 
 - [ ] (must) **BROKEN** With the bulb's address in and Flash a light on the beat on, a four-to-the-floor track from the Music tab flashes the bulb on every kick drum, and not on the bass line or hi-hats (2026-11-22): the Beat Grid shows a kick on every beat (120 BPM), but the bulb pulses softly and misses runs of kicks for seconds at a time
-  - [ ] (must) Re-check with Flash style Strobe (the new default): the bulb goes hard on and off on every kick of a four-to-the-floor track; if not, copy the nuvio.log lines starting "BeatLights" (one every 10 s) into a chat
-  - [ ] Flash style Swap: the light flips on or off on every kick, never skipping a run of kicks
+  - [ ] (must) **BROKEN** Re-check with Flash style Strobe (the new default): the bulb goes hard on and off on every kick of a four-to-the-floor track; if not, copy the nuvio.log lines starting "BeatLights" (one every 10 s) into a chat (2026-11-22): not a hard on/off. The log shows every flash sent and every command answered by the bulb, no playhead jumps: the WiZ firmware fades every change, so WiZ cannot strobe hard
+  - [ ] **BROKEN** Flash style Swap: the light flips on or off on every kick, never skipping a run of kicks (2026-11-22): soft, as Strobe (the bulb's own fade)
+  - [ ] (must) Govee: Find Govee lights lists the Govee lights with LAN Control on (model and address)
+  - [ ] (must) Govee: a picked light strobes hard on and off on every beat of a four-to-the-floor track (Flash on Every beat, Flash style Strobe)
+  - [ ] Govee: pausing the music (or turning beat lights off) hands the light back to what it was doing before
+  - [ ] Govee: a light left unticked (the Sync Box's for Movie) is not touched
   - [ ] Flash style Dim: still drops to the resting brightness between kicks (as before)
 - [ ] (must) Flash early by: after setting it once by eye, the flashes land on the kick, not after it (note the value that works)
 - [ ] The bulb stops flashing when the music is paused, and starts again on play

@@ -34,6 +34,7 @@ object BeatLightsEngine {
     private const val REPORT_EVERY_MS = 10_000L
     private val sent = AtomicInteger()
     private val answered = AtomicInteger()
+    private val goveeSent = AtomicInteger()
     private var fired = 0
     private var reportFromNanos = 0L
     private var reportFromTrackMs = -1L
@@ -54,6 +55,7 @@ object BeatLightsEngine {
         val store = DesktopStorage.store("nuvio_beat_lights")
         BeatLightsSettingsRepository.load(store.getString("settings"))
         BeatLightsSettingsRepository.persist = { store.putString("settings", it) }
+        BeatLightsSettingsRepository.scanner = { Thread({ scanGovee() }, "beat-lights-govee-scan").apply { isDaemon = true }.start() }
         while (true) {
             val slept = runCatching { look() }.onFailure { log.w(it) { "look failed" } }.getOrDefault(IDLE_MS)
             Thread.sleep(slept)
@@ -65,6 +67,7 @@ object BeatLightsEngine {
         val settings = BeatLightsSettingsRepository.state.value
         if (!settings.ready) {
             cursor.reset()
+            releaseGovee()
             return IDLE_MS
         }
         val player = MusicPlayback.player.state.value
@@ -77,6 +80,7 @@ object BeatLightsEngine {
         }
         if (!playing || map == null) {
             cursor.reset()
+            releaseGovee()
             reportFromTrackMs = -1L
             reportedMs = Long.MIN_VALUE
             return if (player.track == null) IDLE_MS else 20L
@@ -87,6 +91,7 @@ object BeatLightsEngine {
             reportedAtNanos = now
         }
         val playhead = BeatLightsRules.playheadMs(reportedMs, (now - reportedAtNanos) / 1_000_000L, playing = true)
+        holdGovee(settings)
         val hits = cursor.advance(player.loadId, map, (playhead + settings.earlyMs).toDouble(), settings.on)
         if (hits.isNotEmpty()) {
             fired++
@@ -100,7 +105,7 @@ object BeatLightsEngine {
         if (reportFromTrackMs < 0) {
             reportFromTrackMs = playhead
             reportFromNanos = now
-            fired = 0; sent.set(0); answered.set(0)
+            fired = 0; sent.set(0); answered.set(0); goveeSent.set(0)
             return
         }
         if ((now - reportFromNanos) / 1_000_000L < REPORT_EVERY_MS) return
@@ -108,11 +113,11 @@ object BeatLightsEngine {
         val beats = map.beat?.beatsMs?.count { it > reportFromTrackMs && it <= playhead }
         log.i {
             "track ${reportFromTrackMs / 1000}-${playhead / 1000}s on=${settings.on} style=${settings.style}: fired $fired flashes; map has $kicks kicks" +
-                " and ${beats ?: "no"} beats there (analysed to ${map.analysedMs / 1000}s); sent ${sent.get()} commands, bulb answered ${answered.get()}; playhead jumps ${cursor.jumps}"
+                " and ${beats ?: "no"} beats there (analysed to ${map.analysedMs / 1000}s); WiZ: sent ${sent.get()}, answered ${answered.get()}; Govee: sent ${goveeSent.get()} to ${settings.goveeLights.size} lights; playhead jumps ${cursor.jumps}"
         }
         reportFromTrackMs = playhead
         reportFromNanos = now
-        fired = 0; sent.set(0); answered.set(0); cursor.jumps = 0
+        fired = 0; sent.set(0); answered.set(0); goveeSent.set(0); cursor.jumps = 0
     }
 
     // Swap: whether the next hit turns the light on.
@@ -120,21 +125,104 @@ object BeatLightsEngine {
 
     /** One hit on the bulb, in the chosen style. Fire and forget: a lost packet is one missed beat. */
     private fun flash(settings: BeatLightsSettings) {
-        val address = settings.wizAddress
+        val address = settings.wizAddress.takeIf { settings.hasWiz }
         val on = BeatLightsRules.wizBrightness(settings.flashPercent)
+        val govee = settings.goveeLights
+        val goveeOn = BeatLightsRules.goveeWhite(255 * settings.flashPercent / 100)
+        val goveeRest = BeatLightsRules.goveeWhite(goveeRestLevel(settings))
+        fun wiz(body: String) { if (address != null) send(address, body) }
+        fun gov(packet: ByteArray) = govee.forEach { sendGovee(it.ip, BeatLightsRules.goveeRazerJson(packet)) }
         when (settings.style) {
             BeatLightsStyle.Swap -> {
-                send(address, if (swapOn) on else BeatLightsRules.WIZ_OFF)
+                wiz(if (swapOn) on else BeatLightsRules.WIZ_OFF)
+                gov(if (swapOn) goveeOn else goveeRest)
                 swapOn = !swapOn
             }
             BeatLightsStyle.Strobe -> {
-                send(address, on)
-                later(settings.flashMs) { send(address, BeatLightsRules.WIZ_OFF) }
+                wiz(on); gov(goveeOn)
+                later(settings.flashMs) { wiz(BeatLightsRules.WIZ_OFF); gov(goveeRest) }
             }
             BeatLightsStyle.Dim -> {
-                send(address, on)
-                later(settings.flashMs) { send(address, BeatLightsRules.wizBrightness(settings.restPercent)) }
+                wiz(on); gov(goveeOn)
+                later(settings.flashMs) { wiz(BeatLightsRules.wizBrightness(settings.restPercent)); gov(goveeRest) }
             }
+        }
+    }
+
+    // ---- Govee over the LAN, in real-time mode ----
+
+    private const val GOVEE_REFRESH_MS = 30_000L
+    // The lights in real-time mode now (by address), and when it was last asked for: it lapses after a minute without
+    // a colour, so a long stretch with no hits asks again.
+    private val goveeLive = mutableSetOf<String>()
+    private var goveeAskedNanos = 0L
+
+    private fun goveeRestLevel(settings: BeatLightsSettings): Int =
+        if (settings.style == BeatLightsStyle.Dim) 255 * settings.restPercent / 100 else 0
+
+    /** Puts the picked Govee lights into real-time mode (on, at the resting colour), and lets go of any unpicked. */
+    private fun holdGovee(settings: BeatLightsSettings) {
+        val want = settings.goveeLights.map { it.ip }.toSet()
+        val now = System.nanoTime()
+        val refresh = (now - goveeAskedNanos) / 1_000_000L > GOVEE_REFRESH_MS
+        for (ip in goveeLive - want) sendGovee(ip, BeatLightsRules.goveeRazerJson(BeatLightsRules.goveeRealtime(false)))
+        goveeLive.retainAll(want)
+        val start = if (refresh) want else want - goveeLive
+        if (start.isEmpty()) return
+        for (ip in start) {
+            if (ip !in goveeLive) sendGovee(ip, BeatLightsRules.GOVEE_TURN_ON)
+            sendGovee(ip, BeatLightsRules.goveeRazerJson(BeatLightsRules.goveeRealtime(true)))
+            if (ip !in goveeLive) sendGovee(ip, BeatLightsRules.goveeRazerJson(BeatLightsRules.goveeWhite(goveeRestLevel(settings))))
+        }
+        if (start.any { it !in goveeLive }) log.i { "Govee real-time on for ${start - goveeLive}" }
+        goveeLive += start
+        goveeAskedNanos = now
+    }
+
+    /** Hands the Govee lights back to what they were doing (music paused, beat lights off). */
+    private fun releaseGovee() {
+        if (goveeLive.isEmpty()) return
+        for (ip in goveeLive) sendGovee(ip, BeatLightsRules.goveeRazerJson(BeatLightsRules.goveeRealtime(false)))
+        log.i { "Govee real-time off for $goveeLive" }
+        goveeLive.clear()
+    }
+
+    private fun sendGovee(ip: String, body: String) = send(ip, body, BeatLightsRules.GOVEE_COMMAND_PORT)
+
+    /** Asks the network for Govee lights with LAN Control on; answers come back to port 4002 for about two seconds. */
+    private fun scanGovee() {
+        val found = linkedMapOf<String, GoveeLanLight>()
+        val result = runCatching {
+            DatagramSocket(null).use { socket ->
+                socket.reuseAddress = true
+                socket.bind(java.net.InetSocketAddress(BeatLightsRules.GOVEE_REPLY_PORT))
+                socket.soTimeout = 300
+                val ask = BeatLightsRules.GOVEE_SCAN.toByteArray()
+                val group = InetAddress.getByName(BeatLightsRules.GOVEE_SCAN_ADDRESS)
+                val until = System.nanoTime() + 2_500_000_000L
+                var asked = 0
+                val buffer = ByteArray(2048)
+                while (System.nanoTime() < until) {
+                    if (asked < 3) {
+                        socket.send(DatagramPacket(ask, ask.size, group, BeatLightsRules.GOVEE_SCAN_PORT))
+                        asked++
+                    }
+                    try {
+                        val packet = DatagramPacket(buffer, buffer.size)
+                        socket.receive(packet)
+                        val text = String(packet.data, 0, packet.length)
+                        BeatLightsRules.goveeScanReply(text)?.let { found[it.id] = it }
+                    } catch (_: java.net.SocketTimeoutException) {
+                    }
+                }
+            }
+        }
+        result.onFailure { log.w(it) { "Govee scan failed" } }
+        log.i { "Govee scan found ${found.size}: ${found.values.joinToString { "${it.sku} ${it.ip}" }}" }
+        if (result.isFailure) {
+            BeatLightsSettingsRepository.scanDone(null, result.exceptionOrNull()?.message)
+        } else {
+            BeatLightsSettingsRepository.scanDone(found.values.toList())
         }
     }
 
@@ -146,12 +234,12 @@ object BeatLightsEngine {
     }
 
     @Synchronized
-    private fun send(address: String, body: String) {
+    private fun send(address: String, body: String, port: Int = BeatLightsRules.WIZ_PORT) {
         runCatching {
             val s = socket ?: DatagramSocket().also { socket = it; listen(it) }
             val bytes = body.toByteArray()
-            s.send(DatagramPacket(bytes, bytes.size, InetAddress.getByName(address), BeatLightsRules.WIZ_PORT))
-            sent.incrementAndGet()
+            s.send(DatagramPacket(bytes, bytes.size, InetAddress.getByName(address), port))
+            if (port == BeatLightsRules.WIZ_PORT) sent.incrementAndGet() else goveeSent.incrementAndGet()
         }.onFailure { log.w { "send to $address failed: ${it.message}" } }
     }
 

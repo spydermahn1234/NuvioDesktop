@@ -151,4 +151,28 @@ class BeatLightsTest {
         c.advance(1, m, 1_000.0, BeatLightsOn.Kick)
         assertEquals(2, c.jumps)
     }
+
+    @Test
+    fun goveeRealTimePacketsMatchTheKnownOnes() {
+        // The community-known enable and disable strings: BB 00 01 B1 01 0A and BB 00 01 B1 00 0B.
+        assertEquals("""{"msg":{"cmd":"razer","data":{"pt":"uwABsQEK"}}}""", BeatLightsRules.goveeRazerJson(BeatLightsRules.goveeRealtime(true)))
+        assertEquals("""{"msg":{"cmd":"razer","data":{"pt":"uwABsQAL"}}}""", BeatLightsRules.goveeRazerJson(BeatLightsRules.goveeRealtime(false)))
+        val white = BeatLightsRules.goveeWhite(255).map { it.toInt() and 0xFF }
+        assertEquals(listOf(0xBB, 0x00, 0x05, 0xB0, 0x00, 0x01, 0xFF, 0xFF, 0xFF), white.dropLast(1))
+        assertEquals(white.dropLast(1).fold(0) { x, b -> x xor b }, white.last())
+    }
+
+    @Test
+    fun aGoveeScanAnswerGivesTheLight() {
+        val reply = """{"msg":{"cmd":"scan","data":{"ip":"192.168.1.23","device":"1F:80:C5:32:32:36:72:4E","sku":"H618E","bleVersionHard":"3.01.01"}}}"""
+        assertEquals(GoveeLanLight("1F:80:C5:32:32:36:72:4E", "192.168.1.23", "H618E"), BeatLightsRules.goveeScanReply(reply))
+        assertEquals(null, BeatLightsRules.goveeScanReply("""{"msg":{"cmd":"devStatus","data":{"onOff":1}}}"""))
+    }
+
+    @Test
+    fun goveeLightsAloneAreEnoughToRun() {
+        val light = GoveeLanLight("A", "192.168.1.23", "H618E")
+        assertFalse(BeatLightsSettings(enabled = true, goveeFound = listOf(light)).ready)
+        assertTrue(BeatLightsSettings(enabled = true, goveeFound = listOf(light), goveeOn = setOf("A")).ready)
+    }
 }

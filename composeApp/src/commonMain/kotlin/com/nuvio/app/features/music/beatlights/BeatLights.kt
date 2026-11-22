@@ -19,7 +19,9 @@ import kotlin.math.floor
  * (BeatLightsEngine.desktop.kt) fires each hit a little early ([BeatLightsSettings.earlyMs]) to cover the HDMI amp and the
  * bulb's own delay, and the light lands on the beat instead of after it.
  *
- * Step one of the plan: one WiZ bulb, straight over the home Wi-Fi (UDP 38899). Switchboard on the phone is to drive it later.
+ * Lights: one WiZ bulb, straight over the home Wi-Fi (UDP 38899), and any Govee lights with LAN Control on, driven in
+ * Govee's real-time ("razer") mode, which shows each colour at once instead of fading to it as a WiZ bulb does.
+ * Switchboard on the phone is to start and stop it later.
  */
 
 /** Which hits flash the light. */
@@ -48,6 +50,18 @@ enum class BeatLightsStyle {
     Swap,
 }
 
+/** A Govee light that answered the LAN scan. [id] is its MAC-like device id, which stays when its address changes. */
+@Serializable
+data class GoveeLanLight(val id: String, val ip: String, val sku: String)
+
+/** Where the Govee LAN scan has got to. */
+sealed interface GoveeScanState {
+    data object Idle : GoveeScanState
+    data object Scanning : GoveeScanState
+    data class Found(val count: Int) : GoveeScanState
+    data class Failed(val detail: String) : GoveeScanState
+}
+
 @Serializable
 data class BeatLightsSettings(
     val enabled: Boolean = false,
@@ -63,8 +77,17 @@ data class BeatLightsSettings(
     val restPercent: Int = 10,
     /** Brightness on a flash, 10..100. */
     val flashPercent: Int = 100,
+    /** Every Govee light the last scan found (kept, so the picker works without scanning again). */
+    val goveeFound: List<GoveeLanLight> = emptyList(),
+    /** The [GoveeLanLight.id]s that flash. */
+    val goveeOn: Set<String> = emptySet(),
 ) {
-    val ready: Boolean get() = enabled && BeatLightsRules.validAddress(wizAddress)
+    val hasWiz: Boolean get() = BeatLightsRules.validAddress(wizAddress)
+
+    /** The picked Govee lights, at their last known address. */
+    val goveeLights: List<GoveeLanLight> get() = goveeFound.filter { it.id in goveeOn }
+
+    val ready: Boolean get() = enabled && (hasWiz || goveeLights.isNotEmpty())
 
     companion object {
         const val DEFAULT_EARLY_MS = 80
@@ -127,6 +150,67 @@ internal object BeatLightsRules {
     /** The WiZ command that sets the bulb on at [percent] brightness. */
     fun wizBrightness(percent: Int): String =
         """{"method":"setPilot","params":{"state":true,"dimming":${percent.coerceIn(10, 100)}}}"""
+
+    /** Govee LAN: where the scan goes (multicast), where lights answer it, and where they take commands. */
+    const val GOVEE_SCAN_ADDRESS = "239.255.255.250"
+    const val GOVEE_SCAN_PORT = 4001
+    const val GOVEE_REPLY_PORT = 4002
+    const val GOVEE_COMMAND_PORT = 4003
+
+    const val GOVEE_SCAN = """{"msg":{"cmd":"scan","data":{"account_topic":"reserve"}}}"""
+    const val GOVEE_TURN_ON = """{"msg":{"cmd":"turn","data":{"value":1}}}"""
+
+    /**
+     * A real-time ("razer") packet: BB 00 <data length> <command> <data> <XOR of every byte before it>. Command B1 turns
+     * the mode on or off (one data byte); B0 sets the colours (gradient flag, colour count, then R G B per colour).
+     */
+    fun goveeRazer(command: Int, data: ByteArray): ByteArray {
+        val out = ByteArray(data.size + 5)
+        out[0] = 0xBB.toByte(); out[1] = 0; out[2] = data.size.toByte(); out[3] = command.toByte()
+        data.copyInto(out, 4)
+        var x = 0
+        for (i in 0 until out.size - 1) x = x xor (out[i].toInt() and 0xFF)
+        out[out.size - 1] = x.toByte()
+        return out
+    }
+
+    /** Real-time mode on or off: off hands the light back to whatever it was doing. */
+    fun goveeRealtime(on: Boolean): ByteArray = goveeRazer(0xB1, byteArrayOf(if (on) 1 else 0))
+
+    /** The whole light in one colour, [level] 0..255 of white. */
+    fun goveeWhite(level: Int): ByteArray {
+        val v = level.coerceIn(0, 255).toByte()
+        return goveeRazer(0xB0, byteArrayOf(0, 1, v, v, v))
+    }
+
+    /** A real-time packet as the JSON the light takes on its command port. */
+    fun goveeRazerJson(packet: ByteArray): String = """{"msg":{"cmd":"razer","data":{"pt":"${base64(packet)}"}}}"""
+
+    /** A scan answer's light, or null for anything else. */
+    fun goveeScanReply(text: String): GoveeLanLight? {
+        fun field(name: String) = Regex(""""$name"\s*:\s*"([^"]*)"""").find(text)?.groupValues?.get(1)
+        if (!text.contains("\"scan\"")) return null
+        val ip = field("ip")?.takeIf(::validAddress) ?: return null
+        val id = field("device") ?: return null
+        return GoveeLanLight(id = id, ip = ip, sku = field("sku").orEmpty())
+    }
+
+    private const val B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+    private fun base64(bytes: ByteArray): String {
+        val sb = StringBuilder()
+        var i = 0
+        while (i < bytes.size) {
+            val b0 = bytes[i].toInt() and 0xFF
+            val b1 = if (i + 1 < bytes.size) bytes[i + 1].toInt() and 0xFF else 0
+            val b2 = if (i + 2 < bytes.size) bytes[i + 2].toInt() and 0xFF else 0
+            sb.append(B64[b0 shr 2]).append(B64[((b0 and 3) shl 4) or (b1 shr 4)])
+            sb.append(if (i + 1 < bytes.size) B64[((b1 and 15) shl 2) or (b2 shr 6)] else '=')
+            sb.append(if (i + 2 < bytes.size) B64[b2 and 63] else '=')
+            i += 3
+        }
+        return sb.toString()
+    }
 
     /** The WiZ command that switches the bulb off. */
     const val WIZ_OFF = """{"method":"setPilot","params":{"state":false}}"""
@@ -209,5 +293,34 @@ object BeatLightsSettingsRepository {
     fun setEarlyMs(value: Int) = change { it.copy(earlyMs = value.coerceIn(0, BeatLightsSettings.MAX_EARLY_MS)) }
     fun setFlashMs(value: Int) = change { it.copy(flashMs = value.coerceIn(40, 400)) }
     fun setRestPercent(value: Int) = change { it.copy(restPercent = value.coerceIn(10, 100)) }
+
+    fun toggleGovee(id: String) = change { it.copy(goveeOn = if (id in it.goveeOn) it.goveeOn - id else it.goveeOn + id) }
+
+    private val _scan = MutableStateFlow<GoveeScanState>(GoveeScanState.Idle)
+    val scan: StateFlow<GoveeScanState> = _scan.asStateFlow()
+
+    /** Set by the desktop side: asks the network for Govee lights (a couple of seconds), then calls [scanDone]. */
+    internal var scanner: (() -> Unit)? = null
+
+    fun scanGovee() {
+        val run = scanner ?: return
+        if (_scan.value == GoveeScanState.Scanning) return
+        _scan.value = GoveeScanState.Scanning
+        run()
+    }
+
+    /** The scan's answer: lights found keep their place (and pick), with their new address. */
+    internal fun scanDone(found: List<GoveeLanLight>?, error: String? = null) {
+        if (found == null) {
+            _scan.value = GoveeScanState.Failed(error ?: "no answer")
+            return
+        }
+        change { s ->
+            val byId = found.associateBy { it.id }
+            val kept = s.goveeFound.map { byId[it.id] ?: it }
+            s.copy(goveeFound = kept + found.filter { f -> kept.none { it.id == f.id } })
+        }
+        _scan.value = GoveeScanState.Found(found.size)
+    }
 }
 
