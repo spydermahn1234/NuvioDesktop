@@ -48,6 +48,42 @@ object BeatLightsEngine {
         if (started) return
         started = true
         Thread({ loop() }, "beat-lights").apply { isDaemon = true; priority = Thread.MAX_PRIORITY - 1 }.start()
+        Thread({ remote() }, "beat-lights-remote").apply { isDaemon = true }.start()
+    }
+
+    /**
+     * Switchboard on the phone switches beat lights on and off (see [BeatLightsRules.REMOTE_PORT]). Only lines from the
+     * home network (private addresses) are taken.
+     */
+    private fun remote() {
+        val socket = runCatching {
+            DatagramSocket(null).apply {
+                reuseAddress = true
+                bind(java.net.InetSocketAddress(BeatLightsRules.REMOTE_PORT))
+            }
+        }.getOrElse {
+            log.w { "Switchboard control unavailable: port ${BeatLightsRules.REMOTE_PORT} is taken (${it.message})" }
+            return
+        }
+        val pcName = runCatching { InetAddress.getLocalHost().hostName }.getOrDefault("PC")
+        log.i { "Switchboard control listening on UDP ${BeatLightsRules.REMOTE_PORT}" }
+        val buffer = ByteArray(512)
+        while (true) {
+            runCatching {
+                val packet = DatagramPacket(buffer, buffer.size)
+                socket.receive(packet)
+                val from = packet.address
+                if (!(from.isSiteLocalAddress || from.isLoopbackAddress || from.isLinkLocalAddress)) return@runCatching
+                val ask = BeatLightsRules.remoteAsk(String(packet.data, 0, packet.length)) ?: return@runCatching
+                if (ask.on != null) {
+                    val was = BeatLightsSettingsRepository.state.value.enabled
+                    BeatLightsSettingsRepository.setEnabled(ask.on)
+                    if (was != ask.on) log.i { "Switchboard (${from.hostAddress}) turned beat lights ${if (ask.on) "on" else "off"}" }
+                }
+                val reply = BeatLightsRules.remoteStatus(BeatLightsSettingsRepository.state.value, pcName).toByteArray()
+                socket.send(DatagramPacket(reply, reply.size, packet.socketAddress))
+            }.onFailure { log.w { "Switchboard line failed: ${it.message}" } }
+        }
     }
 
     private fun loop() {
@@ -92,6 +128,7 @@ object BeatLightsEngine {
         }
         val playhead = BeatLightsRules.playheadMs(reportedMs, (now - reportedAtNanos) / 1_000_000L, playing = true)
         holdGovee(settings)
+        keepGovee(now)
         val hits = cursor.advance(player.loadId, map, (playhead + settings.earlyMs).toDouble(), settings.on)
         if (hits.isNotEmpty()) {
             fired++
@@ -131,7 +168,11 @@ object BeatLightsEngine {
         val goveeOn = BeatLightsRules.goveeWhite(255 * settings.flashPercent / 100)
         val goveeRest = BeatLightsRules.goveeWhite(goveeRestLevel(settings))
         fun wiz(body: String) { if (address != null) send(address, body) }
-        fun gov(packet: ByteArray) = govee.forEach { sendGovee(it.ip, BeatLightsRules.goveeRazerJson(packet)) }
+        fun gov(packet: ByteArray) {
+            goveeFrame = packet
+            govee.forEach { sendGovee(it.ip, BeatLightsRules.goveeRazerJson(packet)) }
+            goveeSentNanos = System.nanoTime()
+        }
         when (settings.style) {
             BeatLightsStyle.Swap -> {
                 wiz(if (swapOn) on else BeatLightsRules.WIZ_OFF)
@@ -157,6 +198,21 @@ object BeatLightsEngine {
     private val goveeLive = mutableSetOf<String>()
     private var goveeAskedNanos = 0L
 
+    // The colour the Govee lights should show now, sent again every [GOVEE_FRAME_MS]: a floor lamp (H6076) leaves
+    // real-time mode within a moment of its last frame and fades back to its own white (Nov 22 video), so between hits
+    // it was warm white instead of dark. Streaming frames, as Govee's own desktop app does, holds it.
+    private const val GOVEE_FRAME_MS = 80L
+    @Volatile private var goveeFrame: ByteArray? = null
+    @Volatile private var goveeSentNanos = 0L
+
+    private fun keepGovee(now: Long) {
+        val frame = goveeFrame ?: return
+        if (goveeLive.isEmpty() || (now - goveeSentNanos) / 1_000_000L < GOVEE_FRAME_MS) return
+        val json = BeatLightsRules.goveeRazerJson(frame)
+        for (ip in goveeLive) sendGovee(ip, json)
+        goveeSentNanos = now
+    }
+
     private fun goveeRestLevel(settings: BeatLightsSettings): Int =
         if (settings.style == BeatLightsStyle.Dim) 255 * settings.restPercent / 100 else 0
 
@@ -172,7 +228,10 @@ object BeatLightsEngine {
         for (ip in start) {
             if (ip !in goveeLive) sendGovee(ip, BeatLightsRules.GOVEE_TURN_ON)
             sendGovee(ip, BeatLightsRules.goveeRazerJson(BeatLightsRules.goveeRealtime(true)))
-            if (ip !in goveeLive) sendGovee(ip, BeatLightsRules.goveeRazerJson(BeatLightsRules.goveeWhite(goveeRestLevel(settings))))
+            if (ip !in goveeLive) {
+                goveeFrame = BeatLightsRules.goveeWhite(goveeRestLevel(settings))
+                sendGovee(ip, BeatLightsRules.goveeRazerJson(goveeFrame!!))
+            }
         }
         if (start.any { it !in goveeLive }) log.i { "Govee real-time on for ${start - goveeLive}" }
         goveeLive += start
@@ -185,6 +244,7 @@ object BeatLightsEngine {
         for (ip in goveeLive) sendGovee(ip, BeatLightsRules.goveeRazerJson(BeatLightsRules.goveeRealtime(false)))
         log.i { "Govee real-time off for $goveeLive" }
         goveeLive.clear()
+        goveeFrame = null
     }
 
     private fun sendGovee(ip: String, body: String) = send(ip, body, BeatLightsRules.GOVEE_COMMAND_PORT)

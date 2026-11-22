@@ -54,6 +54,9 @@ enum class BeatLightsStyle {
 @Serializable
 data class GoveeLanLight(val id: String, val ip: String, val sku: String)
 
+/** A line from Switchboard: [on] true or false to switch beat lights, null to only ask. */
+data class RemoteAsk(val on: Boolean?)
+
 /** Where the Govee LAN scan has got to. */
 sealed interface GoveeScanState {
     data object Idle : GoveeScanState
@@ -185,6 +188,30 @@ internal object BeatLightsRules {
 
     /** A real-time packet as the JSON the light takes on its command port. */
     fun goveeRazerJson(packet: ByteArray): String = """{"msg":{"cmd":"razer","data":{"pt":"${base64(packet)}"}}}"""
+
+    /**
+     * Switchboard (the phone app) drives beat lights over UDP on this port, one line each way:
+     * "NUVIO_BEAT_LIGHTS ?" asks, "NUVIO_BEAT_LIGHTS on" / "NUVIO_BEAT_LIGHTS off" switch it, and every one is answered
+     * with [remoteStatus]. A broadcast "?" is how Switchboard finds the PC.
+     */
+    const val REMOTE_PORT = 47330
+    const val REMOTE_WORD = "NUVIO_BEAT_LIGHTS"
+
+    /** What a Switchboard line asks: true on, false off, null only asking. Not ours: no answer. */
+    fun remoteAsk(line: String): RemoteAsk? {
+        val parts = line.trim().split(Regex("\\s+"))
+        if (parts.firstOrNull() != REMOTE_WORD) return null
+        return when (parts.getOrNull(1)?.lowercase()) {
+            "on" -> RemoteAsk(true)
+            "off" -> RemoteAsk(false)
+            null, "?" -> RemoteAsk(null)
+            else -> null
+        }
+    }
+
+    /** The answer: on (the switch), ready (something to flash is set up), and the PC's name. */
+    fun remoteStatus(settings: BeatLightsSettings, pcName: String): String =
+        "$REMOTE_WORD on=${if (settings.enabled) 1 else 0} ready=${if (settings.copy(enabled = true).ready) 1 else 0} name=${pcName.replace(' ', '_')}"
 
     /** The id given to a Govee light added by its address (the scan's own ids are the device's MAC-like id). */
     fun manualGoveeId(ip: String): String = "address:$ip"

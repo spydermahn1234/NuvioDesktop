@@ -190,4 +190,20 @@ class BeatLightsTest {
         assertTrue("1F:80" in scanned.goveeOn)
         assertFalse("address:192.168.1.60" in scanned.goveeOn)
     }
+
+    @Test
+    fun switchboardLinesAreReadAndAnswered() {
+        assertEquals(RemoteAsk(true), BeatLightsRules.remoteAsk("NUVIO_BEAT_LIGHTS on"))
+        assertEquals(RemoteAsk(false), BeatLightsRules.remoteAsk(" NUVIO_BEAT_LIGHTS  OFF\n"))
+        assertEquals(RemoteAsk(null), BeatLightsRules.remoteAsk("NUVIO_BEAT_LIGHTS ?"))
+        assertEquals(RemoteAsk(null), BeatLightsRules.remoteAsk("NUVIO_BEAT_LIGHTS"))
+        assertEquals(null, BeatLightsRules.remoteAsk("NUVIO_BEAT_LIGHTS dance"))
+        assertEquals(null, BeatLightsRules.remoteAsk("M-SEARCH * HTTP/1.1"))
+        val light = GoveeLanLight("A", "192.168.0.62", "H6076")
+        assertEquals(
+            "NUVIO_BEAT_LIGHTS on=0 ready=1 name=LOUNGE_PC",
+            BeatLightsRules.remoteStatus(BeatLightsSettings(enabled = false, goveeFound = listOf(light), goveeOn = setOf("A")), "LOUNGE PC"),
+        )
+        assertEquals("NUVIO_BEAT_LIGHTS on=1 ready=0 name=PC", BeatLightsRules.remoteStatus(BeatLightsSettings(enabled = true), "PC"))
+    }
 }
