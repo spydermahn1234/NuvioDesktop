@@ -2975,6 +2975,8 @@ private fun settingsSearchEntries(
             PlaybackSearchRow("lights-govee-devices", resolve(Res.string.settings_lights_govee_devices), resolve(Res.string.settings_lights_govee_devices_description), goveeSection),
             PlaybackSearchRow("lights-webhook-method", resolve(Res.string.settings_lights_webhook_method), resolve(Res.string.settings_lights_webhook_method_description), webhooksSection),
             PlaybackSearchRow("lights-webhook-urls", webhooksSection, resolve(Res.string.settings_lights_webhooks_description), webhooksSection),
+            // fork:beat-lights
+            PlaybackSearchRow("beat-lights", resolve(Res.string.settings_beat_lights_enable), resolve(Res.string.settings_beat_lights_enable_description), resolve(Res.string.settings_beat_lights_section)),
         ).forEach { row ->
             addRow(
                 page = SettingsPage.Lights,

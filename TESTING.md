@@ -356,6 +356,19 @@ Needs the new Nuvio Remote build (it updates itself); nothing changes on the PC.
 - [x] Visualiser in the Liner Notes box (2026-11-08)
 - Bigger album case on wide windows: dropped, the new screen replaced it (2026-11-08)
 
+## Beat lights (Nov 22)
+
+Settings > Lights out > Beat lights (music). Needs the WiZ bulb's IP address (your router's device list shows it).
+
+- [ ] (must) With the bulb's address in and Flash a light on the beat on, a four-to-the-floor track from the Music tab flashes the bulb on every kick drum, and not on the bass line or hi-hats
+- [ ] (must) Flash early by: after setting it once by eye, the flashes land on the kick, not after it (note the value that works)
+- [ ] The bulb stops flashing when the music is paused, and starts again on play
+- [ ] Seeking ahead or back in a song: no burst of flashes, and it carries on in time from the new place
+- [ ] Flash on Beat one: one flash per bar, on beat one (try a song where the Stage's Beat Grid has the bar line right)
+- [ ] Flash on Every beat: one flash per beat, steady through a breakdown with no drums
+- [ ] The next song (also when it follows on gaplessly) flashes in time too
+- [ ] Turning Flash a light on the beat off stops the flashing; the setting and address are still there after restarting Nuvio
+
 ## Live TV
 
 - [x] Stalker portals log in, load channels and play (2026-11-08)

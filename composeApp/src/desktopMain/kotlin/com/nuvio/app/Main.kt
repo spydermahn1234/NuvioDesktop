@@ -921,6 +921,8 @@ fun main(args: Array<String>) {
                 kotlin.concurrent.thread(isDaemon = true, name = "phone-remote-start") { PhoneRemote.start() }
                 // fork:live-scores - polls only while Settings > Live TV > Live scores is on.
                 com.nuvio.app.features.livescores.LiveScoreEngine.start()
+                // fork:beat-lights - flashes a WiZ bulb on the music's kicks; idle unless Settings > Lights out > Beat lights is on.
+                com.nuvio.app.features.music.beatlights.BeatLightsEngine.start()
                 // fork:live-tv-departure - reminders ("Tune in at"); over a playing video the HUD's pill says it.
                 com.nuvio.app.features.iptv.IptvReminderEngine.playerPill = { title, line, durationMs ->
                     val handles = runCatching { com.nuvio.app.features.player.desktop.NativeAudioDuck.liveHandles() }.getOrDefault(emptyList())

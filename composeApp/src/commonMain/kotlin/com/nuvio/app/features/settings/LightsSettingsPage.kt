@@ -293,6 +293,9 @@ internal fun LazyListScope.lightsSettingsContent(
             }
         }
     }
+
+    // fork:beat-lights - flashes a WiZ bulb on the music's kicks (BeatLightsSettingsSection.kt).
+    item { BeatLightsSettingsSection(isTablet = isTablet) }
 }
 
 /** Every half hour of the day, labelled the way a clock face reads: 12:00 AM … 11:30 PM. */
