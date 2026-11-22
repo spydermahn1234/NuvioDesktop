@@ -192,9 +192,9 @@ object BeatLightsEngine {
 
     // ---- Govee over the LAN, in real-time mode ----
 
-    private const val GOVEE_REFRESH_MS = 30_000L
-    // The lights in real-time mode now (by address), and when it was last asked for: it lapses after a minute without
-    // a colour, so a long stretch with no hits asks again.
+    private const val GOVEE_REFRESH_MS = 5_000L
+    // The lights in real-time mode now (by address), and when it was last asked for: asked again every few seconds, so
+    // a light that was busy (DreamView, or switched off by Switchboard's hand-over) is taken as soon as it is free.
     private val goveeLive = mutableSetOf<String>()
     private var goveeAskedNanos = 0L
 
@@ -226,7 +226,9 @@ object BeatLightsEngine {
         val start = if (refresh) want else want - goveeLive
         if (start.isEmpty()) return
         for (ip in start) {
-            if (ip !in goveeLive) sendGovee(ip, BeatLightsRules.GOVEE_TURN_ON)
+            // Every refresh too: Switchboard hands the lights over by switching them off through Govee's cloud, which
+            // can land after this; the next refresh switches them back on (Nov 22).
+            sendGovee(ip, BeatLightsRules.GOVEE_TURN_ON)
             sendGovee(ip, BeatLightsRules.goveeRazerJson(BeatLightsRules.goveeRealtime(true)))
             if (ip !in goveeLive) {
                 goveeFrame = BeatLightsRules.goveeWhite(goveeRestLevel(settings))

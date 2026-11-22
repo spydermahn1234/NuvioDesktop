@@ -367,6 +367,8 @@ Settings > Lights out > Beat lights (music). Needs the WiZ bulb's IP address (yo
   - [ ] (must) Govee: a picked light strobes hard on and off on every beat of a four-to-the-floor track (Flash on Every beat, Flash style Strobe)
   - [ ] Govee: Add a Govee light by address (its IP from the router) adds it ticked, and it flashes, when Find can't reach it from the PC's 5 GHz network
   - [ ] (must) Govee floor lamp: between flashes it stays dark (Strobe), instead of going back to warm white (2026-11-22 video: hard white flash, then warm white)
+  - [ ] (must) Switchboard's Beat lights switch, with Movie DreamView running: within a few seconds the Govee lights strobe to Nuvio's music, without pressing All off first (2026-11-22: DreamView stayed in charge until All off)
+  - [ ] Switchboard's Movie while beat lights run: beat lights switch off and Movie DreamView takes over
   - [ ] Govee: pausing the music (or turning beat lights off) hands the light back to what it was doing before
   - [ ] Govee: a light left unticked (the Sync Box's for Movie) is not touched
   - [ ] Flash style Dim: still drops to the resting brightness between kicks (as before)
