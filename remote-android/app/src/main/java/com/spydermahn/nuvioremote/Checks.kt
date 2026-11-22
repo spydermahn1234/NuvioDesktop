@@ -14,13 +14,21 @@ package com.spydermahn.nuvioremote
  *
  * "Not tried" writes nothing. Lines already marked **BROKEN** are records, not questions; their re-checks (the
  * indented `- [ ]` under them) are the questions.
+ *
+ * Must test (Nov 22): an open line starting `(must) ` is also listed in a "Must test" section first, so the few checks
+ * that matter are asked before the long tail. Its answer still goes to the line in its own section, tag kept.
+ * Everything under a `# Archived` heading is not asked at all (checks set aside, kept for the record).
  */
 
 enum class Verdict(val label: String) { Works("Works"), Broken("Broken"), Followup("Works, but…"), NotTried("Not tried") }
 
-/** One open check: its section, the words after `- [ ] `, how far it is indented and the line it re-checks, if any. */
-data class CheckItem(val section: String, val text: String, val indent: String, val parent: String?) {
+/**
+ * One open check: its section, the words after `- [ ] `, how far it is indented, the line it re-checks, if any, and
+ * its section's intro (where to turn the feature on), which the card shows even when it is asked under Must test.
+ */
+data class CheckItem(val section: String, val text: String, val indent: String, val parent: String?, val intro: String = "") {
     val key: String get() = "$section\u0001$text"
+    val must: Boolean get() = Checks.isMust(text)
 }
 
 /** A heading of the checklist (`## Area`, or `## Area › Sub` for a `###`), what it says before its first check, and its open checks. */
@@ -44,6 +52,11 @@ object Checks {
     private val open = Regex("""^(\s*)- \[ ] (.+?)\s*$""")
     private val anyItem = Regex("""^(\s*)- (?:\[[ x~]] )?(.+?)\s*$""")
     private const val INTRO_MAX = 280
+    const val MUST_SECTION = "Must test"
+    private const val MUST_TAG = "(must) "
+    private val archived = Regex("""^#\s+Archived\b.*$""", RegexOption.IGNORE_CASE)
+
+    fun isMust(text: String): Boolean = text.startsWith(MUST_TAG)
 
     /** Every heading with at least one open check, in the file's order. */
     fun parse(markdown: String): List<CheckSection> {
@@ -69,6 +82,7 @@ object Checks {
 
         for (raw in markdown.split('\n')) {
             val line = raw.removeSuffix("\r")
+            if (archived.matches(line)) break
             val h = heading.matchEntire(line)
             if (h != null) {
                 flush()
@@ -100,12 +114,17 @@ object Checks {
             val o = open.matchEntire(line)
             if (o != null && !o.groupValues[2].startsWith("**BROKEN**")) {
                 val parent = seen.lastOrNull { it.first < indent.length }?.second?.takeIf { indent.isNotEmpty() }
-                items += CheckItem(title!!, o.groupValues[2], indent, parent)
+                val own = intro.toString().trim()
+                val said = (if (sub && own.isEmpty()) areaIntro else own).take(INTRO_MAX)
+                items += CheckItem(title!!, o.groupValues[2], indent, parent, said)
             }
             seen += indent.length to plain(item.groupValues[2].removePrefix("**BROKEN** "))
         }
         flush()
-        return out
+        val must = out.flatMap { s -> s.items.filter { it.must } }
+        if (must.isEmpty()) return out
+        val why = "The checks that matter most, oldest first. Each is also in its own area; answering it here answers it there."
+        return listOf(CheckSection(MUST_SECTION, why, must)) + out
     }
 
     /** The line an answer becomes, without its indent. */
@@ -186,7 +205,7 @@ object Checks {
     }
 
     /** "Moving **Settings** with `Esc`" → "Moving Settings with Esc", for the cards. */
-    fun plain(text: String): String = text.replace("**", "").replace("`", "")
+    fun plain(text: String): String = text.removePrefix(MUST_TAG).replace("**", "").replace("`", "")
 
     private fun oneLine(text: String) = text.replace(Regex("""\s*\n\s*"""), " ").trim()
 }

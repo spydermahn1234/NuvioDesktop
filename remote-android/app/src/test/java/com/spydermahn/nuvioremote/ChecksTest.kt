@@ -131,10 +131,49 @@ class ChecksTest {
     }
 
     @Test
+    fun `must lines are asked first under Must test and answers still go to their own line`() {
+        val md = """
+            ## Live TV
+
+            Turn on Live TV.
+
+            - [ ] Plain check
+            - [ ] (must) Tune in at switches
+            - [ ] **BROKEN** Old (2026-11-15): nothing
+              - [ ] (must) Re-check: it switches now
+
+            # Archived (not testing)
+
+            ## Old views
+
+            - [ ] (must) Never asked
+            - [ ] Nor this
+        """.trimIndent()
+        val sections = Checks.parse(md)
+        assertEquals(listOf(Checks.MUST_SECTION, "Live TV"), sections.map { it.title })
+        val must = sections[0].items
+        assertEquals(listOf("(must) Tune in at switches", "(must) Re-check: it switches now"), must.map { it.text })
+        assertEquals("Live TV", must[0].section)
+        assertEquals("Turn on Live TV.", must[0].intro)
+        assertEquals("Old (2026-11-15): nothing", must[1].parent)
+        assertEquals("Tune in at switches", Checks.plain(must[0].text))
+        assertEquals(3, sections[1].items.size)
+        val out = Checks.apply(md, listOf(CheckAnswer(must[0].section, must[0].text, Verdict.Works)), "2026-11-22")
+        assertTrue(out.markdown.contains("- [x] (must) Tune in at switches (2026-11-22)"))
+        assertTrue(out.missing.isEmpty())
+    }
+
+    @Test
+    fun `no must lines means no Must test section`() {
+        assertTrue(Checks.parse(sample).none { it.title == Checks.MUST_SECTION })
+    }
+
+    @Test
     fun `the real checklist parses`() {
         val file = java.io.File("../../TESTING.md").takeIf { it.exists() } ?: return
         val sections = Checks.parse(file.readText())
         assertTrue(sections.sumOf { it.items.size } > 100)
         assertTrue(sections.none { s -> s.items.any { it.text.startsWith("**BROKEN**") } })
+        assertTrue(sections.none { s -> s.items.any { it.section.startsWith("Archived") } })
     }
 }

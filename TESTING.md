@@ -15,6 +15,11 @@ What has been tried on the TV, and what is left. Nick tests; Claude keeps this f
     `(2026-11-16 21:04)`, to find the moment in nuvio.log)
   - `- [~] check (2026-11-08): works, but what Nick said needs doing` for "works, with a follow-up"
 - At the start of a session, offer the open checks (unticked, oldest first) as clickable questions.
+- **Must test** (Nov 22): `- [ ] (must) check` marks the few checks that matter most (re-checks of BROKEN lines,
+  the core of each new feature, a sanity check after a merge). The phone asks them first, in a Must test section, and
+  sessions offer them first. Tag one or two per new feature, not every line; keep the tag when recording a result.
+- `# Archived (not testing)` at the bottom holds checks set aside by Nick. Nothing below it is asked; move a line back
+  up to test it again.
 - A fix for a broken or follow-up line adds a fresh `- [ ]` re-check under it rather than ticking it.
 
 ## Phone remote
@@ -189,7 +194,7 @@ Needs this Nuvio and the new NuvioRemote app together.
 - [ ] Coin Toss: the phone shows the picked title and "Plays by itself in 7 s" counting down; Not this tosses again on the TV, Play now plays, Hold stops the clock (and Start the clock restarts it), Its page opens the page; the last three noes and the lean show under the buttons
 - [ ] Knockout: the phone shows "Round 1 of 3" and the two titles; tapping one keeps it on the TV; Undo undoes the last pick (and on the first match goes back to the launcher); "A 20 second taste of each" plays the tastes on the TV and the phone says which; the winner shows with its countdown and Play now
   - [ ] **BROKEN** (2026-11-11): after a pick the names changed but the posters stayed the old ones
-  - [ ] Re-check: after each pick both posters on the phone change with the names (and the same for Three Cards' reshuffle and Coin Toss' next title)
+  - [ ] (must) Re-check: after each pick both posters on the phone change with the names (and the same for Three Cards' reshuffle and Coin Toss' next title)
 - [ ] Channel Flick: the phone shows the channel playing, "CH 3 of 40", and the next three; Never show me this, Play it, Save for later and Next channel do what Left, OK, Up and Right do on the TV; the note ("… saved for later") shows on the phone too
 - [ ] Ends By: the phone shows "Bed at 23:30" with −15 and +15 (they move bedtime on the TV too) and the list, the ones past bed faded; tapping a title plays it
 - [ ] The Pile: tapping a title plays it; Let go asks "Let go for good?" and a second tap takes it off the pile on the TV
@@ -266,6 +271,9 @@ Needs the new Nuvio Remote build (it updates itself); nothing changes on the PC.
 - [ ] GitHub opens the token sheet; "Make a token on GitHub" opens the fine-grained token page; a token with Contents read and write on NuvioDesktop is saved, and the tag turns to Save N
 - [ ] Save N commits to Spyder ("TESTING: N results from the phone"): the lines are ticked as the header says (Broken with the time), the answers leave the phone, and the list refreshes with fewer open
 - [ ] A wrong or expired token says so in plain words, and the answers stay on the phone
+- [ ] (must) Must test (Nov 22): the Checks tab lists "Must test" first, with the (must) checks from every area; each card names its area above the check, and "(must)" is not shown in the text
+- [ ] Answering a check under Must test ticks it in its own area too, and Save writes it to its own line in TESTING.md, tag kept
+- [ ] Nothing from the "Archived (not testing)" part at the bottom of TESTING.md is asked, and the open count at the top no longer counts it
 
 ## Music playback
 
@@ -330,7 +338,7 @@ Needs the new Nuvio Remote build (it updates itself); nothing changes on the PC.
 - [x] Albums with two editions (Ren, Vincent's Tale) stay on one (2026-11-08)
 - [ ] **BROKEN** Song by song > Other versions finds the clean or explicit edition (2026-11-08): not all of the time,
   needs work
-  - [ ] Re-check after the fix (Nov 20): on an explicit album with a clean edition (2001, or one whose clean titles are starred out like "F**k"), Song by song > Other versions lists "Clean edition" for every song, the starred ones included, and playing it plays the clean copy
+  - [ ] (must) Re-check after the fix (Nov 20): on an explicit album with a clean edition (2001, or one whose clean titles are starred out like "F**k"), Song by song > Other versions lists "Clean edition" for every song, the starred ones included, and playing it plays the clean copy
   - [ ] On an album with deluxe or remastered editions as well, the Clean (or Explicit) edition is listed first, above the others
 - [x] Edit pills: small card, intro, trivia and the song story edit on the album page and the Stage, and stick (2026-11-08)
 
@@ -338,7 +346,7 @@ Needs the new Nuvio Remote build (it updates itself); nothing changes on the PC.
 
 - [ ] **BROKEN** The facts filler fills in the background within the AI key's limits (2026-11-08): on Groq's free tier
   it hits the limits within seconds
-  - [ ] Re-check after the fix (rolling-minute limit, 1773853, Nov 8): with a free Groq key and the filler on for half an hour, Settings > Music shows it filling and now and then "Keeping under the AI key's minute limit; next lookup in N s", never "Several lookups failed in a row", and a song story you open yourself meanwhile still loads
+  - [ ] (must) Re-check after the fix (rolling-minute limit, 1773853, Nov 8): with a free Groq key and the filler on for half an hour, Settings > Music shows it filling and now and then "Keeping under the AI key's minute limit; next lookup in N s", never "Several lookups failed in a row", and a song story you open yourself meanwhile still loads
 - [x] Share music facts as JSON; Fill album facts in the background (Settings > Music) (2026-11-08)
 
 ## Now Playing stage
@@ -423,25 +431,16 @@ The sliders button in the Live TV header, beside Refresh.
 
 Settings > Live TV > On Now (off by default). Best tried in the evening with a match you follow under Live scores.
 
-- [ ] Settings > Live TV has an "On Now" switch under "Show in navigation", off; Settings search finds it by typing "on now"; with it off the Live TV tab is exactly as before
-- [ ] With it on, the sidebar starts with On now, Sport and Films, and the tab opens on On now: rows of glass tiles titled Live sport, Films and Your channels (a row with nothing in it is left out)
-- [ ] Arrow keys and the pad move a highlight tile to tile, Left from the first tile goes to the sidebar, Up from the top row reaches the header buttons, and a mouse click on a tile does the same as OK
-- [ ] Films: the tiles are films that are really on now or start within half an hour, each with how far in it is, a progress bar and the channel; with a TMDB key they show posters
 - [ ] OK on a film opens its page (picture, blurb, "Started 18:30 · 71 min in · ends 20:15"); Watch live plays the channel; Back (Esc or the pad's B) returns to the wall, not out of Live TV
 - [ ] Start over: on a channel your provider records, the film page has "Start from the beginning" and it plays the film from its start, not live
 - [ ] Start over: left running to the end, the recording carries on into the live channel instead of stopping or starting again
 - [ ] Start over: the "Earlier on <channel>" lines on the page play that finished programme
 - [ ] Start over: on a channel without catch-up the page says it can only be joined live and has no Start from the beginning
-- [ ] Sport, with Live scores on and a followed match in play: its tile shows both teams, the score and the minute, names the right channel, and OK plays that channel
-- [ ] Sport, a followed match the guide has no channel for says "Not found in the guide" and does nothing on OK
-- [ ] Sport with Live scores off still lists sport programmes from the guide
-- [ ] Your channels after a few days: the row leads with what you usually watch at that time of day
 - [ ] All channels and the categories: a channel your playlist lists several times (FHD / HD / SD / backup) is one row marked like "FHD · 4 sources"; +1 channels and 4K copies are still their own rows
 - [ ] No two different channels have been merged into one row; if any have, say which names
 - [ ] Starring a merged row stars it once (Favourites shows one row); unstarring removes it
 - [ ] A merged channel whose first copy is dead still plays: it moves to the next copy by itself within a few seconds (nuvio.log says "trying")
 - [ ] Channel up/down in the player steps through merged channels (BBC One, then BBC Two), not through the copies of one
-- [ ] The header's search box narrows the wall by a film, team or channel name
 
 ## Saving settings (hardening, Nov 10)
 
@@ -481,7 +480,7 @@ Settings > Live TV > On Now (off by default). Best tried in the evening with a m
 Turn it on in Settings > Random Play > Tonight picker > "Open on Tonight".
 
 - [ ] **BROKEN** Back from Three Cards (2026-11-10): Esc on the keyboard did nothing (the Android remote's Back works); fixed the same evening (Back now acts on the key coming up)
-  - [ ] Re-check: the remote's Back (and a pad's B, the phone remote's Back, the mouse's back button) leaves every Tonight mode: cards and questions step back, the modes return to the launcher; on the launcher Back does what it did before
+  - [ ] (must) Re-check: the remote's Back (and a pad's B, the phone remote's Back, the mouse's back button) leaves every Tonight mode: cards and questions step back, the modes return to the launcher; on the launcher Back does what it did before
 - [ ] Typing "Tonight" or "bedtime" in the Settings search finds the Tonight picker rows and opens Random Play at that section (also listed first in the Random Play page's sidebar)
 - [ ] With the switch on, Nuvio opens on "How shall we choose tonight?" instead of the Home rows; with it off, Home is as before
 - [ ] The launcher's eight tiles keep their size; the six unbuilt ones are dimmed with "COMING SOON", and OK on one says it is coming later
@@ -561,7 +560,7 @@ Every mode below has a "← Back" button in a strip under its content (hint line
 - [ ] The winner shows with a five-second ring and then plays; OK plays at once, Back reopens the final
 - [ ] Clicking a poster with the mouse keeps it in Knockout
 - [ ] **BROKEN** (2026-11-11): the winner (The White Lotus) opened "Failed to load: could not load details from any addon", though it opens fine from Home
-  - [ ] Re-check: a trending winner (one not in your library) plays; the same for Three Cards, Coin Toss, Channel Flick, Ends By and The Map, and for Down = details
+  - [ ] (must) Re-check: a trending winner (one not in your library) plays; the same for Three Cards, Coin Toss, Channel Flick, Ends By and The Map, and for Down = details
 
 ### Tonight picker: Channel Flick and trailer tastes (phase 3, Nov 10)
 
@@ -569,7 +568,7 @@ Every mode below has a "← Back" button in a strip under its content (hint line
 - [ ] Under the frame: where the title comes from (FROM YOUR LIBRARY, TRENDING THIS WEEK, YOU'RE ON S2 E4), its name and "ends 23:06"; the frame and the lines under it never move
 - [ ] When a trailer ends the next channel starts by itself; a title with no trailer says so briefly and is skipped
   - [ ] **BROKEN** (2026-11-12): every channel stuck on "Finding the trailer…"; YouTube answered every trailer lookup "Sign in to confirm you're not a bot"
-  - [ ] Re-check after the fix (signed-in fallback, ed0e022): Channel Flick plays trailers again while YouTube is asking for a sign-in; `nuvio.log` shows `TrailerSignedIn … trailer opened signed in` for the ones it rescued
+  - [ ] (must) Re-check after the fix (signed-in fallback, ed0e022): Channel Flick plays trailers again while YouTube is asking for a sign-in; `nuvio.log` shows `TrailerSignedIn … trailer opened signed in` for the ones it rescued
   - [ ] The same while YouTube is asking for a sign-in: a new Home hero trailer, a details page trailer and the pre-show trailers play
 - [ ] Right flicks to the next channel; the three UP NEXT pictures in the top corner match what comes next
 - [ ] Left says "won't come up again" and the title is gone from Tonight and from Discover's rows (it is in Not interested)
@@ -640,34 +639,11 @@ Settings > Live TV > Live scores (off by default). Best tried while Man Utd or a
 - [ ] Close Nuvio: Task Manager shows no node.exe or redis-server.exe left running; start Nuvio again and the servers come back on their own, with the same addresses (installed addons still work)
   - [ ] **BROKEN** (2026-11-11): on start the two local addons showed "Unavailable, Failed to connect to /127.0.0.1:4734x" until refreshed by hand, because Nuvio loads its addons before the servers answer. Re-check: start Nuvio and leave Settings > Addons alone; within about half a minute both show as loaded and Home has their rows (nuvio.log has "Server on port … is ready: loading its addon again")
     - [~] (2026-11-11): AIOStreams came back by itself; AIOMetadata's reload got "Request failed with HTTP 503" (it answered /health/live while still initialising) and needed a manual refresh. Re-check: after a start both load without touching them
+      - [ ] (must) Re-check after the /health/ready fix: start Nuvio and leave Settings > Addons alone; AIOStreams and AIOMetadata both load by themselves, with no manual refresh
 - [ ] Memory: with both running for an evening, Task Manager's node.exe processes stay around 1.3 GB in total, and Nuvio stays smooth
 - [ ] An in-app update while the servers are on installs cleanly (no "file in use" error)
 - [ ] Turning the switch off stops all three (no node.exe or redis-server.exe left)
 - [ ] PC build (D:\NuvioBuild\build.cmd, Nov 11): after a build the setting no longer says "This build does not include the servers"; the first build after a bundle change also builds the bundle (10 to 20 minutes, "Local addons: bundle ready" in build.log), later ones say "Local addons: bundle up to date" and keep the servers
-
-## Upstream merge (Nov 13)
-
-Upstream's windows-tv-adaptive (8e2adb00) merged into Spyder. These check that what the fork kept still works and that what came in did not break it.
-
-- [ ] Nuvio starts, and Settings > About (or the update check) still looks at this fork's Nightly, not UmbraProjects'
-- [ ] Music tab with "New music home" on: the music home is still the first screen, typing searches as before, and its Library tab opens the three-panel Shelf
-- [ ] With the music home on, the Search key (S) and the top bar's Search on the Music tab put the cursor in the music home's own search line
-- [ ] A genre chip on the Stage still opens the Music tab searching that genre
-- [ ] Settings > Music still has "New album page", "New artist page" and "New music home", each as you left it; the album page and the artist page look as they did before the merge
-- [ ] Settings > Music has a new "Album notes and facts" switch, on: liner notes, song stories and the facts filler work as before
-- [ ] Settings > Music > Library views (new): Crates (the three-panel Shelf) and Playlists are on; Shelf (the old row-per-artist one), Constellation and Eras are off and do not show in the Library
-- [ ] The Stage looks as it did before the merge: three panels, nothing moves, the liner notes / visualiser box is there, the options menu has no "Side box" row
-- [ ] Stage options menu: the arrow keys stay inside the open menu (they do not jump to the page behind it)
-- [ ] The dock still shows the quality pill (FLAC) and the beat dot; the mini bar's line still ends with the quality
-- [ ] Release tiles still show the "Lossless" text pill (not upstream's icon)
-- [ ] Loud lyrics on the Stage: no row is cut off at the top or the foot (upstream's fit fix came in)
-- [ ] Music pages from the keyboard: after closing a menu or a dialog the arrows still move (upstream's focus router); Escape or B gets out of the dock and the player panel
-- [ ] Live TV with On Now on opens on the wall; the top bar's Search on the Live TV tab narrows the wall and the channel list; Triage still opens from the header
-- [ ] Tonight ("What to watch"): the launcher shows real backdrops and every mode has the new look; each mode still shows on the phone remote and a pick from the phone plays on the TV
-- [ ] Tonight: a trending title (one with a tmdb id) still opens its details page
-- [ ] Phone remote: connects as before; a live-score notification still arrives on the phone
-- [ ] R (or holding LB) brings up the panel ring; O opens Settings
-- [ ] Top bar Search on the YouTube tab searches YouTube
 
 ## Top bar search predictions (from upstream, Nov 11)
 
@@ -755,7 +731,7 @@ Settings > Live TV > Stage. Live TV opens on Three things with a strip of stages
 - [ ] All channels (end of the strip, OK) opens the classic Live TV; its "Stages" sidebar item brings the stages back
 - [ ] Three things: three cards the same size, films with a backdrop, others with the channel logo; OK plays one that is on, tunes in for one that starts soon; Deal again works once a night
 - [ ] **BROKEN** Starting soon: the chips narrow the departures; the right panel follows the highlighted row; Tune in at switches to the channel at the start; Go to ... now plays it (2026-11-15): Tune in at did nothing while another channel was playing
-  - [ ] Re-check after the fix (the channel is now changed inside the playing player): Tune in at on Starting soon, keep watching another channel, and at the start time it switches; the same while a film plays (the film closes and the channel opens)
+  - [ ] (must) Re-check after the fix (the channel is now changed inside the playing player): Tune in at on Starting soon, keep watching another channel, and at the start time it switches; the same while a film plays (the film closes and the channel opens)
 - [ ] I have N minutes: the dial changes the three columns; nothing runs over except dimmed rows that say how far
 - [ ] Tonight: the running order ends before the bedtime chip; Swap one replaces the highlighted slot; Approve and start switches at each start; Approved: cancel and Not tonight undo it
 - [ ] Earlier today: OK or Play from the start plays a programme from its beginning (Xtream catch-up)
@@ -893,7 +869,6 @@ Settings > Live TV > Stage. Watch a few programmes on Live TV first (each one at
 
 ## Live TV: more views (Nov 15)
 
-- [ ] Settings > Live TV has six "View:" switches; each adds its stage to the strip, and off takes it away
 - [ ] Map: blocks by kind; OK opens one into tiles with the highlighted one on the right; Back zooms out
 - [ ] For you now: big tiles are what you would pick first; OK plays or tunes in
 - [ ] River: lanes by kind with the now line; left/right moves along a lane; OK on a later one sets a switching reminder
@@ -906,7 +881,7 @@ Settings > Live TV > Stage. Watch a few programmes on Live TV first (each one at
 
 - [ ] Settings > Live TV has "Subtitles for films on live channels"; Settings search finds it
 - [ ] **BROKEN** With it on, tune to a film (Jaws on Sky Cinema): the player's subtitles list shows add-on subtitles (Subsense) within about half a minute (2026-11-15): 21 Jump Street and Mission: Impossible showed nothing
-  - [ ] Re-check after the fix (films the guide does not mark as films are now recognised by their channel or category, so they are not looked up as the TV series of the same name): 21 Jump Street or Mission: Impossible on a Sky Cinema channel lists Subsense subtitles
+  - [ ] (must) Re-check after the fix (films the guide does not mark as films are now recognised by their channel or category, so they are not looked up as the TV series of the same name): 21 Jump Street or Mission: Impossible on a Sky Cinema channel lists Subsense subtitles
 - [ ] Pick one: the HUD says "timed from the guide", and the lines are roughly right straight away
 - [ ] Within a few minutes the HUD says "synced to the audio (+x.xs)" and the lines match the speech
 - [ ] Pick one subtitle, then another a minute later: the second syncs within about half a minute (the speech already heard is kept), not after another few minutes
@@ -929,14 +904,14 @@ Settings > Live TV > Stage. Watch a few programmes on Live TV first (each one at
 
 ## Live TV: the front door (Nov 15)
 
-- [ ] With Stage on, Live TV opens on the front door ("Live TV", Home first on the strip): favourites on the left, one pick in the centre with Watch highlighted, scores and Next up on the right
-- [ ] OK on Watch plays the pick; a pick that starts within 5 minutes puts its channel on at once ("Watch · starts 20:00")
+- [ ] (must) With Stage on, Live TV opens on the front door ("Live TV", Home first on the strip): favourites on the left, one pick in the centre with Watch highlighted, scores and Next up on the right
+- [ ] (must) OK on Watch plays the pick; a pick that starts within 5 minutes puts its channel on at once ("Watch · starts 20:00")
 - [ ] The pick's line says why: you follow it, starts in N min, your usual at this hour (with its Your 40 number), or a film that began N min ago
 - [ ] Something else swaps the pick for the next one; the pick otherwise stays the same for 15 minutes, unless a followed match comes on
 - [ ] A followed team playing live becomes the pick, and its score is on the right with the channel showing it; OK on the score plays that channel
 - [ ] Hide scores empties the scores box (it says hidden); Show scores brings them back, and the choice is kept after a restart
 - [ ] Favourites now lists the starred channels with what is on and a progress bar; the last channel watched sits above them as Carry on; OK plays, hold OK unstars
-- [ ] Back from the player lands on the front door, whichever stage you left from
+- [ ] (must) Back from the player lands on the front door, whichever stage you left from
 - [ ] First run: on a playlist with no triage yet, Live TV opens on the triage questions; Done (or Back out of them) leads to the front door, and they don't come back by themselves until Nuvio is restarted
 - [ ] Settings > Live TV > Front door picture: the pick plays its channel, muted, with rounded corners and no player controls (the art shows until the picture moves); Watch opens the player with no second connection hanging on; a menu (hold OK) is not hidden behind the picture; off, the art only
 - [ ] The phone remote on Home (new Nuvio Remote build): the pick is one big card with its picture, why it was picked, Watch and Something else; Watch plays it on the TV and Something else changes it on both
@@ -979,6 +954,59 @@ Upstream's windows-tv-adaptive (94a5b339) merged into Spyder: the phone as a poi
 - [ ] Pointer: the Remote tab stays the pointer while a film, music, the source list, What to watch or Live TV is on the TV
 - [ ] Nuvio Remote still updates itself only through its own card (Install / Later) and More > Device > Update: no second "Update available" banner
 
+## Nuvio Lights (Nov 18)
+
+- Nuvio Lights, the tray app: dropped, film-night lighting belongs to Switchboard on the phone (2026-11-21)
+
+## Lights out: Govee Movie DreamView (Nov 18)
+
+- Movie DreamView in Settings > Lights out: dropped, Switchboard on the phone starts and stops it (2026-11-21)
+- [ ] Settings > Lights out > Govee has no Movie DreamView rows, and loading the Govee devices still lists the lights
+- [ ] (must) Close and reopen Nuvio: the Govee lights stay as Switchboard left them (no DreamView starting by itself)
+- [ ] (must) With Lights out on, play and pause a film: the lights ticked under Lights to control still dim and come back
+
+## Phone remote: picture shape (Nov 21)
+
+- [ ] (must) During a film, More › Playback shows a Shape row (Fit, Stretch, Zoom, Auto crop) with the TV's current one lit
+- [ ] Each of Fit, Stretch, Zoom and Auto crop changes the picture on the TV, and the TV briefly shows its name
+- [ ] Changing the shape from the TV's own Aspect ratio menu lights the matching chip on the phone within a second
+- [ ] (must) The shape picked from the phone is still in use when the next film starts
+- [ ] During music the Shape row is not shown
+
+## Upstream merge (Nov 21)
+
+Upstream's windows-tv-adaptive (56d7c587) merged into Spyder. Its new things, and a check that the fork's own pages are untouched:
+
+- [ ] (must) Nuvio starts; the music home, Stage, album and artist pages, the Live TV stages and the phone remote work as before
+
+# Archived (not testing)
+
+Set aside on 2026-11-22 (Nick): upstream merge checks for upstream's own features, and the old Live TV views that Stage replaced. Kept for the record; the phone's Checks tab asks nothing below this heading. To test one again, move it back up.
+
+## Upstream merge (Nov 13)
+
+Upstream's windows-tv-adaptive (8e2adb00) merged into Spyder. These check that what the fork kept still works and that what came in did not break it.
+
+- [ ] Nuvio starts, and Settings > About (or the update check) still looks at this fork's Nightly, not UmbraProjects'
+- [ ] Music tab with "New music home" on: the music home is still the first screen, typing searches as before, and its Library tab opens the three-panel Shelf
+- [ ] With the music home on, the Search key (S) and the top bar's Search on the Music tab put the cursor in the music home's own search line
+- [ ] A genre chip on the Stage still opens the Music tab searching that genre
+- [ ] Settings > Music still has "New album page", "New artist page" and "New music home", each as you left it; the album page and the artist page look as they did before the merge
+- [ ] Settings > Music has a new "Album notes and facts" switch, on: liner notes, song stories and the facts filler work as before
+- [ ] Settings > Music > Library views (new): Crates (the three-panel Shelf) and Playlists are on; Shelf (the old row-per-artist one), Constellation and Eras are off and do not show in the Library
+- [ ] The Stage looks as it did before the merge: three panels, nothing moves, the liner notes / visualiser box is there, the options menu has no "Side box" row
+- [ ] Stage options menu: the arrow keys stay inside the open menu (they do not jump to the page behind it)
+- [ ] The dock still shows the quality pill (FLAC) and the beat dot; the mini bar's line still ends with the quality
+- [ ] Release tiles still show the "Lossless" text pill (not upstream's icon)
+- [ ] Loud lyrics on the Stage: no row is cut off at the top or the foot (upstream's fit fix came in)
+- [ ] Music pages from the keyboard: after closing a menu or a dialog the arrows still move (upstream's focus router); Escape or B gets out of the dock and the player panel
+- [ ] Live TV with On Now on opens on the wall; the top bar's Search on the Live TV tab narrows the wall and the channel list; Triage still opens from the header
+- [ ] Tonight ("What to watch"): the launcher shows real backdrops and every mode has the new look; each mode still shows on the phone remote and a pick from the phone plays on the TV
+- [ ] Tonight: a trending title (one with a tmdb id) still opens its details page
+- [ ] Phone remote: connects as before; a live-score notification still arrives on the phone
+- [ ] R (or holding LB) brings up the panel ring; O opens Settings
+- [ ] Top bar Search on the YouTube tab searches YouTube
+
 ## Upstream merge (Nov 16)
 
 Upstream's windows-tv-adaptive (43492138) merged into Spyder. Its new things, and a check that the fork's own pages are untouched:
@@ -996,30 +1024,8 @@ Upstream's windows-tv-adaptive (43492138) merged into Spyder. Its new things, an
 - [ ] Live TV: a playlist whose password was pasted with a line break now plays
 - [ ] Simkl Next up updates after marking an episode watched
 
-## Nuvio Lights (Nov 18)
-
-- Nuvio Lights, the tray app: dropped, film-night lighting belongs to Switchboard on the phone (2026-11-21)
-
-## Lights out: Govee Movie DreamView (Nov 18)
-
-- Movie DreamView in Settings > Lights out: dropped, Switchboard on the phone starts and stops it (2026-11-21)
-- [ ] Settings > Lights out > Govee has no Movie DreamView rows, and loading the Govee devices still lists the lights
-- [ ] Close and reopen Nuvio: the Govee lights stay as Switchboard left them (no DreamView starting by itself)
-- [ ] With Lights out on, play and pause a film: the lights ticked under Lights to control still dim and come back
-
-## Phone remote: picture shape (Nov 21)
-
-- [ ] During a film, More › Playback shows a Shape row (Fit, Stretch, Zoom, Auto crop) with the TV's current one lit
-- [ ] Each of Fit, Stretch, Zoom and Auto crop changes the picture on the TV, and the TV briefly shows its name
-- [ ] Changing the shape from the TV's own Aspect ratio menu lights the matching chip on the phone within a second
-- [ ] The shape picked from the phone is still in use when the next film starts
-- [ ] During music the Shape row is not shown
-
 ## Upstream merge (Nov 21)
 
-Upstream's windows-tv-adaptive (56d7c587) merged into Spyder. Its new things, and a check that the fork's own pages are untouched:
-
-- [ ] Nuvio starts; the music home, Stage, album and artist pages, the Live TV stages and the phone remote work as before
 - [ ] Home and Library posters show at once after a reboot, with no blank cards while they load
 - [ ] Sources: late addon results show at once while the mouse is over the list, without moving the row under the pointer
 - [ ] Settings > Media servers: a Jellyfin, Emby or Plex server can be added, and its files show as a source group for a title it has
@@ -1031,3 +1037,23 @@ Upstream's windows-tv-adaptive (56d7c587) merged into Spyder. Its new things, an
 - [ ] With TorBox set up, picking a torrent from the player's Sources panel plays through TorBox with no P2P warning
 - [ ] Continue watching's click action offers Details for upcoming only, and it opens details for a Next Up episode not aired yet
 - [ ] Removing a Next Up card keeps it gone after a restart
+
+## Live TV: On Now (Nov 13), the classic wall
+
+The wall's own tiles and sidebar sections, which Stage replaces. Start over and merged channels stay up in their section.
+
+- [ ] Settings > Live TV has an "On Now" switch under "Show in navigation", off; Settings search finds it by typing "on now"; with it off the Live TV tab is exactly as before
+- [ ] With it on, the sidebar starts with On now, Sport and Films, and the tab opens on On now: rows of glass tiles titled Live sport, Films and Your channels (a row with nothing in it is left out)
+- [ ] Arrow keys and the pad move a highlight tile to tile, Left from the first tile goes to the sidebar, Up from the top row reaches the header buttons, and a mouse click on a tile does the same as OK
+- [ ] Films: the tiles are films that are really on now or start within half an hour, each with how far in it is, a progress bar and the channel; with a TMDB key they show posters
+- [ ] Sport, with Live scores on and a followed match in play: its tile shows both teams, the score and the minute, names the right channel, and OK plays that channel
+- [ ] Sport, a followed match the guide has no channel for says "Not found in the guide" and does nothing on OK
+- [ ] Sport with Live scores off still lists sport programmes from the guide
+- [ ] Your channels after a few days: the row leads with what you usually watch at that time of day
+- [ ] The header's search box narrows the wall by a film, team or channel name
+
+## Live TV: more views (Nov 15)
+
+The six switches were replaced by the Views chip (Nov 15 polish).
+
+- [ ] Settings > Live TV has six "View:" switches; each adds its stage to the strip, and off takes it away

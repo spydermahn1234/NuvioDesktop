@@ -90,7 +90,8 @@ data class ChecksUi(
     val message: String? = null,
     val hasToken: Boolean = false,
 ) {
-    val open: Int get() = sections.sumOf { it.items.size }
+    /** Each check once, though a Must test line is listed twice. */
+    val open: Int get() = sections.flatMap { s -> s.items.map { it.key } }.toSet().size
     /** Answers that will change the file (Not tried only moves past a check). */
     val toSave: List<CheckAnswer> get() = answers.values.filter { it.verdict != Verdict.NotTried }
 }
@@ -342,6 +343,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.CheckCards(section: C
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
+        if (item.section != section.title) GlassLabel(item.section, color = g.accent, size = 11)
         item.parent?.let { parent ->
             Column {
                 GlassLabel("Re-check of", color = g.warning, size = 11)
@@ -349,10 +351,10 @@ private fun androidx.compose.foundation.layout.ColumnScope.CheckCards(section: C
             }
         }
         Text(Checks.plain(item.text), color = g.text, fontSize = 19.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold)
-        if (section.intro.isNotEmpty()) {
+        if (item.intro.isNotEmpty()) {
             Column {
                 GlassLabel("Getting there", color = g.textMuted, size = 11)
-                Text(section.intro, color = g.textMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                Text(item.intro, color = g.textMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
             }
         }
     }
