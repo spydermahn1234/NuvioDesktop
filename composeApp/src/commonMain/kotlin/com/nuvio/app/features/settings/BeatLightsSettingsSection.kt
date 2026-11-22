@@ -9,6 +9,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.nuvio.app.features.music.beatlights.BeatLightsOn
 import com.nuvio.app.features.music.beatlights.BeatLightsSettings
 import com.nuvio.app.features.music.beatlights.BeatLightsSettingsRepository
+import com.nuvio.app.features.music.beatlights.BeatLightsStyle
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.settings_beat_lights_address
 import nuvio.composeapp.generated.resources.settings_beat_lights_address_description
@@ -24,6 +25,11 @@ import nuvio.composeapp.generated.resources.settings_beat_lights_on_downbeat
 import nuvio.composeapp.generated.resources.settings_beat_lights_on_kick
 import nuvio.composeapp.generated.resources.settings_beat_lights_rest
 import nuvio.composeapp.generated.resources.settings_beat_lights_section
+import nuvio.composeapp.generated.resources.settings_beat_lights_style
+import nuvio.composeapp.generated.resources.settings_beat_lights_style_description
+import nuvio.composeapp.generated.resources.settings_beat_lights_style_dim
+import nuvio.composeapp.generated.resources.settings_beat_lights_style_strobe
+import nuvio.composeapp.generated.resources.settings_beat_lights_style_swap
 import org.jetbrains.compose.resources.stringResource
 
 /** fork:beat-lights - Settings > Lights > Beat lights (music). The engine is BeatLightsEngine.desktop.kt. */
@@ -81,27 +87,44 @@ internal fun BeatLightsSettingsSection(isTablet: Boolean) {
                 onValueChange = BeatLightsSettingsRepository::setEarlyMs,
             )
             SettingsGroupDivider(isTablet = isTablet)
-            SettingsSliderRow(
-                title = stringResource(Res.string.settings_beat_lights_flash),
-                value = settings.flashMs,
-                valueText = "${settings.flashMs} ms",
-                valueTextForValue = { "$it ms" },
-                valueRange = 40..400,
-                step = 10,
+            SettingsChoiceRow(
+                title = stringResource(Res.string.settings_beat_lights_style),
+                description = stringResource(Res.string.settings_beat_lights_style_description),
+                options = listOf(
+                    SettingsChoiceOption(BeatLightsStyle.Strobe, stringResource(Res.string.settings_beat_lights_style_strobe)),
+                    SettingsChoiceOption(BeatLightsStyle.Dim, stringResource(Res.string.settings_beat_lights_style_dim)),
+                    SettingsChoiceOption(BeatLightsStyle.Swap, stringResource(Res.string.settings_beat_lights_style_swap)),
+                ),
+                selectedValue = settings.style,
                 isTablet = isTablet,
-                onValueChange = BeatLightsSettingsRepository::setFlashMs,
+                onSelected = BeatLightsSettingsRepository::setStyle,
             )
-            SettingsGroupDivider(isTablet = isTablet)
-            SettingsSliderRow(
-                title = stringResource(Res.string.settings_beat_lights_rest),
-                value = settings.restPercent,
-                valueText = "${settings.restPercent}%",
-                valueTextForValue = { "$it%" },
-                valueRange = 10..100,
-                step = 5,
-                isTablet = isTablet,
-                onValueChange = BeatLightsSettingsRepository::setRestPercent,
-            )
+            if (settings.style != BeatLightsStyle.Swap) {
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSliderRow(
+                    title = stringResource(Res.string.settings_beat_lights_flash),
+                    value = settings.flashMs,
+                    valueText = "${settings.flashMs} ms",
+                    valueTextForValue = { "$it ms" },
+                    valueRange = 40..400,
+                    step = 10,
+                    isTablet = isTablet,
+                    onValueChange = BeatLightsSettingsRepository::setFlashMs,
+                )
+            }
+            if (settings.style == BeatLightsStyle.Dim) {
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSliderRow(
+                    title = stringResource(Res.string.settings_beat_lights_rest),
+                    value = settings.restPercent,
+                    valueText = "${settings.restPercent}%",
+                    valueTextForValue = { "$it%" },
+                    valueRange = 10..100,
+                    step = 5,
+                    isTablet = isTablet,
+                    onValueChange = BeatLightsSettingsRepository::setRestPercent,
+                )
+            }
         }
     }
 }

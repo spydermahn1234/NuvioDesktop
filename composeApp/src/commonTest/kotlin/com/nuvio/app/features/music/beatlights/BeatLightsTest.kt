@@ -133,4 +133,22 @@ class BeatLightsTest {
         assertEquals("""{"method":"setPilot","params":{"state":true,"dimming":10}}""", BeatLightsRules.wizBrightness(0))
         assertEquals("""{"method":"setPilot","params":{"state":true,"dimming":100}}""", BeatLightsRules.wizBrightness(150))
     }
+
+    @Test
+    fun strobeIsTheDefaultAndSwitchesTheBulbOff() {
+        assertEquals(BeatLightsStyle.Strobe, BeatLightsSettings().style)
+        assertEquals("""{"method":"setPilot","params":{"state":false}}""", BeatLightsRules.WIZ_OFF)
+    }
+
+    @Test
+    fun aSeekIsCountedAsAJump() {
+        val m = map(10, emptyList())
+        val c = BeatLightsCursor()
+        c.advance(1, m, 0.0, BeatLightsOn.Kick)
+        c.advance(1, m, 100.0, BeatLightsOn.Kick)
+        assertEquals(0, c.jumps)
+        c.advance(1, m, 5_000.0, BeatLightsOn.Kick)
+        c.advance(1, m, 1_000.0, BeatLightsOn.Kick)
+        assertEquals(2, c.jumps)
+    }
 }

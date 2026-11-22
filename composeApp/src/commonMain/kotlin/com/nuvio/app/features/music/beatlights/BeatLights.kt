@@ -35,12 +35,26 @@ enum class BeatLightsOn {
     Downbeat,
 }
 
+/** How a hit looks on the bulb. WiZ bulbs fade every change a little by themselves, so a short dip can blur away. */
+@Serializable
+enum class BeatLightsStyle {
+    /** Hard on, then off after the flash length: a strobe. */
+    Strobe,
+
+    /** Up to full, back to the resting brightness after the flash length. */
+    Dim,
+
+    /** Each hit flips the light (on, off, on...): one command per hit, so a bulb that can't keep up with two still follows. */
+    Swap,
+}
+
 @Serializable
 data class BeatLightsSettings(
     val enabled: Boolean = false,
     /** The WiZ bulb's address on the home network, e.g. 192.168.1.40. */
     val wizAddress: String = "",
     val on: BeatLightsOn = BeatLightsOn.Kick,
+    val style: BeatLightsStyle = BeatLightsStyle.Strobe,
     /** How much earlier than the hit the command is sent: the amp's delay plus the bulb's. */
     val earlyMs: Int = DEFAULT_EARLY_MS,
     /** How long the light stays up before it drops back. */
@@ -113,6 +127,9 @@ internal object BeatLightsRules {
     /** The WiZ command that sets the bulb on at [percent] brightness. */
     fun wizBrightness(percent: Int): String =
         """{"method":"setPilot","params":{"state":true,"dimming":${percent.coerceIn(10, 100)}}}"""
+
+    /** The WiZ command that switches the bulb off. */
+    const val WIZ_OFF = """{"method":"setPilot","params":{"state":false}}"""
 }
 
 /**
@@ -125,6 +142,9 @@ internal class BeatLightsCursor {
 
     // The last hit fired: a kick flagged in two frames in a row can land either side of a look, and is one flash.
     private var lastFired = Double.NEGATIVE_INFINITY
+
+    /** Times the playhead moved more than [BeatLightsRules.JUMP_MS] between two looks (a seek, or a position report that jumped). */
+    var jumps = 0
 
     fun reset() {
         lastTarget = Double.NaN
@@ -144,13 +164,17 @@ internal class BeatLightsCursor {
             // A fresh position report a little behind the clock's guess: hold, so nothing already fired fires again.
             // A real seek back starts again from there.
             if (from - targetMs > BeatLightsRules.JUMP_MS) {
+                jumps++
                 reset()
                 lastTarget = targetMs
             }
             return emptyList()
         }
         lastTarget = targetMs
-        if (targetMs - from > BeatLightsRules.JUMP_MS) return emptyList()
+        if (targetMs - from > BeatLightsRules.JUMP_MS) {
+            jumps++
+            return emptyList()
+        }
         // Only what the map has analysed so far can flash.
         val upTo = minOf(targetMs, map.analysedMs.toDouble())
         val hits = BeatLightsRules.hitsBetween(map, from, upTo, on).filter { it - lastFired > MAP_FRAME_MS }
@@ -181,6 +205,7 @@ object BeatLightsSettingsRepository {
     fun setEnabled(value: Boolean) = change { it.copy(enabled = value) }
     fun setWizAddress(value: String) = change { it.copy(wizAddress = value.trim()) }
     fun setOn(value: BeatLightsOn) = change { it.copy(on = value) }
+    fun setStyle(value: BeatLightsStyle) = change { it.copy(style = value) }
     fun setEarlyMs(value: Int) = change { it.copy(earlyMs = value.coerceIn(0, BeatLightsSettings.MAX_EARLY_MS)) }
     fun setFlashMs(value: Int) = change { it.copy(flashMs = value.coerceIn(40, 400)) }
     fun setRestPercent(value: Int) = change { it.copy(restPercent = value.coerceIn(10, 100)) }

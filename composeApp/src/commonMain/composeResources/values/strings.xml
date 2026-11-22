@@ -1532,6 +1532,11 @@
     <string name="settings_beat_lights_on_kick">Kick drum</string>
     <string name="settings_beat_lights_on_beat">Every beat</string>
     <string name="settings_beat_lights_on_downbeat">Beat one</string>
+    <string name="settings_beat_lights_style">Flash style</string>
+    <string name="settings_beat_lights_style_description">Strobe switches the bulb hard on and off; Dim drops it to a low glow; Swap flips it on or off on each hit, one command per hit, for a bulb that can't keep up</string>
+    <string name="settings_beat_lights_style_strobe">Strobe</string>
+    <string name="settings_beat_lights_style_dim">Dim</string>
+    <string name="settings_beat_lights_style_swap">Swap</string>
     <string name="settings_beat_lights_early">Flash early by</string>
     <string name="settings_beat_lights_early_description">Covers the amp's and the bulb's delay: raise it if the light lands after the beat, lower it if before</string>
     <string name="settings_beat_lights_flash">Flash length</string>

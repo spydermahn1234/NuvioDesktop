@@ -360,7 +360,10 @@ Needs the new Nuvio Remote build (it updates itself); nothing changes on the PC.
 
 Settings > Lights out > Beat lights (music). Needs the WiZ bulb's IP address (your router's device list shows it).
 
-- [ ] (must) With the bulb's address in and Flash a light on the beat on, a four-to-the-floor track from the Music tab flashes the bulb on every kick drum, and not on the bass line or hi-hats
+- [ ] (must) **BROKEN** With the bulb's address in and Flash a light on the beat on, a four-to-the-floor track from the Music tab flashes the bulb on every kick drum, and not on the bass line or hi-hats (2026-11-22): the Beat Grid shows a kick on every beat (120 BPM), but the bulb pulses softly and misses runs of kicks for seconds at a time
+  - [ ] (must) Re-check with Flash style Strobe (the new default): the bulb goes hard on and off on every kick of a four-to-the-floor track; if not, copy the nuvio.log lines starting "BeatLights" (one every 10 s) into a chat
+  - [ ] Flash style Swap: the light flips on or off on every kick, never skipping a run of kicks
+  - [ ] Flash style Dim: still drops to the resting brightness between kicks (as before)
 - [ ] (must) Flash early by: after setting it once by eye, the flashes land on the kick, not after it (note the value that works)
 - [ ] The bulb stops flashing when the music is paused, and starts again on play
 - [ ] Seeking ahead or back in a song: no burst of flashes, and it carries on in time from the new place
