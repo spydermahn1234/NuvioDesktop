@@ -18,7 +18,17 @@ What has been tried on the TV, and what is left. Nick tests; Claude keeps this f
 - **Must test** (Nov 22): `- [ ] (must) check` marks the few checks that matter most (re-checks of BROKEN lines,
   the core of each new feature, a sanity check after a merge). The phone asks them first, in a Must test section, and
   sessions offer them first. Tag one or two per new feature, not every line; keep the tag when recording a result.
-- `# Archived (not testing)` at the bottom holds checks set aside by Nick. Nothing below it is asked; move a line back
+- `## Upstream merge (Nov 23)
+
+Upstream's windows-tv-adaptive (42426994) merged into Spyder. A sanity check, and the one change to a fork page (the music dock):
+
+- [ ] (must) Nuvio starts; the music home, Stage, album and artist pages, the Live TV stages and the phone remote work as before
+- [ ] Music dock: click a button in the open dock with the mouse, then move the pointer away: the dock folds back (it no longer stays pinned open)
+- [ ] Music dock with the keyboard or a pad: reaching the dock opens it and puts focus on its play button, and it stays open while focus is inside
+- [ ] After using the mouse, the player's B key moves focus to the dock and opens it with a focus ring (it used to look like it did nothing)
+- [ ] Live TV with Stage on: opening the tab waits on Stage's background instead of flashing the plain channel page first
+
+# Archived (not testing)` at the bottom holds checks set aside by Nick. Nothing below it is asked; move a line back
   up to test it again.
 - A fix for a broken or follow-up line adds a fresh `- [ ]` re-check under it rather than ticking it.
 

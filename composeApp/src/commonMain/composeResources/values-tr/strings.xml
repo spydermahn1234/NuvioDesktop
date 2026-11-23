@@ -1876,6 +1876,9 @@
   <string name="settings_playback_desktop_custom_mpv_options">MPV Seçenekleri</string>
   <string name="settings_playback_desktop_custom_mpv_options_desc">Her satıra anahtar=değer biçiminde bir seçenek. Nuvio'nun varsayılanlarının üzerine uygulanır; geçersiz seçenekler yok sayılır.</string>
   <string name="settings_playback_desktop_custom_mpv_options_hint">örn.&#10;profile=gpu-hq&#10;deband=no</string>
+  <string name="settings_playback_desktop_custom_player_css">Özel oynatıcı CSS</string>
+  <string name="settings_playback_desktop_custom_player_css_desc">Bir sonraki oynatmada oynatıcı kontrollerinin stil sayfasına eklenen CSS. Tema değişkenlerini geçersiz kılmak için !important kullanın.</string>
+  <string name="settings_playback_desktop_custom_player_css_hint">örn.&#10;:root {&#10;  --theme-accent: #ff4d8d !important;&#10;}</string>
   <string name="settings_playback_hero_tv_trailer">Tanıtım Fragmanı Oynatma</string>
   <string name="settings_playback_hero_tv_trailer_description">Fragmanı bu konumda oynatmak için T tuşuna bas.</string>
   <string name="settings_playback_hero_tv_trailer_delay">Oynatmadan önce bekle</string>
@@ -1949,6 +1952,8 @@
   <string name="settings_playback_prefetch_resolve_links">Oynatma Bağlantılarını da Hazırla</string>
   <string name="settings_playback_preload_next_episode">Sonraki Bölüm Kaynaklarını Önceden Yükle</string>
   <string name="settings_playback_preload_next_episode_description">Sonraki bölüm kartı görünmeden kısa süre önce sonraki bölümün kaynaklarını aramaya başlar, böylece otomatik oynatma hemen başlayabilir</string>
+  <string name="settings_playback_skip_next_episode_countdown">Sonraki bölüm geri sayımını atla</string>
+  <string name="settings_playback_skip_next_episode_countdown_description">Bir bölüm bittiğinde, kaynağı bulunur bulunmaz sonrakini oynat; 3 saniyelik geri sayım olmadan. Binge Modu bunu her zaman yapar.</string>
   <string name="settings_playback_cw_stream_cache">İzlemeye Devam Et Kaynaklarını Sakla</string>
   <string name="settings_playback_cw_stream_cache_description">İzlemeye Devam Et'teki öğeler için bulunan kaynakları bir haftaya kadar hatırlar, böylece liste yenilenirken hemen görünür. Yalnızca en az 3 gün önce yayımlanmış ve 10 veya daha fazla sonucu olan sürümler için saklanır</string>
   <string name="settings_playback_prefetch_resolve_links_description">Bağlantı Hazırlama'yı arka plan aramalarına da yaygınlaştırır: en üstteki sonucun debrid bağlantısını da çözer, böylece oynatma sağlayıcını beklemeden başlar</string>
@@ -5090,4 +5095,5 @@
     <string name="usenet_compressed_unplayable">Bu yayın sıkıştırılmış 7z, Usenet ayarlarınız gereği atlandı</string>
     <string name="tonight_twelve_hour">12 saat biçimi</string>
     <string name="tonight_twelve_hour_description">Saatleri 23:30 yerine 11:30 PM olarak göster.</string>
+    <string name="player_hud_ends_at">%1$s %2$s saatinde bitiyor</string>
 </resources>

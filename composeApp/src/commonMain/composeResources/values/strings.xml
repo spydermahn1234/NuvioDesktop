@@ -1987,6 +1987,9 @@
     <string name="settings_playback_desktop_custom_mpv_options">MPV Options</string>
     <string name="settings_playback_desktop_custom_mpv_options_desc">One option per line as key=value. Applied on top of Nuvio's defaults; invalid options are ignored.</string>
     <string name="settings_playback_desktop_custom_mpv_options_hint">e.g.&#10;profile=gpu-hq&#10;deband=no</string>
+    <string name="settings_playback_desktop_custom_player_css">Custom Player CSS</string>
+    <string name="settings_playback_desktop_custom_player_css_desc">CSS appended to the player HUD stylesheet on the next playback. Use !important to override theme variables.</string>
+    <string name="settings_playback_desktop_custom_player_css_hint">e.g.&#10;:root {&#10;  --theme-accent: #ff4d8d !important;&#10;}</string>
     <string name="settings_playback_hero_tv_trailer">Hero Trailer Playback</string>
     <string name="settings_playback_hero_tv_trailer_description">Press T to play trailer at this location.</string>
     <string name="settings_playback_hero_tv_trailer_delay">Wait before playing</string>
@@ -2060,6 +2063,8 @@
     <string name="settings_playback_prefetch_resolve_links">Prepare Playback Links Too</string>
     <string name="settings_playback_preload_next_episode">Preload Next Episode Sources</string>
     <string name="settings_playback_preload_next_episode_description">Starts searching for the next episode's sources shortly before the next-episode card appears, so autoplay can start straight away</string>
+    <string name="settings_playback_skip_next_episode_countdown">Skip next-episode countdown</string>
+    <string name="settings_playback_skip_next_episode_countdown_description">When an episode ends, play the next one as soon as its source is found, without the 3-second countdown. Binge Mode always does this.</string>
     <string name="settings_playback_cw_stream_cache">Keep Continue Watching Sources</string>
     <string name="settings_playback_cw_stream_cache_description">Remembers the sources found for titles in Continue Watching for up to a week, so their list shows at once while it refreshes. Only kept for releases at least 3 days old with 10 or more results</string>
     <string name="settings_playback_prefetch_resolve_links_description">Extends Link Preparation to background searches: also resolves the debrid link for the top result, so playback starts without waiting on your provider</string>
@@ -5280,4 +5285,5 @@
     <string name="usenet_compressed_unplayable">This release is a compressed 7z, skipped by your Usenet settings</string>
     <string name="tonight_twelve_hour">12-hour clock</string>
     <string name="tonight_twelve_hour_description">Show times as 11:30 PM instead of 23:30.</string>
+    <string name="player_hud_ends_at">%1$s ends at %2$s</string>
 </resources>

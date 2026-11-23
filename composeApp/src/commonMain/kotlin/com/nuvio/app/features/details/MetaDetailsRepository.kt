@@ -50,6 +50,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
@@ -410,9 +411,11 @@ object MetaDetailsRepository {
             return shared.await()
         }
         if (background) {
-            return backgroundFetchPermits.withPermit { fetchUncached(type, id, enrichTmdb, requestKey, metaLookupId, seasonScope) }
+            return backgroundFetchPermits.withPermit {
+                fetchUncached(type, id, enrichTmdb, requestKey, metaLookupId, seasonScope, reuseRecentParse = false)
+            }
         }
-        return fetchUncached(type, id, enrichTmdb, requestKey, metaLookupId, seasonScope)
+        return fetchUncached(type, id, enrichTmdb, requestKey, metaLookupId, seasonScope, reuseRecentParse = false)
     }
 
     private suspend fun fetchUncached(
@@ -422,6 +425,7 @@ object MetaDetailsRepository {
         requestKey: String,
         metaLookupId: String,
         episodeSeasons: Set<Int>? = null,
+        reuseRecentParse: Boolean = true,
     ): MetaDetails? = runMetaFetch(
         type = type,
         id = id,
@@ -436,6 +440,7 @@ object MetaDetailsRepository {
         includeEpisodes = true,
         origin = "full",
         episodeSeasons = episodeSeasons,
+        reuseRecentParse = reuseRecentParse,
     )
 
     /**
@@ -458,6 +463,8 @@ object MetaDetailsRepository {
         cacheResult: Boolean = true,
         /** Seasons TMDB decorates; null for all. See [fetch]. */
         episodeSeasons: Set<Int>? = null,
+        /** False for `fetch(forceRefresh = true)`: the addon is asked again, not the recent parse. */
+        reuseRecentParse: Boolean = true,
     ): MetaDetails? {
         // forceRefresh bypasses the LRU so a background sweep (library auto-download) sees newly
         // aired episodes instead of a stale cached video list. The non-forced read happens in
@@ -478,6 +485,7 @@ object MetaDetailsRepository {
                     includeEpisodes = includeEpisodes,
                     origin = "$origin:$requestKey",
                     episodeSeasons = episodeSeasons,
+                    reuseRecentParse = reuseRecentParse,
                 )
             }
             if (result != null) {
@@ -608,8 +616,15 @@ object MetaDetailsRepository {
     // result for text metadata, then ALWAYS also runs the TMDB fallback to get a proper
     // TMDB backdrop/logo. Merges the two so text comes from the addon and images from TMDB.
     // This is simpler and more reliable than a separate TMDB image service.
+    //
+    // Lightweight results carry no episode list, only its length (MetaDetails.lightweightEpisodeCount).
+    // None of its callers read episodes, but every result stayed in this cache for the session and in
+    // the disk cache with every episode's id, title and date: 281,000 episodes for 4,650 titles, 80-90
+    // MB of the ~420 MB live heap (heap dump 2026-11-23). Code that wants episodes and might be handed
+    // a lightweight record (peekAny) treats an empty list as "fetch the full meta".
     suspend fun fetchLightweightMeta(type: String, id: String, preferTmdbImages: Boolean = false): MetaDetails? {
         val meta = fetchLightweightMetaInternal(type = type, id = id, preferTmdbImages = preferTmdbImages)
+            ?.withoutEpisodeList()
         // Native anime ids are per-season entries, but TMDB/TVDB art is franchise-wide — every
         // season of a kitsu catalog would show the same backdrop. Swap in the entry's own
         // AniList/Kitsu banner when one exists (service-cached, so repeat calls are free).
@@ -686,6 +701,9 @@ object MetaDetailsRepository {
      * Refreshes a disk entry that outlived the Metadata Cache setting, one title at a time with a
      * pause between, while the stale copy keeps serving. After a long break nearly every entry is
      * stale at once, so this is what turns a ~3,300-request burst into a background trickle.
+     *
+     * The trickle waits while a player is up: at three calls a title (addon, TMDB, TVDB) it was
+     * still 60 requests every 30 s during playback (2026-11-23 log), for titles nobody is looking at.
      */
     private fun scheduleStaleLightweightRefresh(
         type: String,
@@ -700,6 +718,7 @@ object MetaDetailsRepository {
             try {
                 staleLightweightRefreshGate.withPermit {
                     delay(STALE_LIGHTWEIGHT_REFRESH_SPACING_MS)
+                    playbackActive.first { active -> !active }
                     runLightweightMetaFetch(type = type, id = id, preferTmdbImages = preferTmdbImages, requestKey = requestKey)
                     // A failed refresh leaves the stale copy in the session cache; it must not be
                     // saved again as if it were new.
@@ -717,6 +736,13 @@ object MetaDetailsRepository {
     }
 
     private val staleLightweightRefreshGate = Semaphore(1)
+    private val playbackActive = MutableStateFlow(false)
+
+    /** Set while the player owns the screen; stale-copy refreshes hold until it is gone. */
+    fun setPlaybackActive(active: Boolean) {
+        playbackActive.value = active
+    }
+
     private val staleLightweightRefreshes: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
     private const val STALE_LIGHTWEIGHT_REFRESH_SPACING_MS = 1_000L
 
@@ -966,7 +992,7 @@ object MetaDetailsRepository {
     }
 
     private suspend fun cacheLightweightMeta(requestKey: String, meta: MetaDetails) {
-        lightweightMetaMutex.withLock { lightweightMetaCache[requestKey] = meta }
+        lightweightMetaMutex.withLock { lightweightMetaCache[requestKey] = meta.withoutEpisodeList() }
     }
 
     /**
@@ -1034,6 +1060,10 @@ object MetaDetailsRepository {
     private const val HTTP_NOT_FOUND = 404
     private const val HTTP_TOO_MANY_REQUESTS = 429
     private const val META_NOT_FOUND_CACHE_LIMIT = 5_000
+    /** Long enough to span a launch's Continue Watching, schedule, card and Trakt passes (~1 min apart). */
+    private const val RECENT_PARSE_TTL_MS = 3L * 60L * 1000L
+    /** Parsed records only, no decoration; a launch touches ~100 distinct meta URLs. */
+    private const val RECENT_PARSE_LIMIT = 160
     private const val TMDB_ENRICH_TIMEOUT_MS = 5_000L
     private const val TVDB_AIR_TIME_TIMEOUT_MS = 4_000L
 
@@ -1121,7 +1151,8 @@ object MetaDetailsRepository {
         origin: String = "unknown",
         /** Seasons TMDB decorates; null for all. See [fetch]. */
         episodeSeasons: Set<Int>? = null,
-    ): MetaDetails? = fetchAddonMetaCatching(manifest, type, id, origin) { parsed ->
+        reuseRecentParse: Boolean = true,
+    ): MetaDetails? = fetchAddonMetaCatching(manifest, type, id, origin, reuseRecentParse) { parsed ->
         decorateAddonMeta(
             parsed = parsed,
             id = id,
@@ -1145,6 +1176,8 @@ object MetaDetailsRepository {
         type: String,
         id: String,
         origin: String,
+        /** False for a forced refresh; see [recentParsedAddonMeta]. */
+        reuseRecentParse: Boolean = true,
         then: suspend (MetaDetails) -> MetaDetails,
     ): MetaDetails? {
         val url = buildAddonResourceUrl(
@@ -1161,58 +1194,8 @@ object MetaDetailsRepository {
         // parses dozens of records at once (One Piece, 1,242 episodes). Only `load()` wrapped it.
         // The caller's cache writes still happen back on its own dispatcher.
         return withContext(Dispatchers.Default) { try {
-            TmdbSettingsRepository.ensureLoaded()
-            log.d { "Fetching meta from: ${com.nuvio.app.core.network.redactAddonUrl(url)} [origin=$origin]" }
-            // A host that says 429 is waited out and asked again (RateLimitGate) instead of being sent the rest of the burst.
-            val response = com.nuvio.app.core.network.RateLimitGate.shared.run(url) {
-                httpRequestRaw(
-                    method = "GET",
-                    url = url,
-                    headers = mapOf("Accept" to "application/json"),
-                    body = "",
-                    allowLargeResponse = true,
-                ).also { raw ->
-                    if (raw.status == HTTP_TOO_MANY_REQUESTS) {
-                        throw com.nuvio.app.core.network.HttpStatusException(
-                            status = raw.status,
-                            retryAfterSeconds = com.nuvio.app.core.network.parseRetryAfterSeconds(
-                                raw.headers.entries.firstOrNull { it.key.equals("Retry-After", ignoreCase = true) }?.value,
-                            ),
-                            message = getString(Res.string.network_request_failed_http, raw.status),
-                        )
-                    }
-                }
-            }
-            if (response.status == HTTP_NOT_FOUND) {
-                // The addon declares meta for this id prefix but doesn't have this title: an
-                // answer, not a failure. Addons such as provider catalogues claim every `tt` id,
-                // so one user's log held 1,626 of these as stack-traced errors, from 378 URLs each
-                // requested about four times. One line, and the URL is not asked again this session.
-                metaNotFoundMutex.withLock {
-                    if (metaNotFoundUrls.size >= META_NOT_FOUND_CACHE_LIMIT) metaNotFoundUrls.clear()
-                    metaNotFoundUrls += url
-                }
-                log.i { "No meta for $type/$id at ${com.nuvio.app.core.network.redactAddonUrl(manifest.transportUrl)} (HTTP 404)" }
-                return@withContext null
-            }
-            if (response.status !in 200..299) {
-                error(getString(Res.string.network_request_failed_http, response.status))
-            }
-            val payload = response.body.takeIf { it.isNotBlank() }
-                ?: throw IllegalStateException(getString(Res.string.network_empty_response_body))
-            log.d { "Raw payload length=${payload.length}" }
-            val parsed = try {
-                MetaDetailsParser.parse(payload)
-            } catch (missing: MetaMissingException) {
-                // Remembered like a 404 (optimization audit B4: `series/anilist:219714` was asked 43 times in a day and
-                // came back empty 41 times).
-                metaNotFoundMutex.withLock {
-                    if (metaNotFoundUrls.size >= META_NOT_FOUND_CACHE_LIMIT) metaNotFoundUrls.clear()
-                    metaNotFoundUrls += url
-                }
-                log.i { "No meta for $type/$id at ${com.nuvio.app.core.network.redactAddonUrl(manifest.transportUrl)} (empty answer)" }
-                return@withContext null
-            }
+            val parsed = recentParsedAddonMeta(url, type, id, manifest, origin, reuseRecentParse)
+                ?: return@withContext null
             then(parsed)
         } catch (e: Throwable) {
             if (e is CancellationException) {
@@ -1230,6 +1213,124 @@ object MetaDetailsRepository {
             log.e(e) { "Failed to fetch/parse meta from ${com.nuvio.app.core.network.redactAddonUrl(url)} (manifest=${com.nuvio.app.core.network.redactAddonUrl(manifest.transportUrl)})" }
             null
         } }
+    }
+
+    /**
+     * The bare parsed addon record for [url], shared by every caller for [RECENT_PARSE_TTL_MS].
+     *
+     * The caches above are keyed by what the caller wants *done* to the record (full, scoped to two
+     * seasons, lightweight card, schedule, hero), so the same addon URL was downloaded and parsed
+     * once per namespace: Chicago Med's 4 times in 58 s on 2026-11-21, 80 refetches in the first
+     * 90 s of that launch, up to ~180 KB of JSON each. One download and parse now answers them all,
+     * and concurrent callers share the one in flight. The parse runs in [scope], so a caller that
+     * times out does not throw away a download the next caller can use.
+     *
+     * Skipped for `fetch(forceRefresh = true)` (library auto-download looking for new episodes, a
+     * manual resync): those must see the addon's answer as of now. A miss (404, empty answer)
+     * returns null and is remembered by [metaNotFoundUrls] as before, not here.
+     */
+    private suspend fun recentParsedAddonMeta(
+        url: String,
+        type: String,
+        id: String,
+        manifest: AddonManifest,
+        origin: String,
+        reuse: Boolean,
+    ): MetaDetails? {
+        val now = System.currentTimeMillis()
+        val shared = recentParseMutex.withLock {
+            if (reuse) {
+                recentParsedMeta[url]?.let { (parsedAt, meta) ->
+                    if (now - parsedAt in 0..RECENT_PARSE_TTL_MS) return meta
+                    recentParsedMeta.remove(url)
+                }
+                inFlightParsedMeta[url]?.let { return@withLock it }
+            }
+            scope.async(Dispatchers.Default) {
+                try {
+                    downloadAndParseAddonMeta(url, type, id, manifest, origin)?.also { meta ->
+                        recentParseMutex.withLock {
+                            recentParsedMeta[url] =
+                                System.currentTimeMillis() to meta
+                        }
+                    }
+                } finally {
+                    // A forced fetch was never registered, so it must not drop a shared one's entry.
+                    if (reuse) recentParseMutex.withLock { inFlightParsedMeta.remove(url) }
+                }
+            }.also { if (reuse) inFlightParsedMeta[url] = it }
+        }
+        return shared.await()
+    }
+
+    private val recentParseMutex = Mutex()
+    private val recentParsedMeta = object : LinkedHashMap<String, Pair<Long, MetaDetails>>() {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<Long, MetaDetails>>): Boolean =
+            size > RECENT_PARSE_LIMIT
+    }
+    private val inFlightParsedMeta = mutableMapOf<String, kotlinx.coroutines.Deferred<MetaDetails?>>()
+
+    /** The network request and parse; null for an answer that says "no such title". Throws otherwise. */
+    private suspend fun downloadAndParseAddonMeta(
+        url: String,
+        type: String,
+        id: String,
+        manifest: AddonManifest,
+        origin: String,
+    ): MetaDetails? {
+        TmdbSettingsRepository.ensureLoaded()
+        log.d { "Fetching meta from: ${com.nuvio.app.core.network.redactAddonUrl(url)} [origin=$origin]" }
+        // A host that says 429 is waited out and asked again (RateLimitGate) instead of being sent the rest of the burst.
+        val response = com.nuvio.app.core.network.RateLimitGate.shared.run(url) {
+            httpRequestRaw(
+                method = "GET",
+                url = url,
+                headers = mapOf("Accept" to "application/json"),
+                body = "",
+                allowLargeResponse = true,
+            ).also { raw ->
+                if (raw.status == HTTP_TOO_MANY_REQUESTS) {
+                    throw com.nuvio.app.core.network.HttpStatusException(
+                        status = raw.status,
+                        retryAfterSeconds = com.nuvio.app.core.network.parseRetryAfterSeconds(
+                            raw.headers.entries.firstOrNull { it.key.equals("Retry-After", ignoreCase = true) }?.value,
+                        ),
+                        message = getString(Res.string.network_request_failed_http, raw.status),
+                    )
+                }
+            }
+        }
+        if (response.status == HTTP_NOT_FOUND) {
+            // The addon declares meta for this id prefix but doesn't have this title: an
+            // answer, not a failure. Addons such as provider catalogues claim every `tt` id,
+            // so one user's log held 1,626 of these as stack-traced errors, from 378 URLs each
+            // requested about four times. One line, and the URL is not asked again this session.
+            metaNotFoundMutex.withLock {
+                if (metaNotFoundUrls.size >= META_NOT_FOUND_CACHE_LIMIT) metaNotFoundUrls.clear()
+                metaNotFoundUrls += url
+            }
+            log.i { "No meta for $type/$id at ${com.nuvio.app.core.network.redactAddonUrl(manifest.transportUrl)} (HTTP 404)" }
+            return null
+        }
+        if (response.status !in 200..299) {
+            error(getString(Res.string.network_request_failed_http, response.status))
+        }
+        val payload = response.body.takeIf { it.isNotBlank() }
+            ?: throw IllegalStateException(getString(Res.string.network_empty_response_body))
+        log.d { "Raw payload length=${payload.length}" }
+        val parsed = try {
+            MetaDetailsParser.parse(payload)
+        } catch (missing: MetaMissingException) {
+            // Remembered like a 404 (optimization audit B4: `series/anilist:219714` was asked 43 times in a day and
+            // came back empty 41 times).
+            metaNotFoundMutex.withLock {
+                if (metaNotFoundUrls.size >= META_NOT_FOUND_CACHE_LIMIT) metaNotFoundUrls.clear()
+                metaNotFoundUrls += url
+            }
+            log.i { "No meta for $type/$id at ${com.nuvio.app.core.network.redactAddonUrl(manifest.transportUrl)} (empty answer)" }
+            return null
+        }
+        return parsed
     }
 
     /**

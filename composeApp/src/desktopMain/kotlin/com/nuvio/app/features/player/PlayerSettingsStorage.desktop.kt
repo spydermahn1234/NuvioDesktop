@@ -114,6 +114,7 @@ internal actual object PlayerSettingsStorage {
     private const val skipDbApiKeyKey = "skipdb_api_key"
     private const val introSubmitEnabledKey = "intro_submit_enabled"
     private const val streamAutoPlayNextEpisodeEnabledKey = "stream_auto_play_next_episode_enabled"
+    private const val nextEpisodeSkipCountdownKey = "next_episode_skip_countdown"
     private const val streamAutoPlayManualNextEpisodeKey = "stream_auto_play_manual_next_episode"
     private const val streamAutoPlayPreferBingeGroupKey = "stream_auto_play_prefer_binge_group"
     private const val streamAutoPlayReuseBingeGroupKey = "stream_auto_play_reuse_binge_group"
@@ -169,6 +170,7 @@ internal actual object PlayerSettingsStorage {
     private const val desktopRateLimitReconnectFirstDelayKey = "desktop_rate_limit_reconnect_first_delay_seconds"
     private const val desktopRateLimitReconnectSecondDelayKey = "desktop_rate_limit_reconnect_second_delay_seconds"
     private const val desktopCustomMpvOptionsKey = "desktop_custom_mpv_options"
+    private const val desktopCustomPlayerCssKey = "desktop_custom_player_css"
     private const val desktopMpvConfigModeKey = "desktop_mpv_config_mode"
     private const val desktopMpvPropertyOverridesKey = "desktop_mpv_property_overrides"
     private const val heroTvTrailerEnabledKey = "hero_tv_trailer_enabled"
@@ -238,6 +240,7 @@ internal actual object PlayerSettingsStorage {
         animeSkipEnabledKey,
         animeSkipClientIdKey,
         streamAutoPlayNextEpisodeEnabledKey,
+        nextEpisodeSkipCountdownKey,
         streamAutoPlayManualNextEpisodeKey,
         streamAutoPlayPreferBingeGroupKey,
         streamAutoPlayReuseBingeGroupKey,
@@ -499,6 +502,8 @@ internal actual object PlayerSettingsStorage {
     actual fun saveIntroSubmitEnabled(enabled: Boolean) = saveBoolean(introSubmitEnabledKey, enabled)
     actual fun loadStreamAutoPlayNextEpisodeEnabled(): Boolean? = loadBoolean(streamAutoPlayNextEpisodeEnabledKey)
     actual fun saveStreamAutoPlayNextEpisodeEnabled(enabled: Boolean) = saveBoolean(streamAutoPlayNextEpisodeEnabledKey, enabled)
+    actual fun loadNextEpisodeSkipCountdown(): Boolean? = loadBoolean(nextEpisodeSkipCountdownKey)
+    actual fun saveNextEpisodeSkipCountdown(enabled: Boolean) = saveBoolean(nextEpisodeSkipCountdownKey, enabled)
     actual fun loadStreamAutoPlayManualNextEpisode(): Boolean? = loadBoolean(streamAutoPlayManualNextEpisodeKey)
     actual fun saveStreamAutoPlayManualNextEpisode(enabled: Boolean) = saveBoolean(streamAutoPlayManualNextEpisodeKey, enabled)
     actual fun loadStreamAutoPlayPreferBingeGroup(): Boolean? = loadBoolean(streamAutoPlayPreferBingeGroupKey)
@@ -628,6 +633,8 @@ internal actual object PlayerSettingsStorage {
         saveInt(desktopRateLimitReconnectSecondDelayKey, seconds)
     actual fun loadDesktopCustomMpvOptions(): String? = loadString(desktopCustomMpvOptionsKey)
     actual fun saveDesktopCustomMpvOptions(options: String) = saveString(desktopCustomMpvOptionsKey, options)
+    actual fun loadDesktopCustomPlayerCss(): String? = loadString(desktopCustomPlayerCssKey)
+    actual fun saveDesktopCustomPlayerCss(css: String) = saveString(desktopCustomPlayerCssKey, css)
     actual fun loadDesktopMpvConfigMode(): String? = loadString(desktopMpvConfigModeKey)
     actual fun saveDesktopMpvConfigMode(mode: String) = saveString(desktopMpvConfigModeKey, mode)
     actual fun loadDesktopMpvPropertyOverrides(): String? = loadString(desktopMpvPropertyOverridesKey)
@@ -717,6 +724,7 @@ internal actual object PlayerSettingsStorage {
         loadAnimeSkipEnabled()?.let { put(animeSkipEnabledKey, encodeSyncBoolean(it)) }
         loadAnimeSkipClientId()?.let { put(animeSkipClientIdKey, encodeSyncString(it)) }
         loadStreamAutoPlayNextEpisodeEnabled()?.let { put(streamAutoPlayNextEpisodeEnabledKey, encodeSyncBoolean(it)) }
+        loadNextEpisodeSkipCountdown()?.let { put(nextEpisodeSkipCountdownKey, encodeSyncBoolean(it)) }
         loadStreamAutoPlayManualNextEpisode()?.let { put(streamAutoPlayManualNextEpisodeKey, encodeSyncBoolean(it)) }
         loadStreamAutoPlayPreferBingeGroup()?.let { put(streamAutoPlayPreferBingeGroupKey, encodeSyncBoolean(it)) }
         loadStreamAutoPlayReuseBingeGroup()?.let { put(streamAutoPlayReuseBingeGroupKey, encodeSyncBoolean(it)) }
@@ -818,6 +826,7 @@ internal actual object PlayerSettingsStorage {
         payload.decodeSyncString(skipDbApiKeyKey)?.let(::saveSkipDbApiKey)
         payload.decodeSyncBoolean(introSubmitEnabledKey)?.let(::saveIntroSubmitEnabled)
         payload.decodeSyncBoolean(streamAutoPlayNextEpisodeEnabledKey)?.let(::saveStreamAutoPlayNextEpisodeEnabled)
+        payload.decodeSyncBoolean(nextEpisodeSkipCountdownKey)?.let(::saveNextEpisodeSkipCountdown)
         payload.decodeSyncBoolean(streamAutoPlayManualNextEpisodeKey)?.let(::saveStreamAutoPlayManualNextEpisode)
         payload.decodeSyncBoolean(streamAutoPlayPreferBingeGroupKey)?.let(::saveStreamAutoPlayPreferBingeGroup)
         payload.decodeSyncBoolean(streamAutoPlayReuseBingeGroupKey)?.let(::saveStreamAutoPlayReuseBingeGroup)

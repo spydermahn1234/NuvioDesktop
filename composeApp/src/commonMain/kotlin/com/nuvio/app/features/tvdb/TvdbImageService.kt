@@ -4,6 +4,8 @@ import co.touchlab.kermit.Logger
 import com.nuvio.app.features.addons.httpGetTextWithHeaders
 import com.nuvio.app.features.tmdb.TmdbService
 import com.nuvio.app.features.addons.httpRequestRaw
+import com.nuvio.app.features.watchprogress.WatchProgressClock
+import kotlinx.coroutines.async
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
@@ -49,6 +51,10 @@ object TvdbImageService {
     private val tokenMutex = Mutex()
     private var cachedToken: String? = null
     private var tokenExpiryMs: Long = 0L
+    /** The key [cachedToken] was issued for: a changed key logs in again rather than reusing it. */
+    private var tokenApiKey: String? = null
+    private var loginRetryAfterMs: Long = 0L
+    private const val LOGIN_RETRY_AFTER_MS = 60_000L
 
     // Image cache keyed by "tvdb:{numericId}"
     private val imageCache = mutableMapOf<String, TvdbImages>()
@@ -82,6 +88,47 @@ object TvdbImageService {
         acquireToken(apiKey) // no-op if already cached
     }
 
+    // Shared single-flight + short-lived cache for `/series/{id}/extended` and `/movies/{id}/extended`
+    // so resolveImdbId, fetchAirSchedule and fetchCharacters opening a Details page share one trip.
+    private val extendedMutex = Mutex()
+    private val extendedInFlight = mutableMapOf<String, kotlinx.coroutines.Deferred<String?>>()
+    private val extendedCache = object : LinkedHashMap<String, Pair<Long, String>>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<Long, String>>?): Boolean = size > 64
+    }
+    private val extendedScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO,
+    )
+
+    private suspend fun fetchExtendedBody(endpoint: String, token: String): String? {
+        val now = WatchProgressClock.nowEpochMs()
+        extendedMutex.withLock {
+            extendedCache[endpoint]?.takeIf { now - it.first < 5 * 60_000L }?.let { return it.second }
+        }
+        val deferred = extendedMutex.withLock {
+            extendedInFlight.getOrPut(endpoint) {
+                extendedScope.async {
+                    try {
+                        val body = runCatching {
+                            httpGetTextWithHeaders("$BASE_URL/$endpoint", authHeaders(token))
+                        }.onFailure { log.w { "TVDB extended fetch failed for $endpoint: ${it.message}" } }
+                            .getOrNull()
+                        if (body != null) {
+                            extendedMutex.withLock { extendedCache[endpoint] = WatchProgressClock.nowEpochMs() to body }
+                        }
+                        body
+                    } finally {
+                        // Even when cancelled, as the debrid single-flight does: a Deferred left in the map would be
+                        // awaited by every later caller for this endpoint.
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                            extendedMutex.withLock { extendedInFlight.remove(endpoint) }
+                        }
+                    }
+                }
+            }
+        }
+        return deferred.await()
+    }
+
     /**
      * Resolves the IMDB id for a TVDB-native id straight from TVDB's own /extended endpoint
      * (its `remoteIds` list) — unlike the TMDB cross-reference, this needs only a TVDB key.
@@ -93,10 +140,7 @@ object TvdbImageService {
         imdbIdCacheMutex.withLock { imdbIdCache[tvdbId] }?.let { return it }
         val token = acquireToken(apiKey) ?: return null
         val endpoint = if (isTvType(type)) "series" else "movies"
-        val body = runCatching {
-            httpGetTextWithHeaders("$BASE_URL/$endpoint/$tvdbId/extended", authHeaders(token))
-        }.onFailure { log.w { "TVDB extended fetch failed for $endpoint/$tvdbId: ${it.message}" } }
-            .getOrNull() ?: return null
+        val body = fetchExtendedBody("$endpoint/$tvdbId/extended", token) ?: return null
 
         val imdbId = runCatching {
             json.decodeFromString<TvdbExtendedResponse>(body)
@@ -124,7 +168,7 @@ object TvdbImageService {
         }
         val token = acquireToken(apiKey) ?: return null
         val schedule = runCatching {
-            val body = httpGetTextWithHeaders("$BASE_URL/series/$tvdbId/extended", authHeaders(token))
+            val body = fetchExtendedBody("series/$tvdbId/extended", token) ?: return@runCatching null
             val data = json.decodeFromString<TvdbExtendedResponse>(body).data
             TvdbAirSchedule(
                 airsTime = data?.airsTime?.trim()?.takeIf(String::isNotBlank),
@@ -162,9 +206,8 @@ object TvdbImageService {
                 ).data.firstOrNull()?.movie?.id ?: return emptyList()
                 "movies/$found/extended"
             }
-            json.decodeFromString<TvdbCharactersResponse>(
-                httpGetTextWithHeaders("$BASE_URL/$endpoint", authHeaders(token)),
-            ).data?.characters.orEmpty()
+            val body = fetchExtendedBody(endpoint, token) ?: return emptyList()
+            json.decodeFromString<TvdbCharactersResponse>(body).data?.characters.orEmpty()
                 .filter { (it.peopleType.equals("Actor", ignoreCase = true) || it.type == 3) && !it.image.isNullOrBlank() }
                 .map { TvdbCharacter(person = it.personName.orEmpty(), character = it.name.orEmpty(), image = it.image!!) }
         }.onFailure { log.w { "TVDB characters failed for $type/$id: ${it.message}" } }
@@ -302,10 +345,18 @@ object TvdbImageService {
 
     // ── Token management ───────────────────────────────────────────────────────
 
-    private suspend fun acquireToken(apiKey: String): String? {
-        tokenMutex.withLock {
-            val now = System.currentTimeMillis()
-            if (cachedToken != null && now < tokenExpiryMs - 60_000) return cachedToken
+    /**
+     * One login for everyone waiting. The check and the POST used to sit in separate lock blocks,
+     * so every caller that arrived on a cold cache missed and logged in on its own: 11 concurrent
+     * `/v4/login` POSTs in the first five seconds of the 2026-11-21 18:46 launch. Held across the
+     * request, the callers behind the first find its token. A failed login is remembered for
+     * [LOGIN_RETRY_AFTER_MS], or the queue behind it would retry a down TVDB one after another.
+     */
+    private suspend fun acquireToken(apiKey: String): String? = tokenMutex.withLock {
+        val now = System.currentTimeMillis()
+        if (tokenApiKey == apiKey) {
+            if (cachedToken != null && now < tokenExpiryMs - 60_000) return@withLock cachedToken
+            if (now < loginRetryAfterMs) return@withLock null
         }
 
         val response = runCatching {
@@ -315,27 +366,26 @@ object TvdbImageService {
                 headers = mapOf("Content-Type" to "application/json"),
                 body = """{"apikey":"$apiKey"}""",
             )
-        }.getOrNull()
+        }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }.getOrNull()
 
-        if (response == null || response.status !in 200..299) {
-            log.w { "TVDB login failed: ${response?.status}" }
-            return null
+        val token = response?.takeIf { it.status in 200..299 }?.let { ok ->
+            runCatching { json.decodeFromString<TvdbLoginResponse>(ok.body).data?.token }.getOrNull()
         }
-
-        val token = runCatching {
-            json.decodeFromString<TvdbLoginResponse>(response.body).data?.token
-        }.getOrNull()
-
+        tokenApiKey = apiKey
         if (token != null) {
-            tokenMutex.withLock {
-                cachedToken = token
-                // TVDB tokens are valid for 30 days; refresh well before expiry.
-                tokenExpiryMs = System.currentTimeMillis() + 23L * 60 * 60 * 1000
-            }
+            cachedToken = token
+            // TVDB tokens are valid for 30 days; refresh well before expiry.
+            tokenExpiryMs = System.currentTimeMillis() + 23L * 60 * 60 * 1000
+            loginRetryAfterMs = 0L
         } else {
-            log.w { "TVDB login returned no token" }
+            log.w {
+                if (response == null || response.status !in 200..299) "TVDB login failed: ${response?.status}"
+                else "TVDB login returned no token"
+            }
+            cachedToken = null
+            loginRetryAfterMs = System.currentTimeMillis() + LOGIN_RETRY_AFTER_MS
         }
-        return token
+        token
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────

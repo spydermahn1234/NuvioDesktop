@@ -184,6 +184,8 @@ internal expect object PlayerSettingsStorage {
     fun saveDesktopRateLimitReconnectSecondDelaySeconds(seconds: Int)
     fun loadDesktopCustomMpvOptions(): String?
     fun saveDesktopCustomMpvOptions(options: String)
+    fun loadDesktopCustomPlayerCss(): String?
+    fun saveDesktopCustomPlayerCss(css: String)
     fun loadDesktopMpvConfigMode(): String?
     fun saveDesktopMpvConfigMode(mode: String)
     fun loadDesktopMpvPropertyOverrides(): String?
@@ -231,6 +233,8 @@ internal expect object PlayerSettingsStorage {
     fun saveIntroSubmitEnabled(enabled: Boolean)
     fun loadStreamAutoPlayNextEpisodeEnabled(): Boolean?
     fun saveStreamAutoPlayNextEpisodeEnabled(enabled: Boolean)
+    fun loadNextEpisodeSkipCountdown(): Boolean?
+    fun saveNextEpisodeSkipCountdown(enabled: Boolean)
     fun loadStreamAutoPlayManualNextEpisode(): Boolean?
     fun saveStreamAutoPlayManualNextEpisode(enabled: Boolean)
     fun loadStreamAutoPlayPreferBingeGroup(): Boolean?

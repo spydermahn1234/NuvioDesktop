@@ -178,6 +178,9 @@ data class PlayerSettingsUiState(
     val skipDbApiKey: String = "",
     val introSubmitEnabled: Boolean = false,
     val streamAutoPlayNextEpisodeEnabled: Boolean = false,
+    // Plays the next episode as soon as its source is found, without the 3-second countdown.
+    // Binge Mode already skips it; this gives the same start to an advance at the end of the file.
+    val nextEpisodeSkipCountdown: Boolean = false,
     // Whether MANUAL stream selection also governs next-episode transitions. The in-player
     // next-episode path has always substituted FIRST_STREAM for MANUAL so a transition can never
     // stall on a picker; this opts out of that substitution. Off by default: it changes what a
@@ -280,6 +283,8 @@ data class PlayerSettingsUiState(
     // Free-form mpv options, one `key=value` per line, applied just before mpv_initialize so a
     // power user can override any of Nuvio's built-in options.
     val desktopCustomMpvOptions: String = "",
+    // Free-form CSS appended to the desktop WebView2 player HUD stylesheet on next playback.
+    val desktopCustomPlayerCss: String = "",
     // Curated mpv property overrides chosen from the in-player "Advanced (mpv)" menu (e.g.
     // deband=yes). Applied both at mpv init and at runtime; the raw options box above still wins.
     val desktopMpvPropertyOverrides: Map<String, String> = emptyMap(),
@@ -380,6 +385,7 @@ object PlayerSettingsRepository {
     private var skipDbApiKey = ""
     private var introSubmitEnabled = false
     private var streamAutoPlayNextEpisodeEnabled = false
+    private var nextEpisodeSkipCountdown = false
     private var streamAutoPlayManualNextEpisode = false
     private var streamAutoPlayPreferBingeGroup = true
     private var streamAutoPlayReuseBingeGroup = false
@@ -442,6 +448,7 @@ object PlayerSettingsRepository {
     private var desktopRateLimitReconnectSecondDelaySeconds = RATE_LIMIT_RECONNECT_SECOND_DEFAULT_SECONDS
     private var desktopMpvConfigMode = DesktopMpvConfigMode.Off
     private var desktopCustomMpvOptions = ""
+    private var desktopCustomPlayerCss = ""
     private var desktopMpvPropertyOverrides: Map<String, String> = emptyMap()
     private var heroTvTrailerEnabled = false
     private var heroTvTrailerDelaySeconds = 5
@@ -541,6 +548,7 @@ object PlayerSettingsRepository {
         skipDbApiKey = ""
         introSubmitEnabled = false
         streamAutoPlayNextEpisodeEnabled = false
+        nextEpisodeSkipCountdown = false
         streamAutoPlayManualNextEpisode = false
         streamAutoPlayPreferBingeGroup = true
         streamAutoPlayReuseBingeGroup = false
@@ -602,6 +610,7 @@ object PlayerSettingsRepository {
         desktopRateLimitReconnectSecondDelaySeconds = RATE_LIMIT_RECONNECT_SECOND_DEFAULT_SECONDS
         desktopMpvConfigMode = DesktopMpvConfigMode.Off
         desktopCustomMpvOptions = ""
+        desktopCustomPlayerCss = ""
         desktopMpvPropertyOverrides = emptyMap()
         heroTvTrailerEnabled = false
         heroTvTrailerDelaySeconds = 5
@@ -811,6 +820,7 @@ object PlayerSettingsRepository {
         skipDbApiKey = PlayerSettingsStorage.loadSkipDbApiKey() ?: ""
         introSubmitEnabled = PlayerSettingsStorage.loadIntroSubmitEnabled() ?: false
         streamAutoPlayNextEpisodeEnabled = PlayerSettingsStorage.loadStreamAutoPlayNextEpisodeEnabled() ?: false
+        nextEpisodeSkipCountdown = PlayerSettingsStorage.loadNextEpisodeSkipCountdown() ?: false
         streamAutoPlayManualNextEpisode = PlayerSettingsStorage.loadStreamAutoPlayManualNextEpisode() ?: false
         streamAutoPlayPreferBingeGroup = PlayerSettingsStorage.loadStreamAutoPlayPreferBingeGroup() ?: true
         streamAutoPlayReuseBingeGroup = PlayerSettingsStorage.loadStreamAutoPlayReuseBingeGroup() ?: false
@@ -937,6 +947,7 @@ object PlayerSettingsRepository {
                 ?.takeIf { it in RATE_LIMIT_RECONNECT_DELAY_VALUES }
                 ?: RATE_LIMIT_RECONNECT_SECOND_DEFAULT_SECONDS
         desktopCustomMpvOptions = PlayerSettingsStorage.loadDesktopCustomMpvOptions().orEmpty()
+        desktopCustomPlayerCss = PlayerSettingsStorage.loadDesktopCustomPlayerCss().orEmpty()
         desktopMpvConfigMode = PlayerSettingsStorage.loadDesktopMpvConfigMode()
             ?.let { runCatching { DesktopMpvConfigMode.valueOf(it) }.getOrNull() }
             // Preserve pre-mode installations which already relied on raw overrides.
@@ -1634,6 +1645,14 @@ object PlayerSettingsRepository {
         PlayerSettingsStorage.saveStreamAutoPlayNextEpisodeEnabled(enabled)
     }
 
+    fun setNextEpisodeSkipCountdown(enabled: Boolean) {
+        ensureLoaded()
+        if (nextEpisodeSkipCountdown == enabled) return
+        nextEpisodeSkipCountdown = enabled
+        publish()
+        PlayerSettingsStorage.saveNextEpisodeSkipCountdown(enabled)
+    }
+
     fun setStreamFailoverEnabled(enabled: Boolean) {
         ensureLoaded()
         if (streamFailoverEnabled == enabled) return
@@ -1958,6 +1977,7 @@ object PlayerSettingsRepository {
             skipDbApiKey = skipDbApiKey,
             introSubmitEnabled = introSubmitEnabled,
             streamAutoPlayNextEpisodeEnabled = streamAutoPlayNextEpisodeEnabled,
+            nextEpisodeSkipCountdown = nextEpisodeSkipCountdown,
             streamAutoPlayManualNextEpisode = streamAutoPlayManualNextEpisode,
             streamAutoPlayPreferBingeGroup = streamAutoPlayPreferBingeGroup,
             streamAutoPlayReuseBingeGroup = streamAutoPlayReuseBingeGroup,
@@ -2019,6 +2039,7 @@ object PlayerSettingsRepository {
             desktopRateLimitReconnectSecondDelaySeconds = desktopRateLimitReconnectSecondDelaySeconds,
             desktopMpvConfigMode = desktopMpvConfigMode,
             desktopCustomMpvOptions = desktopCustomMpvOptions,
+            desktopCustomPlayerCss = desktopCustomPlayerCss,
             desktopMpvPropertyOverrides = desktopMpvPropertyOverrides,
             heroTvTrailerEnabled = heroTvTrailerEnabled,
             heroTvTrailerDelaySeconds = heroTvTrailerDelaySeconds,
@@ -2352,6 +2373,14 @@ object PlayerSettingsRepository {
         desktopCustomMpvOptions = options
         publish()
         PlayerSettingsStorage.saveDesktopCustomMpvOptions(options)
+    }
+
+    fun setDesktopCustomPlayerCss(css: String) {
+        ensureLoaded()
+        if (desktopCustomPlayerCss == css) return
+        desktopCustomPlayerCss = css
+        publish()
+        PlayerSettingsStorage.saveDesktopCustomPlayerCss(css)
     }
 
     fun setDesktopMpvConfigMode(mode: DesktopMpvConfigMode) {
