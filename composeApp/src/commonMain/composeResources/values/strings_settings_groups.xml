@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- fork:settings-groups - headings in the desktop Settings sidebar -->
+    <string name="settings_group_sources">Sources</string>
+    <string name="settings_group_home_look">Home and look</string>
+    <string name="settings_group_playback">Playback</string>
+    <string name="settings_group_home_theatre">Home theatre</string>
+    <string name="settings_group_more_to_watch">More to watch</string>
+    <string name="settings_group_account">Account</string>
+    <string name="settings_group_system">System</string>
+</resources>

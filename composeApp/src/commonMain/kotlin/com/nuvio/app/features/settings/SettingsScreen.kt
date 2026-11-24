@@ -145,6 +145,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.max
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.accentGradientMask
@@ -2315,6 +2316,8 @@ internal data class DesktopSettingsSidebarItem(
     val label: String,
     val icon: ImageVector,
     val page: SettingsPage,
+    /** fork:settings-groups - the sidebar heading this entry sits under. */
+    val group: DesktopSettingsGroup,
     /** The shipped label, kept so a rename can be compared against it and undone. */
     val defaultLabel: String = label,
 )
@@ -2337,134 +2340,160 @@ private fun desktopSettingsSidebarItems(): List<DesktopSettingsSidebarItem> {
 
 @Composable
 private fun desktopSettingsSidebarDefaultItems(): List<DesktopSettingsSidebarItem> = listOf(
-    // Grouped by how a setup goes: sources, then look, then playback, then the rest by how often
-    // they are visited. Plugins, Continue Watching, Detail Page and the downloads list have no
-    // entry of their own; they are sections of Addons, Home Layout, Layout and Downloads (see
-    // desktopMergedInto).
+    // fork:settings-groups - grouped under headings (DesktopSettingsGroup), in the order a setup
+    // goes: where titles come from, how Home looks, playback, the home-theatre extras, the other
+    // kinds of watching, then account and system. Plugins, Continue Watching, Detail Page and the
+    // downloads list have no entry of their own; they are sections of Addons, Home Layout, Layout
+    // and Downloads (see desktopMergedInto).
     DesktopSettingsSidebarItem(
         label = stringResource(Res.string.compose_settings_page_addons),
         icon = Icons.Rounded.AutoAwesome,
         page = SettingsPage.Addons,
+        group = DesktopSettingsGroup.Sources,
     ),
     DesktopSettingsSidebarItem(
         label = stringResource(Res.string.compose_settings_page_integrations),
         icon = Icons.Rounded.Link,
         page = SettingsPage.Integrations,
-    ),
-    DesktopSettingsSidebarItem(
-        label = stringResource(Res.string.compose_settings_page_homescreen),
-        icon = SettingsCategoryIcons.Homescreen,
-        page = SettingsPage.Homescreen,
-    ),
-    DesktopSettingsSidebarItem(
-        label = stringResource(Res.string.compose_settings_page_appearance),
-        icon = Icons.Rounded.Palette,
-        page = SettingsPage.Appearance,
+        group = DesktopSettingsGroup.Sources,
     ),
     DesktopSettingsSidebarItem(
         label = stringResource(Res.string.compose_settings_page_streams),
         icon = SettingsCategoryIcons.Streams,
         page = SettingsPage.Streams,
-    ),
-    DesktopSettingsSidebarItem(
-        label = stringResource(Res.string.compose_settings_page_video_audio),
-        icon = SettingsCategoryIcons.VideoAudio,
-        page = SettingsPage.Playback,
-    ),
-    DesktopSettingsSidebarItem(
-        label = stringResource(Res.string.compose_settings_page_player),
-        icon = Icons.Rounded.PlayArrow,
-        page = SettingsPage.Player,
-    ),
-    DesktopSettingsSidebarItem(
-        label = stringResource(Res.string.compose_settings_page_keyboard_shortcuts),
-        icon = Icons.Rounded.Keyboard,
-        page = SettingsPage.KeyboardShortcuts,
-    ),
-    DesktopSettingsSidebarItem(
-        label = stringResource(Res.string.compose_settings_page_discover),
-        icon = Icons.Rounded.Explore,
-        page = SettingsPage.Discover,
-    ),
-    DesktopSettingsSidebarItem(
-        label = stringResource(Res.string.iptv_settings_page),
-        icon = Icons.Rounded.LiveTv,
-        page = SettingsPage.Iptv,
-    ),
-    DesktopSettingsSidebarItem(
-        label = stringResource(Res.string.compose_settings_page_account),
-        icon = Icons.Rounded.AccountCircle,
-        page = SettingsPage.Account,
-    ),
-    DesktopSettingsSidebarItem(
-        label = stringResource(Res.string.party_title),
-        icon = Icons.Rounded.Groups,
-        page = SettingsPage.WatchParty,
-    ),
-    DesktopSettingsSidebarItem(
-        label = stringResource(Res.string.collections_header),
-        icon = Icons.Rounded.CollectionsBookmark,
-        page = SettingsPage.Collections,
-    ),
-    DesktopSettingsSidebarItem(
-        label = stringResource(Res.string.compose_settings_page_screensaver),
-        icon = Icons.Rounded.Bedtime,
-        page = SettingsPage.Screensaver,
-    ),
-    DesktopSettingsSidebarItem( // fork:voice-control
-        label = stringResource(Res.string.compose_settings_page_voice_control),
-        icon = Icons.Rounded.Mic,
-        page = SettingsPage.VoiceControl,
-    ),
-    DesktopSettingsSidebarItem(
-        label = stringResource(Res.string.compose_settings_page_preshow),
-        icon = Icons.Rounded.Theaters,
-        page = SettingsPage.Preshow,
-    ),
-    DesktopSettingsSidebarItem( // fork:music
-        label = stringResource(Res.string.compose_settings_page_music),
-        icon = Icons.Rounded.MusicNote,
-        page = SettingsPage.Music,
-    ),
-    DesktopSettingsSidebarItem(
-        label = stringResource(Res.string.random_play_title),
-        icon = Icons.Rounded.Casino,
-        page = SettingsPage.RandomPlay,
-    ),
-    DesktopSettingsSidebarItem(
-        label = stringResource(Res.string.compose_settings_page_local_library),
-        icon = Icons.Rounded.VideoLibrary,
-        page = SettingsPage.LocalLibrary,
-    ),
-    DesktopSettingsSidebarItem(
-        label = stringResource(Res.string.compose_settings_page_media_servers),
-        icon = Icons.Rounded.Dns,
-        page = SettingsPage.MediaServers,
+        group = DesktopSettingsGroup.Sources,
     ),
     DesktopSettingsSidebarItem(
         label = stringResource(Res.string.compose_settings_page_usenet),
         icon = Icons.Rounded.Newspaper,
         page = SettingsPage.Usenet,
+        group = DesktopSettingsGroup.Sources,
+    ),
+    DesktopSettingsSidebarItem(
+        label = stringResource(Res.string.compose_settings_page_media_servers),
+        icon = Icons.Rounded.Dns,
+        page = SettingsPage.MediaServers,
+        group = DesktopSettingsGroup.Sources,
+    ),
+    DesktopSettingsSidebarItem(
+        label = stringResource(Res.string.compose_settings_page_local_library),
+        icon = Icons.Rounded.VideoLibrary,
+        page = SettingsPage.LocalLibrary,
+        group = DesktopSettingsGroup.Sources,
     ),
     DesktopSettingsSidebarItem(
         label = stringResource(Res.string.compose_settings_root_downloads_title),
         icon = SettingsCategoryIcons.Downloads,
         page = SettingsPage.AutoDownloads,
+        group = DesktopSettingsGroup.Sources,
+    ),
+    DesktopSettingsSidebarItem(
+        label = stringResource(Res.string.compose_settings_page_homescreen),
+        icon = SettingsCategoryIcons.Homescreen,
+        page = SettingsPage.Homescreen,
+        group = DesktopSettingsGroup.HomeAndLook,
+    ),
+    DesktopSettingsSidebarItem(
+        label = stringResource(Res.string.compose_settings_page_appearance),
+        icon = Icons.Rounded.Palette,
+        page = SettingsPage.Appearance,
+        group = DesktopSettingsGroup.HomeAndLook,
+    ),
+    DesktopSettingsSidebarItem(
+        label = stringResource(Res.string.compose_settings_page_discover),
+        icon = Icons.Rounded.Explore,
+        page = SettingsPage.Discover,
+        group = DesktopSettingsGroup.HomeAndLook,
+    ),
+    DesktopSettingsSidebarItem(
+        label = stringResource(Res.string.collections_header),
+        icon = Icons.Rounded.CollectionsBookmark,
+        page = SettingsPage.Collections,
+        group = DesktopSettingsGroup.HomeAndLook,
+    ),
+    DesktopSettingsSidebarItem(
+        label = stringResource(Res.string.compose_settings_page_video_audio),
+        icon = SettingsCategoryIcons.VideoAudio,
+        page = SettingsPage.Playback,
+        group = DesktopSettingsGroup.Playback,
+    ),
+    DesktopSettingsSidebarItem(
+        label = stringResource(Res.string.compose_settings_page_player),
+        icon = Icons.Rounded.PlayArrow,
+        page = SettingsPage.Player,
+        group = DesktopSettingsGroup.Playback,
+    ),
+    DesktopSettingsSidebarItem(
+        label = stringResource(Res.string.compose_settings_page_preshow),
+        icon = Icons.Rounded.Theaters,
+        page = SettingsPage.Preshow,
+        group = DesktopSettingsGroup.Playback,
+    ),
+    DesktopSettingsSidebarItem(
+        label = stringResource(Res.string.random_play_title),
+        icon = Icons.Rounded.Casino,
+        page = SettingsPage.RandomPlay,
+        group = DesktopSettingsGroup.Playback,
+    ),
+    DesktopSettingsSidebarItem(
+        label = stringResource(Res.string.compose_settings_page_keyboard_shortcuts),
+        icon = Icons.Rounded.Keyboard,
+        page = SettingsPage.KeyboardShortcuts,
+        group = DesktopSettingsGroup.HomeTheatre,
+    ),
+    DesktopSettingsSidebarItem( // fork:voice-control
+        label = stringResource(Res.string.compose_settings_page_voice_control),
+        icon = Icons.Rounded.Mic,
+        page = SettingsPage.VoiceControl,
+        group = DesktopSettingsGroup.HomeTheatre,
+    ),
+    DesktopSettingsSidebarItem(
+        label = stringResource(Res.string.compose_settings_page_screensaver),
+        icon = Icons.Rounded.Bedtime,
+        page = SettingsPage.Screensaver,
+        group = DesktopSettingsGroup.HomeTheatre,
+    ),
+    DesktopSettingsSidebarItem(
+        label = stringResource(Res.string.iptv_settings_page),
+        icon = Icons.Rounded.LiveTv,
+        page = SettingsPage.Iptv,
+        group = DesktopSettingsGroup.MoreToWatch,
+    ),
+    DesktopSettingsSidebarItem( // fork:music
+        label = stringResource(Res.string.compose_settings_page_music),
+        icon = Icons.Rounded.MusicNote,
+        page = SettingsPage.Music,
+        group = DesktopSettingsGroup.MoreToWatch,
     ),
     DesktopSettingsSidebarItem(
         label = stringResource(Res.string.compose_settings_page_games),
         icon = Icons.Rounded.SportsEsports,
         page = SettingsPage.Games,
+        group = DesktopSettingsGroup.MoreToWatch,
+    ),
+    DesktopSettingsSidebarItem(
+        label = stringResource(Res.string.compose_settings_page_account),
+        icon = Icons.Rounded.AccountCircle,
+        page = SettingsPage.Account,
+        group = DesktopSettingsGroup.Account,
+    ),
+    DesktopSettingsSidebarItem(
+        label = stringResource(Res.string.party_title),
+        icon = Icons.Rounded.Groups,
+        page = SettingsPage.WatchParty,
+        group = DesktopSettingsGroup.Account,
     ),
     DesktopSettingsSidebarItem(
         label = stringResource(Res.string.compose_settings_page_advanced),
         icon = SettingsCategoryIcons.Advanced,
         page = SettingsPage.Advanced,
+        group = DesktopSettingsGroup.System,
     ),
     DesktopSettingsSidebarItem(
         label = stringResource(Res.string.compose_settings_page_licenses_attributions),
         icon = Icons.Rounded.Info,
         page = SettingsPage.LicensesAttributions,
+        group = DesktopSettingsGroup.System,
     ),
 ).filter { it.page.isEnabledByFeaturePolicy() }
 
@@ -2577,15 +2606,25 @@ private fun DesktopSettingsSidebarList(
         hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
     }
 
+    // fork:settings-groups - headings sit inside the first entry of each group rather than as list
+    // items of their own, so the drag indices still match `items` one to one.
+    val groupHeadings = remember(items) { desktopSettingsGroupHeadings(items) { it.group } }
+
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
         state = listState,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        itemsIndexed(items, key = { _, item -> item.page.name }) { _, item ->
+        itemsIndexed(items, key = { _, item -> item.page.name }) { index, item ->
             ReorderableItem(reorderableLazyListState, key = item.page.name) {
                 val selected = item.page == activeSidebarPage
                 Column {
+                    if (index in groupHeadings) {
+                        DesktopSettingsSidebarGroupHeading(
+                            label = stringResource(item.group.labelRes),
+                            first = index == 0,
+                        )
+                    }
                     DesktopSettingsSidebarRow(
                         label = item.label,
                         icon = item.icon,
@@ -2622,6 +2661,24 @@ private fun DesktopSettingsSidebarList(
             }
         }
     }
+}
+
+/** fork:settings-groups - a small muted heading over a group of sidebar entries. */
+@Composable
+private fun DesktopSettingsSidebarGroupHeading(label: String, first: Boolean) {
+    val tokens = MaterialTheme.nuvio
+    Text(
+        text = label.uppercase(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = if (first) 0.dp else 10.dp, bottom = 4.dp),
+        style = MaterialTheme.typography.labelSmall,
+        color = tokens.colors.textMuted.copy(alpha = 0.7f),
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 1.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 @Composable

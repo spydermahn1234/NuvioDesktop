@@ -501,6 +501,14 @@ Settings > Live TV > On Now (off by default). Best tried in the evening with a m
 - [ ] Phone remote: pairing still works after the update (scan the QR or enter the address and PIN), and it reconnects the next day without asking again
 - [ ] Home, the movie/show page and the album page (JIT flag for the biggest screens): after about a minute of use, scrolling Home and opening a title or an album feels the same or smoother than before; say if Home hitches in its first minute, or Task Manager shows Nuvio's CPU staying high after it has settled
 
+## Settings sidebar groups (Nov 24)
+
+- [ ] (must) Open Settings on the PC: the sidebar is split under Sources, Home and look, Playback, Home theatre, More to watch, Account and System, and every page is still there
+- [ ] With a controller, move down the sidebar from top to bottom: focus skips the headings and lands on every entry in turn
+- [ ] Hide a whole group's entries (Categories > untick them): its heading goes too and no gap is left
+- [ ] Long-press and drag one entry into another group: the headings disappear; drag it back and they return
+- [ ] If the sidebar was reordered before this build, it keeps that order (no headings until each group is back together)
+
 ## Settings search
 
 - [ ] Search "subtitle size", "outline", "blur" and "vertical offset": each result opens Player settings at the Subtitle rendering section
