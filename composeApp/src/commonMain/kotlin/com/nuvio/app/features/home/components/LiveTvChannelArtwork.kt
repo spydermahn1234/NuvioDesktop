@@ -56,6 +56,8 @@ internal fun LiveTvChannelArtwork(
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.62f)))
         }
         val compact = maxHeight < 110.dp
+        val logoWidth = maxWidth * 0.55f
+        val logoHeight = maxHeight * 0.45f
         Column(
             modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.SpaceBetween,
@@ -70,7 +72,7 @@ internal fun LiveTvChannelArtwork(
                         model = logoUrl,
                         contentDescription = name,
                         contentScale = ContentScale.Fit,
-                        modifier = Modifier.width(maxWidth * 0.55f).height(maxHeight * 0.45f),
+                        modifier = Modifier.width(logoWidth).height(logoHeight),
                     )
                 } else {
                     Text(
