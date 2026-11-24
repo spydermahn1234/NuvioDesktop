@@ -72,6 +72,12 @@ internal object GoveeLightsProvider : LightsProvider {
         }
     }
 
+    /** fork:bedtime - the room is meant to stay dark: drop the captured scene without putting it back. */
+    fun forget() {
+        scene = null
+        LightsSettingsStorage.saveGoveeSnapshot(null)
+    }
+
     /** Called once at startup; a no-op unless the previous run died with the lights down. */
     suspend fun restoreAfterCrash(settings: LightsSettings) {
         val stored = LightsSettingsStorage.loadGoveeSnapshot() ?: return

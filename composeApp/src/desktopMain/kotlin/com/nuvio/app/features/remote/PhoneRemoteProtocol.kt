@@ -38,7 +38,7 @@ import java.nio.charset.StandardCharsets
  * phone: SUBTITLES                      the film player's subtitle list (long press on the Subtitles tile)
  * pc:    SUBTITLES <loading 0|1> <label,detail,group,selected;...>   Off first; again as the add-ons answer
  * phone: PICK_SUBTITLE <n>              the nth of that list (Off is 1); the PC then sends SUBTITLES again
- * phone: SPEED <percent> | SKIP_INTRO | NEXT_EPISODE | SLEEP <minutes, 0 off>      film extras (STATE carries the answers)
+ * phone: SPEED <percent> | SKIP_INTRO | NEXT_EPISODE | SLEEP <minutes, 0 off> | BEDTIME <0|1>   film extras (STATE carries the answers)
  * phone: SHUFFLE <0|1> | REPEAT <0 off|1 all|2 one> | LIKE | RADIO                   music extras
  * phone: SEEK <ms> | VOLUME <0..volumeMax>
  * pc:    TONIGHT 0 | TONIGHT 1 <view> ...    the Tonight picker on screen (PhoneRemoteLibraryLines.tonightLine), on change
@@ -118,6 +118,8 @@ internal object PhoneRemoteProtocol {
             state.liked?.let { if (it) "1" else "0" } ?: "-",
             // Added with the aspect ratio chips: 0 Fit, 1 Stretch, 2 Zoom, 3 Auto crop, `-` where the player cannot say.
             state.aspect?.toString() ?: "-",
+            // fork:bedtime - 1 while "Stop after this episode" is set.
+            if (state.bedtime) "1" else "0",
         ).joinToString(" ")
     }
 
@@ -226,7 +228,7 @@ internal object PhoneRemoteProtocol {
             "PICK_AUDIO" -> parts.getOrNull(1)?.toIntOrNull()?.takeIf { it >= 1 }?.let { RemoteMessage.PickAudio(it) }
             "PICK_SUBTITLE" -> parts.getOrNull(1)?.toIntOrNull()?.takeIf { it >= 1 }?.let { RemoteMessage.PickSubtitle(it) }
             // fork:phone-remote extras: speed, skip, next episode, sleep timer, shuffle, repeat, like, radio.
-            "SPEED", "SLEEP", "SHUFFLE", "REPEAT", "ASPECT" -> ControlAction.fromWire(parts[0])?.let { action ->
+            "SPEED", "SLEEP", "SHUFFLE", "REPEAT", "ASPECT", "BEDTIME" -> ControlAction.fromWire(parts[0])?.let { action ->
                 parts.getOrNull(1)?.toIntOrNull()?.takeIf { it >= 0 }?.let { RemoteMessage.Control(action, it) }
             }
             "SKIP_INTRO", "NEXT_EPISODE", "LIKE", "RADIO" -> ControlAction.fromWire(parts[0])?.let { RemoteMessage.Control(it, 0) }
@@ -323,7 +325,9 @@ internal enum class ControlAction(val wire: String) {
     Speed("SPEED"), SkipIntro("SKIP_INTRO"), NextEpisode("NEXT_EPISODE"), Sleep("SLEEP"),
     Shuffle("SHUFFLE"), Repeat("REPEAT"), Like("LIKE"), Radio("RADIO"),
     /** The film's picture shape, 0..3 as in [com.nuvio.app.features.remote.RemoteNowPlaying.aspect]. */
-    Aspect("ASPECT");
+    Aspect("ASPECT"),
+    /** fork:bedtime - 1 stops the film after this episode with the lights off, 0 cancels. */
+    Bedtime("BEDTIME");
 
     companion object {
         fun fromWire(wire: String): ControlAction? = entries.firstOrNull { it.wire == wire }

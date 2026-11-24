@@ -474,6 +474,7 @@ private fun FilmClockSlot(playing: NowPlaying, viewModel: RemoteViewModel, modif
     val quiet = buildList {
         if (!playing.isPlaying) add("Paused")
         if (playing.sleepMinutes > 0) add("Sleep in ${playing.sleepMinutes} min")
+        if (playing.bedtime == true) add("Lights off after this one")
         playing.speedPercent?.takeIf { it != 100 }?.let { add(speedLabel(it)) }
         if (playing.hasTimeline) add("Runs ${runtimeWords(playing.durationMs)}")
     }.joinToString(" · ")
@@ -1119,6 +1120,15 @@ private fun SleepChips(playing: NowPlaying, viewModel: RemoteViewModel) {
     }
 }
 
+/** Bedtime: the PC stops after this episode (no autoplay) and switches the lights off. Films only, from a PC that knows it. */
+@Composable
+private fun BedtimeChips(on: Boolean, viewModel: RemoteViewModel) {
+    ChipRow("Bedtime") {
+        GlassTag("Off", accent = !on, onClick = { viewModel.control("BEDTIME 0") { it.copy(bedtime = false) } })
+        GlassTag("Stop after this episode", accent = on, onClick = { viewModel.control("BEDTIME 1") { it.copy(bedtime = true) } })
+    }
+}
+
 /** A wide button for one action ("Skip intro", "Next episode"). */
 @Composable
 private fun ActionPill(text: String, icon: ImageVector, accent: Boolean, modifier: Modifier = Modifier, height: Dp = 52.dp, onClick: () -> Unit) {
@@ -1339,6 +1349,7 @@ private fun MoreSheet(state: UiState, viewModel: RemoteViewModel, onType: () -> 
                 playing.speedPercent?.let { speed -> SpeedChips(speed, viewModel) }
                 playing.aspect?.takeIf { playing.kind == "film" }?.let { aspect -> AspectChips(aspect, viewModel) }
                 SleepChips(playing, viewModel)
+                playing.bedtime?.takeIf { playing.kind == "film" }?.let { on -> BedtimeChips(on, viewModel) }
             }
 
             GlassLabel("Display")

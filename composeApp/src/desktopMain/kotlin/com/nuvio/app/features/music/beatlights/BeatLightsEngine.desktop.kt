@@ -100,7 +100,9 @@ object BeatLightsEngine {
 
     /** One look; returns how long to sleep before the next. */
     private fun look(): Long {
-        val settings = BeatLightsSettingsRepository.state.value
+        val own = BeatLightsSettingsRepository.state.value
+        // fork:lights-per-content - Lights out's "Music: beat lights" switches them on for music whatever their own switch says.
+        val settings = if (com.nuvio.app.features.lights.LightsSettingsRepository.uiState.value.musicTurnsOnBeatLights) own.copy(enabled = true) else own
         if (!settings.ready) {
             cursor.reset()
             releaseGovee()

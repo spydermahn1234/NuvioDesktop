@@ -33,6 +33,34 @@ enum class LightsEndBehavior {
     TurnOn,
 }
 
+/** fork:lights-per-content - what is on screen, as the room sees it. */
+enum class LightsContentKind {
+    Film,
+
+    /** Episodes and live TV. */
+    Tv,
+}
+
+/** fork:lights-per-content - the room for one kind of content when "Per content" is on. */
+enum class LightsContentScene {
+    /** Everything selected goes off. */
+    Dark,
+
+    /** Lights that are on drop to half. */
+    Half,
+
+    /** The "When playback starts" choice above. */
+    Usual,
+
+    /** The room is not touched at all. */
+    Leave,
+}
+
+/** The start action and dim level one scene stands for; null when the room is left alone. */
+data class LightsSceneTarget(val action: LightsStartAction, val dimPercent: Int)
+
+internal const val LIGHTS_HALF_PERCENT = 50
+
 enum class LightsWebhookMethod {
     Get,
     Post,
@@ -84,7 +112,34 @@ data class LightsSettings(
     val webhookResumeUrl: String = "",
     val webhookEndUrl: String = "",
     val testState: LightsTestState = LightsTestState.Idle,
+    // fork:lights-per-content
+    val perContent: Boolean = false,
+    val filmScene: LightsContentScene = LightsContentScene.Dark,
+    val tvScene: LightsContentScene = LightsContentScene.Half,
+    val musicBeatLights: Boolean = true,
 ) {
+    /**
+     * fork:lights-per-content - the scene for [kind]: the usual start action when "Per content" is off or the kind is
+     * unknown, otherwise that kind's own choice; null when the room should be left as it is.
+     */
+    fun sceneFor(kind: LightsContentKind?): LightsSceneTarget? {
+        val usual = LightsSceneTarget(startAction, dimPercent)
+        if (!perContent || kind == null) return usual
+        return when (if (kind == LightsContentKind.Film) filmScene else tvScene) {
+            LightsContentScene.Dark -> LightsSceneTarget(LightsStartAction.TurnOff, dimPercent)
+            LightsContentScene.Half -> LightsSceneTarget(LightsStartAction.Dim, LIGHTS_HALF_PERCENT)
+            LightsContentScene.Usual -> usual
+            LightsContentScene.Leave -> null
+        }
+    }
+
+    /** The settings the providers see for one session: the scene's action and level in place of the usual ones. */
+    fun withScene(target: LightsSceneTarget): LightsSettings =
+        copy(startAction = target.action, dimPercent = target.dimPercent)
+
+    /** fork:lights-per-content - music switches the beat lights on whatever their own switch says. */
+    val musicTurnsOnBeatLights: Boolean get() = enabled && perContent && musicBeatLights
+
     val hasGoveeKey: Boolean get() = goveeApiKey.isNotBlank()
 
     /** Selected devices that are still in the cached list; a stale selection is ignored. */
@@ -145,6 +200,10 @@ internal data class LightsStoredSettings(
     val webhookPauseUrl: String = "",
     val webhookResumeUrl: String = "",
     val webhookEndUrl: String = "",
+    val perContent: Boolean = false,
+    val filmScene: LightsContentScene = LightsContentScene.Dark,
+    val tvScene: LightsContentScene = LightsContentScene.Half,
+    val musicBeatLights: Boolean = true,
 )
 
 private val lightsJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
@@ -212,6 +271,10 @@ object LightsSettingsRepository {
     fun setScheduleEnabled(value: Boolean) = update { copy(scheduleEnabled = value) }
     fun setScheduleFromMinutes(value: Int) = update { copy(scheduleFromMinutes = value.mod(MINUTES_PER_DAY)) }
     fun setScheduleUntilMinutes(value: Int) = update { copy(scheduleUntilMinutes = value.mod(MINUTES_PER_DAY)) }
+    fun setPerContent(value: Boolean) = update { copy(perContent = value) }
+    fun setFilmScene(value: LightsContentScene) = update { copy(filmScene = value) }
+    fun setTvScene(value: LightsContentScene) = update { copy(tvScene = value) }
+    fun setMusicBeatLights(value: Boolean) = update { copy(musicBeatLights = value) }
 
     fun setGoveeApiKey(value: String) {
         val trimmed = value.trim()
@@ -285,6 +348,10 @@ object LightsSettingsRepository {
             webhookResumeUrl = stored.webhookResumeUrl,
             webhookEndUrl = stored.webhookEndUrl,
             testState = testState,
+            perContent = stored.perContent,
+            filmScene = stored.filmScene,
+            tvScene = stored.tvScene,
+            musicBeatLights = stored.musicBeatLights,
         )
     }
 }

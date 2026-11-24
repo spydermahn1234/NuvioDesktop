@@ -657,6 +657,13 @@ private fun settingsSearchEntries(
             "Live TV's picks put your country's channels first and push other countries' news down.",
             "General",
         ),
+        // fork:home-live-tv
+        PlaybackSearchRow(
+            "iptv-home-row",
+            "Favourites on Home",
+            "Your favourite Live TV channels as a row on Home, with what is on now.",
+            "General",
+        ),
         // fork:live-tv-front-door
         PlaybackSearchRow(
             "iptv-door-preview",
@@ -2973,6 +2980,7 @@ private fun settingsSearchEntries(
         listOf(
             PlaybackSearchRow("lights-enable", resolve(Res.string.settings_lights_enable), resolve(Res.string.settings_lights_enable_description), lightsSection),
             PlaybackSearchRow("lights-start-action", resolve(Res.string.settings_lights_start_action), resolve(Res.string.settings_lights_start_action_description), lightsSection),
+            PlaybackSearchRow("lights-per-content", resolve(Res.string.settings_lights_per_content), resolve(Res.string.settings_lights_per_content_description), lightsSection),
             PlaybackSearchRow("lights-pause", resolve(Res.string.settings_lights_pause_behavior), resolve(Res.string.settings_lights_pause_behavior_description), lightsSection),
             PlaybackSearchRow("lights-end", resolve(Res.string.settings_lights_end_behavior), resolve(Res.string.settings_lights_end_behavior_description), lightsSection),
             PlaybackSearchRow("lights-external", resolve(Res.string.settings_lights_external_players), resolve(Res.string.settings_lights_external_players_description), lightsSection),

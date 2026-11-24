@@ -203,6 +203,17 @@ internal fun LazyListScope.iptvSettingsContent(
                     modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-home-region")),
                     onSelected = IptvRepository::setHomeRegion,
                 )
+                // fork:home-live-tv
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSwitchRow(
+                    title = "Favourites on Home",
+                    description = "Your favourite channels as a row on Home, with what is on now. Selecting one plays it " +
+                        "straight away, with your other favourites on channel up and down.",
+                    checked = settings.homeRow,
+                    isTablet = isTablet,
+                    modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("iptv-home-row")),
+                    onCheckedChange = IptvRepository::setHomeRow,
+                )
                 // fork:live-tv-front-door
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(

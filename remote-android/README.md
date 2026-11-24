@@ -44,6 +44,8 @@ queue, and can "sleep" to try Wake. A strip shows what it was sent. This is for 
   ahead 10s, Back, Sources, More. **Sources** shows the TV's source list on the phone, in the same order, and tapping
   one plays it. **More › Playback › Shape** sets the picture's aspect: Fit (bars), Stretch, Zoom (fills the screen,
   cropping the edges) or Auto crop (trims bars baked into the video), as the player's Aspect ratio menu does.
+  **More › Playback › Bedtime › Stop after this episode** (episodes only) ends the evening: when the episode ends
+  nothing plays next and Lights out switches the room off instead of bringing it back up.
 - **During music:** the cover, title and artist, a seek bar, previous / play-pause / next, and Back, Queue, Lyrics,
   Dark, More.
   - **Queue** lists what the TV will play. Tap a song to play it; Play next and Remove work on songs still to come.

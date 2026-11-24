@@ -4525,6 +4525,13 @@ private fun MainAppContent(
                                             onCastClick = onHeroCastClick,
                                             onBadgeClick = { fact, item -> onHeroBadgeClick(fact, item.type) },
                                             onPosterClick = posterClick@{ meta ->
+                                                // fork:home-live-tv - a Live TV favourite on Home plays its channel.
+                                                if (meta.type == com.nuvio.app.features.home.LIVE_TV_HOME_ITEM_TYPE) {
+                                                    if (!com.nuvio.app.features.home.HomeLiveTvRow.play(meta.id)) {
+                                                        coroutineScope.launch { NuvioToastController.show("That channel is not loaded yet") }
+                                                    }
+                                                    return@posterClick
+                                                }
                                                 if (meta.isPlaylistPreview()) {
                                                     openPlaylistId = meta.id
                                                     return@posterClick
@@ -4585,6 +4592,7 @@ private fun MainAppContent(
                                             },
                                             onPosterLongClick = posterLongClick@{ meta ->
                                                 if (meta.randomPlayCategoryOrNull() != null) return@posterLongClick
+                                                if (meta.type == com.nuvio.app.features.home.LIVE_TV_HOME_ITEM_TYPE) return@posterLongClick
                                                 // Library, tracker and watched actions mean nothing
                                                 // for a playlist card; its screen holds its actions.
                                                 if (meta.isPlaylistPreview()) {

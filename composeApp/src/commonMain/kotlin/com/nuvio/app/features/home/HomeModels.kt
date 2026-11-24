@@ -147,7 +147,8 @@ internal const val MUSIC_HERO_TYPE_PREFIX = "music-"
 
 /** A hero item that is not a catalog title (a Collection, a music result): no cast, badges, ratings or trailer lookups. */
 internal fun MetaPreview.isOffCatalogHeroItem(): Boolean =
-    type == COLLECTION_HERO_TYPE || type.startsWith(MUSIC_HERO_TYPE_PREFIX)
+    type == COLLECTION_HERO_TYPE || type.startsWith(MUSIC_HERO_TYPE_PREFIX) ||
+        type == LIVE_TV_HOME_ITEM_TYPE // fork:home-live-tv
 
 /** The people panel's heading for a music result ("Starring" is the film word); null keeps the default. */
 internal fun MetaPreview.heroPeopleLabel(): String? = when {

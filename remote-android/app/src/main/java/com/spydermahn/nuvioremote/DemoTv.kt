@@ -127,6 +127,7 @@ object DemoTv {
     private var speedPercent = 100
     private var aspect = 0
     private var sleepMinutes = 0
+    private var bedtime = false
     private var shuffle = false
     private var repeat = 0
     private var liked = false
@@ -168,7 +169,7 @@ object DemoTv {
                 val f = film ?: return "IDLE"
                 "STATE film ${if (playing) 1 else 0} $position ${f.durationMs} $shownVolume 100 0 ${field(f.title)} " +
                     "${field(f.subtitle)} ${field(f.image)} ${field(subtitleTracks[subtitleIndex])} ${field(audioTracks[audioIndex])} " +
-                    "$speedPercent ${if (position < 60_000L) "Skip%20intro" else "-"} 1 $sleepMinutes - - - $aspect"
+                    "$speedPercent ${if (position < 60_000L) "Skip%20intro" else "-"} 1 $sleepMinutes - - - $aspect ${if (bedtime) 1 else 0}"
             }
             Mode.Music -> {
                 val s = songs.getOrNull(songIndex) ?: return "IDLE"
@@ -732,6 +733,11 @@ object DemoTv {
                 "SLEEP" -> {
                     synchronized(DemoTv) { sleepMinutes = parts.getOrNull(1)?.toIntOrNull()?.coerceAtLeast(0) ?: return }
                     note(if (sleepMinutes == 0) "Sleep timer off" else "Sleep timer: $sleepMinutes min")
+                    broadcastState()
+                }
+                "BEDTIME" -> {
+                    synchronized(DemoTv) { bedtime = parts.getOrNull(1) == "1" }
+                    note(if (bedtime) "Stops after this episode, lights off" else "Bedtime off")
                     broadcastState()
                 }
                 "SHUFFLE" -> {

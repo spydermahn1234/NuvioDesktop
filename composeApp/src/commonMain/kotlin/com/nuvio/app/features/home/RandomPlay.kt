@@ -316,6 +316,20 @@ internal fun buildEnabledHomeItems(
     settingsItems: List<HomeCatalogSettingsItem>,
     effectiveSections: List<HomeCatalogSection>,
 ): List<HomeCatalogSettingsItem> = buildList {
+    // fork:home-live-tv - the Live TV favourites row leads, when there is one (HomeLiveTvRow).
+    effectiveSections.firstOrNull { it.key == LIVE_TV_HOME_SECTION_KEY }
+        ?.takeIf { it.items.isNotEmpty() }
+        ?.let { section ->
+            add(
+                HomeCatalogSettingsItem(
+                    key = section.key,
+                    defaultTitle = section.title,
+                    addonName = section.addonName,
+                    heroSourceEnabled = false,
+                    order = Int.MIN_VALUE,
+                ),
+            )
+        }
     effectiveSections.firstOrNull { it.key == RANDOM_PLAY_SECTION_KEY }
         ?.takeIf { it.items.isNotEmpty() }
         ?.let { section ->
@@ -329,7 +343,7 @@ internal fun buildEnabledHomeItems(
                 ),
             )
         }
-    addAll(settingsItems.filter { it.enabled && it.key != RANDOM_PLAY_SECTION_KEY })
+    addAll(settingsItems.filter { it.enabled && it.key != RANDOM_PLAY_SECTION_KEY && it.key != LIVE_TV_HOME_SECTION_KEY })
 }
 
 fun pickRandomPlayItem(

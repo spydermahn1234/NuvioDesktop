@@ -12,6 +12,7 @@ import com.nuvio.app.core.ui.rememberPosterWatchlistMembership
 import com.nuvio.app.features.home.MetaPreview
 import com.nuvio.app.features.home.PosterShape
 import com.nuvio.app.features.home.randomPlayCategoryOrNull
+import com.nuvio.app.features.home.isLiveTvHomeCard
 import kotlin.math.roundToInt
 
 @Composable
@@ -43,6 +44,7 @@ fun HomePosterCard(
         landscapePosterUrl = item.landscapePoster,
     )
     val isRandomPlayCard = item.randomPlayCategoryOrNull() != null
+    val isLiveTvCard = item.isLiveTvHomeCard() // fork:home-live-tv
     val ratingBadgeText = when {
         isRandomPlayCard -> null
         isLandscapeMode -> posterRatingBadgeText(
@@ -75,17 +77,19 @@ fun HomePosterCard(
         NuvioPosterHoverTooltip(title = item.recommendationReason.orEmpty()) {
             NuvioPosterCard(
                 title = item.name,
-                imageUrl = artwork.imageUrl.takeUnless { isRandomPlayCard },
+                imageUrl = artwork.imageUrl.takeUnless { isRandomPlayCard || isLiveTvCard },
                 fallbackImageUrl = artwork.fallbackImageUrl,
                 modifier = modifier.then(hoverModifier),
                 shape = if (isLandscapeMode) NuvioPosterShape.Landscape else item.posterShape.toNuvioPosterShape(),
                 basePosterWidthDpOverride = basePosterWidthDpOverride,
                 detailLine = if (isLandscapeMode || posterCardStyle.hideLabelsEnabled) null else item.releaseInfo?.let { formatReleaseDateForDisplay(it) },
                 showTitleBelow = !posterCardStyle.hideLabelsEnabled,
-                bottomLeftLogoUrl = titleOverlay.logoUrl,
-                bottomLeftText = titleOverlay.text,
+                bottomLeftLogoUrl = titleOverlay.logoUrl.takeUnless { isLiveTvCard },
+                bottomLeftText = titleOverlay.text.takeUnless { isLiveTvCard },
                 ratingBadgeText = ratingBadgeText,
-                artworkContent = if (isRandomPlayCard) {
+                artworkContent = if (isLiveTvCard) {
+                    { LiveTvChannelArtwork(logoUrl = item.logo, pictureUrl = item.banner, name = item.name, nowLine = item.description) }
+                } else if (isRandomPlayCard) {
                     {
                         RandomPlayPosterCollage(
                             title = item.name,

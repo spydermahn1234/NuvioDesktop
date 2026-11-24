@@ -598,7 +598,7 @@ private fun PlayerScreenRuntime.BindLightsEffect() {
     }
     LaunchedEffect(phase) {
         when (phase) {
-            LightsPlaybackPhase.Playing -> LightsController.playing(LightsPlaybackSource.Player)
+            LightsPlaybackPhase.Playing -> LightsController.playing(LightsPlaybackSource.Player, lightsContentKind())
             // A short hold so a seek or a double-tap does not flicker the room.
             LightsPlaybackPhase.Paused -> {
                 delay(LIGHTS_PAUSE_SETTLE_MS)
@@ -607,15 +607,29 @@ private fun PlayerScreenRuntime.BindLightsEffect() {
             LightsPlaybackPhase.Ended -> {
                 delay(LIGHTS_END_SETTLE_MS)
                 // Read after the hold: an advance may have populated or consumed it meanwhile.
-                if (nextEpisodeInfo?.hasAired != true) LightsController.ended(LightsPlaybackSource.Player)
+                // fork:bedtime - the end-of-file exit switches the room off instead; no lights-up first.
+                if (nextEpisodeInfo?.hasAired != true && !PlayerBedtime.armed.value) {
+                    LightsController.ended(LightsPlaybackSource.Player)
+                }
             }
             LightsPlaybackPhase.Idle, LightsPlaybackPhase.Loading -> Unit
         }
     }
     DisposableEffect(Unit) {
-        onDispose { LightsController.ended(LightsPlaybackSource.Player) }
+        onDispose {
+            LightsController.ended(LightsPlaybackSource.Player)
+            PlayerBedtime.set(false) // fork:bedtime - never carried to the next time the player opens
+        }
     }
 }
+
+/** fork:lights-per-content - live TV and episodes are TV; anything else is a film. */
+private fun PlayerScreenRuntime.lightsContentKind(): com.nuvio.app.features.lights.LightsContentKind =
+    if (isIptvPlayback || activeEpisodeNumber != null || parentMetaType.equals("series", ignoreCase = true)) {
+        com.nuvio.app.features.lights.LightsContentKind.Tv
+    } else {
+        com.nuvio.app.features.lights.LightsContentKind.Film
+    }
 
 private const val LIGHTS_PAUSE_SETTLE_MS = 800L
 private const val LIGHTS_END_SETTLE_MS = 1_500L
@@ -2101,6 +2115,7 @@ private fun PlayerScreenRuntime.BindPlayerMetadataAndSkipEffects() {
                 ) &&
                 nextEpisodeInfo?.hasAired == true &&
                 !nextEpisodeAdvanceInProgress &&
+                !PlayerBedtime.armed.value && // fork:bedtime - no advance at the credits
                 isPlaybackPositionSupportedByRecentProgress(
                     positionMs = playbackSnapshot.positionMs,
                     lastTrustedPositionMs = lastTrustedPlaybackPositionMs,
@@ -2209,7 +2224,10 @@ private fun PlayerScreenRuntime.BindPlayerMetadataAndSkipEffects() {
                 allowShortContent = isYouTubeVideoPlayback,
             )
             val nextVideoId = nextEpisodeInfo?.videoId
-            val hasPlayableNextEpisode = nextEpisodeInfo?.hasAired == true &&
+            // fork:bedtime - "Stop after this episode": the end exits as if nothing followed.
+            val bedtime = PlayerBedtime.armed.value
+            val hasPlayableNextEpisode = !bedtime &&
+                nextEpisodeInfo?.hasAired == true &&
                 nextVideoId != null &&
                 playerMetaVideos.any { it.id == nextVideoId }
             if (hasPlayableNextEpisode) showNextEpisodeCard = true
@@ -2242,9 +2260,15 @@ private fun PlayerScreenRuntime.BindPlayerMetadataAndSkipEffects() {
             }
             if (willTrigger) {
                 playNextEpisode()
-            } else if (willExit && isPlaylistPlayback && playlistUpNext != null) {
+            } else if (willExit && isPlaylistPlayback && playlistUpNext != null && !bedtime) {
                 requestPlaylistAdvance(trigger = "eof")
             } else if (willExit) {
+                if (bedtime) {
+                    BingeAdvanceLog.i { "bedtime: stopping after this episode, lights off" }
+                    PlayerBedtime.set(false)
+                    nextEpisodeAutoPlayJob?.cancel()
+                    LightsController.bedtime(LightsPlaybackSource.Player)
+                }
                 playbackEndExitRequested = true
                 flushWatchProgress()
                 args.onPlaybackCompleted()

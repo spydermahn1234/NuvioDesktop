@@ -38,7 +38,13 @@ object LightsController {
     private val providers: List<LightsProvider> = listOf(GoveeLightsProvider, WebhookLightsProvider)
 
     private sealed interface Command {
-        data class Playback(val event: LightsEvent, val source: LightsPlaybackSource) : Command
+        data class Playback(
+            val event: LightsEvent,
+            val source: LightsPlaybackSource,
+            val kind: LightsContentKind? = null,
+            /** fork:bedtime - an End that leaves the room dark instead of bringing it back. */
+            val lightsOff: Boolean = false,
+        ) : Command
         data object Test : Command
     }
 
@@ -48,6 +54,8 @@ object LightsController {
     private var sessionActive = false
     private var sessionSource: LightsPlaybackSource? = null
     private var paused = false
+    // fork:lights-per-content - the scene this session opened with; every later event re-uses it.
+    private var sessionScene: LightsSceneTarget? = null
 
     private const val TEST_HOLD_MS = 4_000L
 
@@ -65,8 +73,8 @@ object LightsController {
     }
 
     /** Playback is actually running: the first report is the Start, later ones (after a pause) a Resume. */
-    fun playing(source: LightsPlaybackSource) {
-        commands.trySend(Command.Playback(LightsEvent.Start, source))
+    fun playing(source: LightsPlaybackSource, kind: LightsContentKind? = null) {
+        commands.trySend(Command.Playback(LightsEvent.Start, source, kind))
     }
 
     fun paused(source: LightsPlaybackSource) {
@@ -76,6 +84,15 @@ object LightsController {
     /** Playback finished or the player was left; the room goes back to how it was. */
     fun ended(source: LightsPlaybackSource) {
         commands.trySend(Command.Playback(LightsEvent.End, source))
+    }
+
+    /**
+     * fork:bedtime - playback finished and the evening is over: the session ends with every selected light switched
+     * off rather than put back. Works with no session too (outside the lights-out hours, say), so the room is always
+     * dark afterwards.
+     */
+    fun bedtime(source: LightsPlaybackSource) {
+        commands.trySend(Command.Playback(LightsEvent.End, source, lightsOff = true))
     }
 
     /** Applies the scene, holds it a few seconds, and restores — so the settings page can be checked. */
@@ -141,7 +158,7 @@ object LightsController {
                 LightsEvent.Pause -> out += command
                 LightsEvent.End -> {
                     val opener = pendingStart.takeIf { it >= 0 }?.let { out[it] as Command.Playback }
-                    if (opener != null && opener.source == playback.source) {
+                    if (opener != null && opener.source == playback.source && !playback.lightsOff) {
                         // Start (and anything after it), End — the room was never touched.
                         while (out.size > pendingStart) out.removeAt(out.lastIndex)
                     } else {
@@ -158,13 +175,17 @@ object LightsController {
 
     private suspend fun execute(command: Command) {
         when (command) {
-            is Command.Playback -> executePlayback(command.event, command.source)
+            is Command.Playback -> executePlayback(command)
             Command.Test -> executeTest()
         }
     }
 
-    private suspend fun executePlayback(event: LightsEvent, source: LightsPlaybackSource) {
-        val settings = LightsSettingsRepository.snapshot()
+    private suspend fun executePlayback(command: Command.Playback) {
+        val event = command.event
+        val source = command.source
+        val stored = LightsSettingsRepository.snapshot()
+        // The scene fixed at this session's Start, so a Resume re-applies the same room.
+        val settings = sessionScene?.let(stored::withScene) ?: stored
         when (event) {
             LightsEvent.Start -> {
                 if (sessionActive) {
@@ -182,11 +203,17 @@ object LightsController {
                     log.i { "Outside the lights-out hours; leaving the room alone" }
                     return
                 }
+                val scene = stored.sceneFor(command.kind)
+                if (scene == null) {
+                    log.i { "Per-content lighting leaves the room alone for ${command.kind}" }
+                    return
+                }
                 sessionActive = true
                 sessionSource = source
+                sessionScene = scene
                 paused = false
-                log.i { "Lights out ($source)" }
-                dispatch(LightsEvent.Start, settings)
+                log.i { "Lights out ($source, ${command.kind ?: "unknown"}: ${scene.action} ${scene.dimPercent}%)" }
+                dispatch(LightsEvent.Start, stored.withScene(scene))
             }
             LightsEvent.Pause -> {
                 if (!sessionActive || sessionSource != source || paused) return
@@ -194,9 +221,23 @@ object LightsController {
                 dispatch(LightsEvent.Pause, settings)
             }
             LightsEvent.End -> {
+                if (command.lightsOff) {
+                    // fork:bedtime - only another surface's running session is left alone.
+                    if (sessionActive && sessionSource != source) return
+                    sessionActive = false
+                    sessionSource = null
+                    sessionScene = null
+                    paused = false
+                    if (!stored.isActive) return
+                    log.i { "Bedtime: lights off ($source)" }
+                    dispatch(LightsEvent.Start, stored.withScene(LightsSceneTarget(LightsStartAction.TurnOff, stored.dimPercent)))
+                    GoveeLightsProvider.forget()
+                    return
+                }
                 if (!sessionActive || sessionSource != source) return
                 sessionActive = false
                 sessionSource = null
+                sessionScene = null
                 paused = false
                 log.i { "Lights up ($source)" }
                 dispatch(LightsEvent.End, settings)

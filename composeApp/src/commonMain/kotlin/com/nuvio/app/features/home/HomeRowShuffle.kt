@@ -90,6 +90,7 @@ fun HomeCatalogSection.shuffled(order: HomeRowShuffleOrder?): List<MetaPreview> 
 fun HomeCatalogSection.canShuffleRow(): Boolean =
     items.size >= HOME_ROW_SHUFFLE_MIN_ITEMS &&
         key != DISCOVER_BROWSER_ROW_KEY &&
+        key != LIVE_TV_HOME_SECTION_KEY && // fork:home-live-tv - the favourites keep their order
         !key.startsWith(DISCOVER_PLACEHOLDER_KEY_PREFIX)
 
 /** True when the row can supply further pages, i.e. deepening the pool is worth attempting. */

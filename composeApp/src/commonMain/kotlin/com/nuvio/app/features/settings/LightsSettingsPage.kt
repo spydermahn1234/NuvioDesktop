@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.features.lights.GoveeDeviceLoadState
+import com.nuvio.app.features.lights.LightsContentScene
 import com.nuvio.app.features.lights.LightsController
 import com.nuvio.app.features.lights.LightsEndBehavior
 import com.nuvio.app.features.lights.LightsPauseBehavior
@@ -52,6 +53,18 @@ import nuvio.composeapp.generated.resources.settings_lights_govee_devices_none
 import nuvio.composeapp.generated.resources.settings_lights_govee_load_devices
 import nuvio.composeapp.generated.resources.settings_lights_missing_provider
 import nuvio.composeapp.generated.resources.settings_lights_pause_behavior
+import nuvio.composeapp.generated.resources.settings_lights_per_content
+import nuvio.composeapp.generated.resources.settings_lights_per_content_description
+import nuvio.composeapp.generated.resources.settings_lights_per_content_film
+import nuvio.composeapp.generated.resources.settings_lights_per_content_film_description
+import nuvio.composeapp.generated.resources.settings_lights_per_content_tv
+import nuvio.composeapp.generated.resources.settings_lights_per_content_tv_description
+import nuvio.composeapp.generated.resources.settings_lights_per_content_music
+import nuvio.composeapp.generated.resources.settings_lights_per_content_music_description
+import nuvio.composeapp.generated.resources.settings_lights_scene_dark
+import nuvio.composeapp.generated.resources.settings_lights_scene_half
+import nuvio.composeapp.generated.resources.settings_lights_scene_usual
+import nuvio.composeapp.generated.resources.settings_lights_scene_leave
 import nuvio.composeapp.generated.resources.settings_lights_pause_behavior_description
 import nuvio.composeapp.generated.resources.settings_lights_pause_bring_up
 import nuvio.composeapp.generated.resources.settings_lights_pause_stay
@@ -98,6 +111,7 @@ internal fun LazyListScope.lightsSettingsContent(
                 modifier = Modifier.settingsSearchAnchors(
                     "lights-enable",
                     "lights-start-action",
+                    "lights-per-content",
                     "lights-pause",
                     "lights-end",
                     "lights-external",
@@ -144,6 +158,49 @@ internal fun LazyListScope.lightsSettingsContent(
                         step = 1,
                         isTablet = isTablet,
                         onValueChange = LightsSettingsRepository::setDimPercent,
+                    )
+                }
+                // fork:lights-per-content - films, TV and music each get their own room.
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSwitchRow(
+                    title = stringResource(Res.string.settings_lights_per_content),
+                    description = stringResource(Res.string.settings_lights_per_content_description),
+                    checked = settings.perContent,
+                    isTablet = isTablet,
+                    onCheckedChange = LightsSettingsRepository::setPerContent,
+                )
+                if (settings.perContent) {
+                    val sceneOptions = listOf(
+                        SettingsChoiceOption(LightsContentScene.Dark, stringResource(Res.string.settings_lights_scene_dark)),
+                        SettingsChoiceOption(LightsContentScene.Half, stringResource(Res.string.settings_lights_scene_half)),
+                        SettingsChoiceOption(LightsContentScene.Usual, stringResource(Res.string.settings_lights_scene_usual)),
+                        SettingsChoiceOption(LightsContentScene.Leave, stringResource(Res.string.settings_lights_scene_leave)),
+                    )
+                    SettingsGroupDivider(isTablet = isTablet)
+                    SettingsChoiceRow(
+                        title = stringResource(Res.string.settings_lights_per_content_film),
+                        description = stringResource(Res.string.settings_lights_per_content_film_description),
+                        options = sceneOptions,
+                        selectedValue = settings.filmScene,
+                        isTablet = isTablet,
+                        onSelected = LightsSettingsRepository::setFilmScene,
+                    )
+                    SettingsGroupDivider(isTablet = isTablet)
+                    SettingsChoiceRow(
+                        title = stringResource(Res.string.settings_lights_per_content_tv),
+                        description = stringResource(Res.string.settings_lights_per_content_tv_description),
+                        options = sceneOptions,
+                        selectedValue = settings.tvScene,
+                        isTablet = isTablet,
+                        onSelected = LightsSettingsRepository::setTvScene,
+                    )
+                    SettingsGroupDivider(isTablet = isTablet)
+                    SettingsSwitchRow(
+                        title = stringResource(Res.string.settings_lights_per_content_music),
+                        description = stringResource(Res.string.settings_lights_per_content_music_description),
+                        checked = settings.musicBeatLights,
+                        isTablet = isTablet,
+                        onCheckedChange = LightsSettingsRepository::setMusicBeatLights,
                     )
                 }
                 SettingsGroupDivider(isTablet = isTablet)

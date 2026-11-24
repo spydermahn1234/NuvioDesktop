@@ -15,13 +15,13 @@ class PhoneRemoteExtrasTest {
         )
         val fields = line.split(' ')
         // After the thirteen fields an older phone knows: speed, skip label, next episode, sleep, shuffle, repeat, liked.
-        assertEquals(listOf("125", "Skip%20intro", "1", "30", "-", "-", "-", "-"), fields.drop(13))
+        assertEquals(listOf("125", "Skip%20intro", "1", "30", "-", "-", "-", "-", "0"), fields.drop(13))
     }
 
     @Test
     fun theMusicExtrasRideOnTheStateLine() {
         val line = PhoneRemoteProtocol.stateLine(RemoteNowPlaying(kind = "music", title = "Song", shuffle = true, repeat = 2, liked = false))
-        assertEquals(listOf("-", "-", "0", "0", "1", "2", "0", "-"), line.split(' ').drop(13))
+        assertEquals(listOf("-", "-", "0", "0", "1", "2", "0", "-", "0"), line.split(' ').drop(13))
     }
 
     @Test
@@ -31,6 +31,15 @@ class PhoneRemoteExtrasTest {
         assertEquals(RemoteMessage.Control(ControlAction.Aspect, 3), PhoneRemoteProtocol.parse("ASPECT 3"))
         assertNull(PhoneRemoteProtocol.parse("ASPECT"))
         assertNull(PhoneRemoteProtocol.parse("ASPECT wide"))
+    }
+
+    @Test
+    fun bedtimeRidesOnTheStateLineAndParses() {
+        val line = PhoneRemoteProtocol.stateLine(RemoteNowPlaying(kind = "film", title = "Show", bedtime = true))
+        assertEquals("1", line.split(' ')[21])
+        assertEquals(RemoteMessage.Control(ControlAction.Bedtime, 1), PhoneRemoteProtocol.parse("BEDTIME 1"))
+        assertEquals(RemoteMessage.Control(ControlAction.Bedtime, 0), PhoneRemoteProtocol.parse("BEDTIME 0"))
+        assertNull(PhoneRemoteProtocol.parse("BEDTIME"))
     }
 
     @Test

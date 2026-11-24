@@ -311,7 +311,9 @@ internal object PhoneRemote {
         val musicState = MusicPlayback.player.state
         stateWatch = CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
             combine(
-                combine(RemotePlayerHub.film, musicState, _sleepMinutes) { film, music, sleep -> Triple(film, music, sleep) },
+                combine(RemotePlayerHub.film, musicState, _sleepMinutes, com.nuvio.app.features.player.PlayerBedtime.armed) { film, music, sleep, bedtime ->
+                    Triple(film?.copy(bedtime = bedtime), music, sleep)
+                },
                 MusicAccountShelves.state,
                 MusicLikedSongs.overrides,
             ) { (film, music, sleep), account, overrides ->
@@ -348,6 +350,10 @@ internal object PhoneRemote {
                 ControlAction.Like -> likeCurrent()
                 ControlAction.Radio -> startRadio()
                 ControlAction.Aspect -> film?.setAspect(value.coerceIn(0, 3))
+                ControlAction.Bedtime -> if (film != null || value == 0) {
+                    com.nuvio.app.features.player.PlayerBedtime.set(value == 1)
+                    log.i { "Phone remote: stop after this episode ${if (value == 1) "set" else "cancelled"}" }
+                }
             }
         }
     }

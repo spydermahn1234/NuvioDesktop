@@ -1015,6 +1015,40 @@ Upstream's windows-tv-adaptive (94a5b339) merged into Spyder: the phone as a poi
 - [ ] (must) The shape picked from the phone is still in use when the next film starts
 - [ ] During music the Shape row is not shown
 
+## Bedtime: stop after this episode (Nov 24)
+
+Nuvio Remote, during an episode: More › Playback › Bedtime. Needs this Nuvio and the new Nuvio Remote build.
+
+- [ ] (must) During an episode, More › Playback shows a Bedtime row (Off, Stop after this episode); picking Stop after this episode lights it and the Now playing card says "Lights off after this one"
+- [ ] (must) With it on and Lights out on, the episode ends: no next episode starts (no Binge Mode advance at the credits either), the player closes and the lights go off instead of coming back up
+- [ ] With it on, the TV's own Next episode (or the phone's) still plays the next episode, and Bedtime is still set for that one
+- [ ] Bedtime Off after setting it: the episode ends and the next one plays as usual
+- [ ] Leaving the player early clears Bedtime: the next film you start ends as usual
+
+## Lights out: per content (Nov 24)
+
+Settings > Lights out > Per content (new switch under When playback starts).
+
+- [ ] (must) Per content on, Films Dark: starting a film switches the ticked lights off
+- [ ] (must) Per content on, TV Half: starting an episode (or a live channel) dims the lights that are on to half
+- [ ] (must) Per content on, Music: beat lights on: music from the Music tab flashes the beat lights even with Flash a light on the beat off
+- [ ] Films or TV set to Leave: starting one leaves the room alone, and stopping it changes nothing
+- [ ] As above: uses the When playback starts choice (and its dim level)
+- [ ] Per content off: everything is as before (the When playback starts choice for all, beat lights only with their own switch)
+- [ ] Pause with Bring up, then play again: the room goes back to the same scene it started with (Dark or Half)
+
+## Live TV favourites on Home (Nov 24)
+
+Settings > Live TV > Favourites on Home (on by default). Needs at least one favourite channel (the star in Live TV).
+
+- [ ] (must) Home shows a Live TV row first, one card per favourite: the channel's logo, what is on now and until when
+- [ ] (must) From Home, select a card: the channel plays straight away (two presses from Home)
+- [ ] In the player, channel up and down move through the other favourites
+- [ ] Starring or unstarring a channel in Live TV adds or removes its card on Home
+- [ ] After a programme ends, its card shows the next one within a minute
+- [ ] Favourites on Home off: the row goes; on again: it comes back
+- [ ] The row works with the mouse, the keyboard and the controller, and the hero does not show a broken page for a card
+
 ## Upstream merge (Nov 21)
 
 Upstream's windows-tv-adaptive (56d7c587) merged into Spyder. Its new things, and a check that the fork's own pages are untouched:

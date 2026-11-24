@@ -45,6 +45,8 @@ data class RemoteNowPlaying(
     val liked: Boolean? = null,
     /** The film's picture shape: 0 Fit, 1 Stretch, 2 Zoom, 3 Auto crop (the player's resize modes, in order); null when it cannot say. */
     val aspect: Int? = null,
+    /** fork:bedtime - the film player stops after this episode and the lights go off (see PlayerBedtime). */
+    val bedtime: Boolean = false,
 )
 
 /** What the phone can do to the film player beyond the keys a controller sends. */

@@ -693,6 +693,10 @@ fun HomeScreen(
         libraryServerSections = loadLibraryServerSections()
     }
 
+    // fork:home-live-tv - Live TV favourites as a row on Home.
+    LaunchedEffect(Unit) { HomeLiveTvRow.start() }
+    val liveTvCards by HomeLiveTvRow.cards.collectAsStateWithLifecycle()
+
     // Compute effective sections and hero items based on content mode.
     val effectiveSections: List<HomeCatalogSection> = remember(
         displayMode, contentMode, searchQuery, discoverUiState, discoverRecommendations,
@@ -708,9 +712,11 @@ fun HomeScreen(
         homeUiState.sections, searchUiState.sections, libraryUiState.sections, libraryDisplaySettings.sortOption,
         libraryPlaylists, filteredLibrarySections, libraryTitleFacts, libraryFiltersActive,
         libraryServerSections,
+        liveTvCards,
     ) {
         when (displayMode) {
             is HomeContentMode.Normal -> buildList {
+                LiveTvHomeRules.section(liveTvCards, title = "Live TV", subtitle = "Your favourite channels, on now")?.let(::add)
                 buildRandomPlaySection(
                     sourceSections = randomPlaySourceSections(
                         homeSections = homeUiState.sections,
@@ -931,7 +937,7 @@ fun HomeScreen(
         // Seed the hero from the visible rows (what you're currently browsing), used by Search,
         // Library, and — as a fallback — Normal mode's content-following desktop backdrop modes.
         fun currentlyViewingHeroSeed(keepText: Boolean = false) =
-            effectiveSections.filterNot { it.key == PlaylistLibraryRowKey }
+            effectiveSections.filterNot { it.key == PlaylistLibraryRowKey || it.key == LIVE_TV_HOME_SECTION_KEY }
                 .take(2).flatMap { it.items.take(8) }.distinctBy { "${it.type}:${it.id}" }
                 .suppressingCatalogHero(keepText)
         when (displayMode) {
