@@ -411,6 +411,21 @@ internal fun LazyListScope.homescreenSettingsContent(
                         ),
                         onCheckedChange = HomeCatalogSettingsRepository::setCatalogRowNumbersEnabled,
                     )
+                    // fork:shelf-home - the Kodi-style home (design-notes/home-shelves.md). Own store, off by default.
+                    SettingsGroupDivider(isTablet = isTablet)
+                    remember { com.nuvio.app.features.home.shelves.ShelfHomeSettingsRepository.ensureLoaded() }
+                    val shelfHome by com.nuvio.app.features.home.shelves.ShelfHomeSettingsRepository.state
+                        .collectAsStateWithLifecycle()
+                    SettingsSwitchRow(
+                        title = stringResource(Res.string.settings_home_shelf_home),
+                        description = stringResource(Res.string.settings_home_shelf_home_description),
+                        checked = shelfHome.enabled,
+                        isTablet = isTablet,
+                        modifier = Modifier.settingsScrollAnchor(
+                            SettingsScrollAnchor.searchKey("home-shelf-home"),
+                        ),
+                        onCheckedChange = com.nuvio.app.features.home.shelves.ShelfHomeSettingsRepository::setEnabled,
+                    )
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_homescreen_animate_collection_gifs_on_focus_only),

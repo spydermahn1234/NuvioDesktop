@@ -3847,6 +3847,8 @@
     <string name="settings_home_hero_height_description">Set how much of the window the adaptive hero occupies.</string>
     <string name="settings_home_number_catalog_rows">Number catalog rows</string>
     <string name="settings_home_number_catalog_rows_description">Adds the row number to your catalogs name.</string>
+    <string name="settings_home_shelf_home">Shelf home</string>
+    <string name="settings_home_shelf_home_description">A Kodi-style home: one row at a time, each in its own view. Your rows and collections stay as they are. Off shows the classic home.</string>
     <string name="settings_home_catalog_provider_tag">Show catalog provider</string>
     <string name="settings_home_catalog_provider_tag_description">Tags each catalog row with the addon that supplies it.</string>
     <string name="settings_home_release_status_unavailable_only">Only show unavailable release status</string>

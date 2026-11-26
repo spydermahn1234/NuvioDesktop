@@ -1055,6 +1055,14 @@ Upstream's windows-tv-adaptive (56d7c587) merged into Spyder. Its new things, an
 
 - [ ] (must) Nuvio starts; the music home, Stage, album and artist pages, the Live TV stages and the phone remote work as before
 
+## Shelf home (Nov 26)
+
+- [ ] (must) Settings > Home screen > Shelf home is off by default, and with it off Home looks and behaves exactly as before
+- [ ] Turning Shelf home on shows the Shelf home placeholder on Home straight away; turning it off brings the classic home back
+- [ ] With Shelf home on, Search, Library and Discover still open their classic pages
+- [ ] Settings search for "shelf" finds the Shelf home switch
+- [ ] Shelf home is remembered per profile: on for one profile, off for another after switching
+
 # Archived (not testing)
 
 Set aside on 2026-11-22 (Nick): upstream merge checks for upstream's own features, and the old Live TV views that Stage replaced. Kept for the record; the phone's Checks tab asks nothing below this heading. To test one again, move it back up.

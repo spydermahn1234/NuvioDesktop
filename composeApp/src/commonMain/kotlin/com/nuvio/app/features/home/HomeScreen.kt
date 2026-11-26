@@ -448,6 +448,15 @@ fun HomeScreen(
             WatchProgressRepository.ensureLoaded()
         }
     }
+    // fork:shelf-home - with the Shelf home switch on, the Kodi-style home replaces the classic one
+    // (Normal mode only; Search, Library, Discover and catalog pages stay classic). Off: untouched.
+    remember { com.nuvio.app.features.home.shelves.ShelfHomeSettingsRepository.ensureLoaded() }
+    val shelfHomeSettings by com.nuvio.app.features.home.shelves.ShelfHomeSettingsRepository.state
+        .collectAsStateWithLifecycle()
+    if (shelfHomeSettings.enabled && contentMode is HomeContentMode.Normal) {
+        com.nuvio.app.features.home.shelves.ShelfHome(modifier = modifier)
+        return
+    }
 
     val addonsUiState by AddonRepository.uiState.collectAsStateWithLifecycle()
     val homeUiState by HomeRepository.uiState.collectAsStateWithLifecycle()
