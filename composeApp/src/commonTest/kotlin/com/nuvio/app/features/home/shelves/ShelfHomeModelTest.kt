@@ -50,7 +50,7 @@ class ShelfHomeModelTest {
     @Test
     fun homeShelvesFollowTheClassicRowOrderAndCustomTitles() {
         val model = ShelfHomeRules.build(
-            enabledItems = listOf(row(netflix), row(trending, customTitle = "What's hot")),
+            enabledItems = listOf(row(netflix, default = "Netflix best of this week"), row(trending, customTitle = "What's hot")),
             sections = sections,
             collections = emptyMap(),
         )
