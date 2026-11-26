@@ -61,6 +61,12 @@ those rows are drawn and moved between. So:
    (Nov 26, done, with the Strip view folded in: catalog shelves use the classic `HomePosterCard`, Continue Watching
    and folders `NuvioPosterCard`; the focused title's details above the shelf; tab and shelf remembered for the
    session in `ShelfHomeMemory`; more pages asked for only by the focused shelf.)
+2b. **The mockups' frame** (Nov 26, after Nick's first look: "it looks nothing like the mockup"): the focused
+   title's backdrop full-bleed behind everything with left and bottom scrims; slash menu top left; clock top right
+   (hour heavy, minutes light; Tonight's 12-hour setting); the tab's shelves in a dark right-hand panel, Kodi
+   list-and-info style, the focused row filled with the accent; on the left a fixed-height type block (shelf name and
+   count in spaced caps, "Name / YEAR / LENGTH" with accent slashes, a spaced credit line, "starts now, ends 9:30 PM" or
+   "finish by 8:41 PM", two lines of description) above the shelf's cards. Times from `ShelfTime` (tested).
 3. **Strip polish** - a pinned collection's folder shelves show the folder's titles (not just the folder card);
    Continue Watching's long press and source shortcut; the classic card sizes and landscape setting checked.
 4. **Ledger view** - text rows, time left, end time; numbered style for ranked rows.

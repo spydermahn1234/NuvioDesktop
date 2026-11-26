@@ -1062,12 +1062,15 @@ Upstream's windows-tv-adaptive (56d7c587) merged into Spyder. Its new things, an
 - [ ] With Shelf home on, Search, Library and Discover still open their classic pages
 - [ ] Settings search for "shelf" finds the Shelf home switch
 - [ ] Shelf home is remembered per profile: on for one profile, off for another after switching
-- [ ] (must) With Shelf home on, Home's shelf names on the left are in the same order as the classic home's rows (custom row names kept, hidden rows missing)
+- [ ] (must) With Shelf home on, Home's shelf names in the right-hand panel are in the same order as the classic home's rows (custom row names kept, hidden rows missing)
 - [ ] A collection pinned to the top shows as its own tab with one shelf per folder; an unpinned one is a single shelf on Home
 - [ ] Continue watching (and Up next / Upcoming when they are separate rows) lead Home's shelves when they have something
-- [ ] (must) With the remote or a controller: moving up and down the shelf names shows each shelf on the right; Right goes into the shelf, Left comes back to the names
+- [ ] (must) With the remote or a controller: moving up and down the shelf names shows each shelf's cards along the bottom; Left goes into the cards, Right comes back to the names
 - [ ] Moving onto a tab in the slash menu (Home / a pinned collection) switches to it; selecting Library opens the Library page
-- [ ] The focused title's name, year, genres, runtime, rating and two lines of description show above the shelf, and the shelf does not jump as they change
+- [ ] (must) It looks like the mockups: the focused title's backdrop fills the screen behind everything (darker on the left), the slash menu top left, the clock top right (hour heavy, minutes light), the shelf names in a dark panel down the right with the focused one filled in the accent colour
+- [ ] The focused title shows big as "Name / YEAR / 2H 9M" with accent slashes, a letter-spaced line of genres, IMDb and rating, "starts now, ends 9:30 PM" (12-hour clock if set in Tonight), and two lines of description; the cards do not jump as it changes
+- [ ] On Continue watching it reads "Show / S4 E1 / 1H 16M LEFT", the episode title, and "finish by 8:41 PM"
+- [ ] The backdrop cross-fades as focus moves between cards and shelves
 - [ ] Selecting a poster opens its details; a Continue watching card resumes as on the classic home; a folder card opens the folder
 - [ ] Scrolling to the end of a long catalog shelf (e.g. Trending) loads more titles
 - [ ] Leaving Home and coming back lands on the same tab and shelf
