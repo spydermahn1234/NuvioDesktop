@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -57,8 +58,10 @@ import com.nuvio.app.core.ui.requestFocusLogged
  * Up/Down move between the rows and never leave the card; OK picks; Back/Escape or a click outside closes.
  */
 
-private val PickerFill = Color(0xFF17171C)
-private val PickerScrim = Color.Black.copy(alpha = 0.72f)
+private val PickerFill: Color
+    @Composable @ReadOnlyComposable get() = LocalShelfPalette.current.pickerFill
+private val PickerScrim: Color
+    @Composable @ReadOnlyComposable get() = LocalShelfPalette.current.pickerScrim
 private val PickerShape = RoundedCornerShape(18.dp)
 private val RowShape = RoundedCornerShape(12.dp)
 private val CloseKeys = setOf(Key.Back, Key.Escape)
@@ -79,13 +82,16 @@ internal fun ShelfViewPicker(
     onPick: (ShelfViewMode) -> Unit,
     onReset: () -> Unit,
     onDismiss: () -> Unit,
+    /** Set for a shelf the user built (a mix): adds "Edit this shelf" after the views. */
+    onEdit: (() -> Unit)? = null,
 ) {
     KeyRouteLayer("ShelfViewPicker")
     val tokens = MaterialTheme.nuvio
     val modes = remember { ShelfPresentationRules.available() }
     // The rows: each view, then "Use the default" (null) when the shelf has a choice of its own.
     val rows: List<ShelfViewMode?> = remember(isDefault) { if (isDefault) modes else modes + null }
-    val requesters = remember(rows.size) { List(rows.size) { FocusRequester() } }
+    val rowCount = rows.size + if (onEdit != null) 1 else 0
+    val requesters = remember(rowCount) { List(rowCount) { FocusRequester() } }
     var focusedIndex by remember { mutableIntStateOf(0) }
     val dismiss by rememberUpdatedState(onDismiss)
 
@@ -104,7 +110,7 @@ internal fun ShelfViewPicker(
                 .width(460.dp)
                 .shadow(32.dp, PickerShape, clip = false)
                 .background(PickerFill, PickerShape)
-                .border(1.dp, Color.White.copy(alpha = 0.14f), PickerShape)
+                .border(1.dp, LocalShelfPalette.current.pickerBorder, PickerShape)
                 // A click on the card's own background stays in the card.
                 .pointerInput(Unit) { detectTapGestures { } }
                 .keyLayer("ShelfViewPicker") { requesters[focusedIndex.coerceIn(0, requesters.lastIndex)].requestFocusLogged() }
@@ -120,7 +126,7 @@ internal fun ShelfViewPicker(
                             true
                         }
                         event.key == Key.DirectionDown -> {
-                            if (focusedIndex < rows.lastIndex) requesters[focusedIndex + 1].requestFocusLogged()
+                            if (focusedIndex < requesters.lastIndex) requesters[focusedIndex + 1].requestFocusLogged()
                             true
                         }
                         // Left/Right would let focus wander to the shelf behind the card.
@@ -135,7 +141,7 @@ internal fun ShelfViewPicker(
                 text = "View $shelfTitle as",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = tokens.colors.textPrimary,
+                color = LocalShelfPalette.current.pickerTitle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -148,6 +154,16 @@ internal fun ShelfViewPicker(
                     requester = requesters[index],
                     onFocused = { focusedIndex = index },
                     onClick = { if (mode == null) onReset() else onPick(mode) },
+                )
+            }
+            if (onEdit != null) {
+                PickerRow(
+                    title = "Edit this shelf",
+                    description = "Change its rows and rules",
+                    ticked = false,
+                    requester = requesters[rows.size],
+                    onFocused = { focusedIndex = rows.size },
+                    onClick = onEdit,
                 )
             }
         }
@@ -174,12 +190,12 @@ private fun PickerRow(
             .background(
                 when {
                     focused -> tokens.colors.accent.copy(alpha = 0.42f)
-                    hovered -> Color.White.copy(alpha = 0.10f)
-                    else -> Color.White.copy(alpha = 0.05f)
+                    hovered -> LocalShelfPalette.current.pickerRowHover
+                    else -> LocalShelfPalette.current.pickerRow
                 },
                 RowShape,
             )
-            .border(1.dp, if (focused) tokens.colors.accent.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.10f), RowShape)
+            .border(1.dp, if (focused) tokens.colors.accent.copy(alpha = 0.9f) else LocalShelfPalette.current.pickerRowBorder, RowShape)
             .clip(RowShape)
             .focusRequester(requester)
             .onFocusChanged {
@@ -193,7 +209,7 @@ private fun PickerRow(
         // The tick's column is always there, so the text never shifts when the tick moves.
         Box(modifier = Modifier.width(28.dp), contentAlignment = Alignment.CenterStart) {
             if (ticked) {
-                Text(text = "✓", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = tokens.colors.accent)
+                Text(text = "✓", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = LocalShelfPalette.current.accentInk)
             }
         }
         Column(modifier = Modifier.weight(1f)) {
@@ -201,14 +217,14 @@ private fun PickerRow(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = tokens.colors.textPrimary,
+                color = LocalShelfPalette.current.pickerTitle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
-                color = tokens.colors.textMuted,
+                color = LocalShelfPalette.current.pickerMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

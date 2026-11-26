@@ -35,6 +35,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.ui.draw.alpha
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -74,6 +76,8 @@ import com.nuvio.app.features.home.HomeCatalogSection
 import com.nuvio.app.features.home.MetaPreview
 import com.nuvio.app.features.home.components.HomePosterCard
 import com.nuvio.app.features.tonight.TonightClock
+import com.nuvio.app.features.home.WatchedContentFilter
+import com.nuvio.app.features.watched.WatchedRepository
 import com.nuvio.app.features.tonight.TonightSettingsRepository
 import com.nuvio.app.features.tonight.clockLabel
 import com.nuvio.app.features.watchprogress.ContinueWatchingItem
@@ -99,9 +103,13 @@ internal object ShelfHomeMemory {
 }
 
 
-private val Ink = Color.White
-private val InkSoft = Color.White.copy(alpha = 0.78f)
-private val InkDim = Color.White.copy(alpha = 0.55f)
+// The text colours come from the shelf home's look (Dark or Paper, ShelfTheme.kt).
+private val Ink: Color
+    @Composable @ReadOnlyComposable get() = LocalShelfPalette.current.ink
+private val InkSoft: Color
+    @Composable @ReadOnlyComposable get() = LocalShelfPalette.current.inkSoft
+private val InkDim: Color
+    @Composable @ReadOnlyComposable get() = LocalShelfPalette.current.inkDim
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -123,7 +131,8 @@ fun ShelfHome(
     onLoadMoreCatalog: ((HomeCatalogSection) -> Unit)? = null,
 ) {
     remember { TonightSettingsRepository.ensureLoaded() }
-    val accent = MaterialTheme.nuvio.colors.accent
+    remember { ShelfThemeRepository.ensureLoaded() }
+    val shelfTheme by ShelfThemeRepository.mode.collectAsStateWithLifecycle()
     val contentTabs = model.tabs.filter { it.kind != ShelfTabKind.Library }
     var tabId by remember { mutableStateOf(ShelfHomeMemory.tabId) }
     val tab = contentTabs.firstOrNull { it.id == tabId } ?: contentTabs.firstOrNull()
@@ -154,7 +163,30 @@ fun ShelfHome(
     val folderSrc = shelf?.source as? ShelfSource.CollectionFolder
     val folderItems = folderSrc?.let { rememberShelfFolderItems(it.collectionId, it.folderId) }
 
-    val cards: List<ShelfCard> = remember(shelf, sections, collections, continueWatching, upNext, upcoming, folderItems?.items) {
+    // A shelf the user built: its rows merged and filtered (ShelfMixes.kt).
+    remember { ShelfMixRepository.ensureLoaded() }
+    val mixes by ShelfMixRepository.mixes.collectAsStateWithLifecycle()
+    val tonightSettings by TonightSettingsRepository.state.collectAsStateWithLifecycle()
+    val watchedState by WatchedRepository.uiState.collectAsStateWithLifecycle()
+    val watchedFilter = remember(watchedState.items) { WatchedContentFilter.forHistory(watchedState.items) }
+    val mix = (shelf?.source as? ShelfSource.Mix)?.let { src -> mixes.firstOrNull { it.id == src.mixId } }
+    val mixItems = remember(mix, sections, watchedFilter, nowMinute, tonightSettings.bedMinuteOfDay) {
+        mix?.let {
+            ShelfMixRules.build(it, sections, { m -> watchedFilter.isWatched(m.type, m.id) }, nowMinute, tonightSettings.bedMinuteOfDay)
+        }.orEmpty()
+    }
+    // Pages asked of each source for the focused mix, so a mix with few matches fills itself and then stops.
+    val mixPages = remember(mix?.id) { mutableMapOf<String, Int>() }
+    LaunchedEffect(mix, mixItems.size, sections) {
+        val m = mix ?: return@LaunchedEffect
+        for (key in ShelfMixRules.needsMore(m, mixItems, sections, mixPages)) {
+            val s = sections[key] ?: continue
+            mixPages[key] = (mixPages[key] ?: 0) + 1
+            onLoadMoreCatalog?.invoke(s)
+        }
+    }
+
+    val cards: List<ShelfCard> = remember(shelf, sections, collections, continueWatching, upNext, upcoming, folderItems?.items, mixItems) {
         when (val source = shelf?.source) {
             null -> emptyList()
             is ShelfSource.Catalog -> sections[source.sectionKey]?.items.orEmpty().map(ShelfCard::Meta)
@@ -164,6 +196,7 @@ fun ShelfHome(
             is ShelfSource.CollectionFolders ->
                 collections[ShelfHomeRules.collectionTabId(source.collectionId)]?.folders.orEmpty()
                     .map { ShelfCard.Folder(source.collectionId, it) }
+            is ShelfSource.Mix -> mixItems.map(ShelfCard::Meta)
             // The folder card stands in while the titles load, or if every source fails.
             is ShelfSource.CollectionFolder ->
                 folderItems?.items?.takeIf { it.isNotEmpty() }?.map(ShelfCard::Meta)
@@ -180,9 +213,15 @@ fun ShelfHome(
     val viewOverrides by ShelfPresentationRepository.overrides.collectAsStateWithLifecycle()
     val mode = shelf?.let { ShelfPresentationRepository.resolve(viewOverrides, it.key, it.title) } ?: ShelfViewMode.Strip
     var pickerFor by remember { mutableStateOf<Shelf?>(null) }
+    // The shelf builder: open with null for a new shelf, or the mix being edited.
+    var editorOpen by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<ShelfMix?>(null) }
 
     val currentSection by rememberUpdatedState(section)
     val currentFolder by rememberUpdatedState(folderItems)
+    val currentMix by rememberUpdatedState(mix)
+    val currentMixItems by rememberUpdatedState(mixItems)
+    val currentSections by rememberUpdatedState(sections)
     val loadMore by rememberUpdatedState(onLoadMoreCatalog)
     val viewState = ShelfViewState(
         shelfKey = shelf?.key.orEmpty(),
@@ -206,7 +245,17 @@ fun ShelfHome(
         },
         onNearEnd = { last ->
             val f = currentFolder
-            if (f != null) {
+            val m = currentMix
+            if (m != null) {
+                // Scrolling on raises the target, so a mix keeps filling as far as the user goes.
+                ShelfMixRules.needsMore(m, currentMixItems, currentSections, mixPages, target = last + 7, maxPages = 50)
+                    .forEach { k ->
+                        currentSections[k]?.let {
+                            mixPages[k] = (mixPages[k] ?: 0) + 1
+                            loadMore?.invoke(it)
+                        }
+                    }
+            } else if (f != null) {
                 if (f.canLoadMore && !f.isLoadingMore && last >= f.items.size - 6) f.loadMore()
             } else {
                 val s = currentSection
@@ -222,12 +271,13 @@ fun ShelfHome(
     // too or the remote and keyboard never reach it. It settles on the current shelf name.
     val entry = remember { FocusRequester() }
 
+    ProvideShelfPalette(shelfTheme) {
     Box(
         modifier
             .fillMaxSize()
-            .keyLayer("ShelfHome", active = pickerFor == null) { entry.requestFocusLogged() }
+            .keyLayer("ShelfHome", active = pickerFor == null && !editorOpen) { entry.requestFocusLogged() }
             .focusGroup()
-            .background(Color.Black),
+            .background(LocalShelfPalette.current.page),
     ) {
         // The focused title's backdrop, full-bleed, cross-fading as focus moves.
         Crossfade(
@@ -235,12 +285,13 @@ fun ShelfHome(
             animationSpec = tween(450),
             modifier = Modifier.fillMaxSize(),
         ) { url ->
-            if (url != null) {
+            val backdropAlpha = LocalShelfPalette.current.backdropAlpha
+            if (url != null && backdropAlpha > 0f) {
                 NuvioAsyncImage(
                     model = url,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().alpha(backdropAlpha),
                 )
             }
         }
@@ -248,20 +299,20 @@ fun ShelfHome(
         Box(
             Modifier.fillMaxSize().background(
                 Brush.horizontalGradient(
-                    0f to Color.Black.copy(alpha = 0.92f),
-                    0.42f to Color.Black.copy(alpha = 0.72f),
-                    0.75f to Color.Black.copy(alpha = 0.25f),
-                    1f to Color.Black.copy(alpha = 0.35f),
+                    0f to LocalShelfPalette.current.scrim.copy(alpha = 0.92f),
+                    0.42f to LocalShelfPalette.current.scrim.copy(alpha = 0.72f),
+                    0.75f to LocalShelfPalette.current.scrim.copy(alpha = 0.25f),
+                    1f to LocalShelfPalette.current.scrim.copy(alpha = 0.35f),
                 ),
             ),
         )
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
-                    0f to Color.Black.copy(alpha = 0.35f),
+                    0f to LocalShelfPalette.current.scrim.copy(alpha = 0.35f),
                     0.25f to Color.Transparent,
                     0.6f to Color.Transparent,
-                    1f to Color.Black.copy(alpha = 0.9f),
+                    1f to LocalShelfPalette.current.scrim.copy(alpha = 0.9f),
                 ),
             ),
         )
@@ -276,7 +327,7 @@ fun ShelfHome(
             ) {
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     model.tabs.forEachIndexed { index, t ->
-                        if (index > 0) Text("/", fontSize = 28.sp, fontWeight = FontWeight.Light, color = accent)
+                        if (index > 0) Text("/", fontSize = 28.sp, fontWeight = FontWeight.Light, color = LocalShelfPalette.current.accentInk)
                         TabLabel(
                             title = t.title,
                             selected = t.id == tab?.id,
@@ -300,8 +351,9 @@ fun ShelfHome(
                 when (mode) {
                     ShelfViewMode.Ledger -> ShelfLedgerView(viewState, Modifier.fillMaxWidth().height(540.dp))
                     ShelfViewMode.Spotlight -> ShelfSpotlightView(viewState, Modifier.fillMaxWidth().height(540.dp))
-                    // Wall and Logos are not built yet; Strip stands in.
-                    else -> ShelfStripView(viewState, Modifier.fillMaxWidth())
+                    ShelfViewMode.Wall -> ShelfWallView(viewState, Modifier.fillMaxWidth().height(540.dp))
+                    ShelfViewMode.Logos -> ShelfLogoStripView(viewState, Modifier.fillMaxWidth().height(540.dp))
+                    ShelfViewMode.Strip -> ShelfStripView(viewState, Modifier.fillMaxWidth())
                 }
             }
 
@@ -310,7 +362,7 @@ fun ShelfHome(
                 Modifier
                     .width(520.dp)
                     .fillMaxHeight()
-                    .background(Color.Black.copy(alpha = 0.72f))
+                    .background(LocalShelfPalette.current.panel)
                     .padding(start = 36.dp, end = 40.dp, top = (topPadding.coerceAtMost(96.dp) - 12.dp).coerceAtLeast(0.dp), bottom = 32.dp),
             ) {
                 Clock(nowMinute, Modifier.align(Alignment.End))
@@ -343,6 +395,21 @@ fun ShelfHome(
                             onMenu = { pickerFor = s },
                         )
                     }
+                    if (tab?.kind == ShelfTabKind.Home) {
+                        item(key = "new-mix") {
+                            ShelfName(
+                                title = "+ New shelf",
+                                selected = false,
+                                last = true,
+                                onFocus = {},
+                                onMenu = {},
+                                onClick = {
+                                    editing = null
+                                    editorOpen = true
+                                },
+                            )
+                        }
+                    }
                     if (shelves.isEmpty()) {
                         item {
                             Text("Nothing here yet", fontSize = 22.sp, color = InkDim, modifier = Modifier.padding(vertical = 14.dp))
@@ -367,8 +434,38 @@ fun ShelfHome(
                     pickerFor = null
                 },
                 onDismiss = { pickerFor = null },
+                onEdit = (target.source as? ShelfSource.Mix)?.let { src ->
+                    {
+                        pickerFor = null
+                        editing = ShelfMixRepository.mix(src.mixId)
+                        editorOpen = true
+                    }
+                },
             )
         }
+
+        // The shelf builder ("+ New shelf" at the end of Home's list, or "Edit this shelf" in the picker).
+        if (editorOpen) {
+            val rows = model.tab(ShelfHomeRules.HOME_TAB)?.shelves.orEmpty()
+                .mapNotNull { s -> (s.source as? ShelfSource.Catalog)?.let { it.sectionKey to s.title } }
+            val editingNow = editing
+            ShelfMixEditor(
+                existing = editingNow,
+                availableRows = rows,
+                onSave = { m ->
+                    ShelfMixRepository.save(if (m.id.isEmpty()) m.copy(id = ShelfMixRepository.newId()) else m)
+                    editorOpen = false
+                },
+                onDelete = editingNow?.let { e ->
+                    {
+                        ShelfMixRepository.delete(e.id)
+                        editorOpen = false
+                    }
+                },
+                onDismiss = { editorOpen = false },
+            )
+        }
+    }
     }
 }
 
@@ -396,7 +493,7 @@ private fun Clock(nowMinute: Int, modifier: Modifier = Modifier) {
  */
 @Composable
 private fun TitleBlock(shelfTitle: String, count: Int, card: ShelfCard?, nowMinute: Int, height: Dp = 330.dp) {
-    val accent = MaterialTheme.nuvio.colors.accent
+    val accent = LocalShelfPalette.current.accentInk
     val title: String
     val parts: List<String>
     val credit: String
@@ -517,7 +614,7 @@ private fun TabLabel(
 ) {
     val source = remember { MutableInteractionSource() }
     val focused by source.collectIsFocusedAsState()
-    val accent = MaterialTheme.nuvio.colors.accent
+    val accent = LocalShelfPalette.current.accentInk
     Text(
         text = title,
         fontSize = 28.sp,
@@ -544,6 +641,7 @@ private fun ShelfName(
     modifier: Modifier = Modifier,
     onFocus: () -> Unit,
     onMenu: () -> Unit,
+    onClick: () -> Unit = onFocus,
 ) {
     val source = remember { MutableInteractionSource() }
     val focused by source.collectIsFocusedAsState()
@@ -563,8 +661,8 @@ private fun ShelfName(
             .onPointerEvent(PointerEventType.Press) { event ->
                 if (event.buttons.isSecondaryPressed) onMenu()
             }
-            .combinedClickable(interactionSource = source, indication = null, onClick = onFocus, onLongClick = onMenu)
-            .background(if (focused) colors.accent else Color.Transparent),
+            .combinedClickable(interactionSource = source, indication = null, onClick = onClick, onLongClick = onMenu)
+            .background(if (focused) LocalShelfPalette.current.focusFill else Color.Transparent),
         contentAlignment = Alignment.CenterStart,
     ) {
         Text(
@@ -572,7 +670,7 @@ private fun ShelfName(
             fontSize = 24.sp,
             fontWeight = if (selected || focused) FontWeight.SemiBold else FontWeight.Light,
             color = when {
-                focused -> colors.onAccent
+                focused -> LocalShelfPalette.current.focusText
                 selected -> Ink
                 else -> InkSoft
             },
@@ -586,7 +684,7 @@ private fun ShelfName(
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .height(1.dp)
-                    .background(Color.White.copy(alpha = 0.10f)),
+                    .background(LocalShelfPalette.current.divider),
             )
         }
         if (selected && !focused) {
@@ -595,7 +693,7 @@ private fun ShelfName(
                     .align(Alignment.CenterStart)
                     .width(4.dp)
                     .height(30.dp)
-                    .background(colors.accent),
+                    .background(LocalShelfPalette.current.accent),
             )
         }
     }

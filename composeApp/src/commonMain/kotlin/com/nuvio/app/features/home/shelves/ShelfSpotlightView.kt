@@ -128,7 +128,7 @@ internal object ShelfSpotlightRules {
 internal fun ShelfSpotlightView(state: ShelfViewState, modifier: Modifier = Modifier) {
     val rules = ShelfSpotlightRules
     val accent = MaterialTheme.nuvio.colors.accent
-    val onAccent = MaterialTheme.nuvio.colors.onAccent
+    val onAccent = LocalShelfPalette.current.focusText
     val cards = state.cards
     val count = cards.size
 
@@ -278,7 +278,7 @@ private fun SpotlightPoster(card: ShelfCard, ring: Boolean, accent: Color, modif
     Box(
         modifier
             .clip(PosterShape)
-            .background(Color.White.copy(alpha = 0.08f)),
+            .background(LocalShelfPalette.current.placeholder),
     ) {
         val url = card.posterUrl()
         if (url != null) {
@@ -293,7 +293,7 @@ private fun SpotlightPoster(card: ShelfCard, ring: Boolean, accent: Color, modif
                 card.title(),
                 fontSize = 26.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White.copy(alpha = 0.85f),
+                color = LocalShelfPalette.current.placeholderInk,
                 textAlign = TextAlign.Center,
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis,

@@ -1083,6 +1083,19 @@ Upstream's windows-tv-adaptive (56d7c587) merged into Spyder. Its new things, an
 - [ ] Switching to another folder shelf and back shows the titles at once; the classic folder page still works after using the shelf
 - [ ] A folder whose addon is missing still shows the folder card rather than an empty shelf
 - [ ] Long-pressing a Continue watching card on the shelf home opens the same menu as on the classic home
+- [ ] The view picker now offers Wall and Logos too; a streaming service or network row (Netflix, Disney+, BBC...) starts as Logos
+- [ ] (must) Wall: a grid of posters about 8 across with a title under each; the focused poster gets an accent ring and brightens, and nothing moves or resizes
+- [ ] Wall: Down scrolls the grid and more titles load at the end; Right from the last column reaches the shelf names; OK opens, a long press opens the menu
+- [ ] (must) Logos: the focused title's logo big with an underline, smaller faded logos either side; Left/Right slide them past a fixed spot
+- [ ] Logos: a title with no logo shows its name in big capitals in the same space; under the strip "year · genres" (Continue watching "S4 E1"); the underline turns accent while the strip has focus
+- [ ] (must) Home's shelf list ends with "+ New shelf": it opens the shelf builder; name it "The Hang", tick two rows, choose 100 min, Hide watched, Save: the shelf appears after Continue watching with titles from both rows alternating
+- [ ] The Hang shows nothing over 100 minutes and nothing watched; with "Must finish before bedtime" on, late in the evening nothing ends after bedtime
+- [ ] A built shelf with few matches loads more pages by itself, then stops (no endless loading)
+- [ ] In the shelf builder the remote reaches every control, the home behind never takes focus, and Back closes without saving
+- [ ] Menu on a built shelf shows "Edit this shelf" under the views; edits stick, Delete removes it, and both survive a restart and stay per profile
+- [ ] (must) Settings > Home screen: with Shelf home on, a "Shelf home look" Dark / Paper choice appears (gone when Shelf home is off); Dark looks exactly as before
+- [ ] Paper: warm paper with dark type and no backdrop picture; slashes, the focused tab and Ledger's focused title in the accent colour (darkened if pale) and readable; the focused shelf name filled with the accent and readable
+- [ ] Paper: card titles in Strip and Wall and the logos in Logos are readable (no white on paper); "View … as" opens a light card with dark text
 - [ ] Moving onto a tab in the slash menu (Home / a pinned collection) switches to it; selecting Library opens the Library page
 - [ ] (must) It looks like the mockups: the focused title's backdrop fills the screen behind everything (darker on the left), the slash menu top left, the clock top right (hour heavy, minutes light), the shelf names in a dark panel down the right with the focused one filled in the accent colour
 - [ ] The focused title shows big as "Name / YEAR / 2H 9M" with accent slashes, a letter-spaced line of genres, IMDb and rating, "starts now, ends 9:30 PM" (12-hour clock if set in Tonight), and two lines of description; the cards do not jump as it changes

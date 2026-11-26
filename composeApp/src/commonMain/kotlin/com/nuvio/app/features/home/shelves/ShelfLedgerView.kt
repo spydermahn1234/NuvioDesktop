@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -94,9 +95,12 @@ private val LedgerRowHeight = 64.dp
 private val LedgerLeadWidth = 56.dp
 private val LedgerRightWidth = 330.dp
 private val LedgerBarWidth = 4.dp
-private val LedgerInk = Color.White
-private val LedgerInkSoft = Color.White.copy(alpha = 0.75f)
-private val LedgerInkDim = Color.White.copy(alpha = 0.50f)
+private val LedgerInk: Color
+    @Composable @ReadOnlyComposable get() = LocalShelfPalette.current.ink
+private val LedgerInkSoft: Color
+    @Composable @ReadOnlyComposable get() = LocalShelfPalette.current.inkSoft
+private val LedgerInkDim: Color
+    @Composable @ReadOnlyComposable get() = LocalShelfPalette.current.inkDim
 
 @Composable
 internal fun ShelfLedgerView(state: ShelfViewState, modifier: Modifier = Modifier) {
@@ -143,7 +147,7 @@ private fun LedgerRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(LedgerRowHeight)
-            .background(if (focused) Color.White.copy(alpha = 0.06f) else Color.Transparent)
+            .background(if (focused) LocalShelfPalette.current.rowFocus else Color.Transparent)
             .onFocusChanged { if (it.isFocused) onFocus() }
             .combinedClickable(
                 interactionSource = source,
@@ -166,7 +170,7 @@ private fun LedgerRow(
                 rank,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Light,
-                color = if (focused) colors.accent else LedgerInkDim,
+                color = if (focused) LocalShelfPalette.current.accentInk else LedgerInkDim,
                 maxLines = 1,
             )
         }
@@ -174,7 +178,7 @@ private fun LedgerRow(
             title,
             fontSize = 40.sp,
             fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Light,
-            color = if (focused) colors.accent else LedgerInk,
+            color = if (focused) LocalShelfPalette.current.accentInk else LedgerInk,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),

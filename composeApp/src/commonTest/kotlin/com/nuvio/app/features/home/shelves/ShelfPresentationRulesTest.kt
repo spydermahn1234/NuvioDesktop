@@ -26,7 +26,7 @@ class ShelfPresentationRulesTest {
     fun otherShelvesDefaultToStrip() {
         assertEquals(ShelfViewMode.Strip, ShelfPresentationRules.defaultView("cinemeta:movie:popular", "Popular Movies"))
         assertEquals(ShelfViewMode.Strip, ShelfPresentationRules.defaultView("collection_abc/def", "Marvel"))
-        assertEquals(ShelfViewMode.Strip, ShelfPresentationRules.defaultView("org.stremio.netflix:movie:new", "New"))
+        assertEquals(ShelfViewMode.Logos, ShelfPresentationRules.defaultView("org.stremio.netflix:movie:new", "New"))
         assertEquals(ShelfViewMode.Strip, ShelfPresentationRules.defaultView("collection_abc", "My collection"))
     }
 
@@ -59,7 +59,7 @@ class ShelfPresentationRulesTest {
     @Test
     fun availableHoldsOnlyBuiltViews() {
         assertEquals(
-            listOf(ShelfViewMode.Strip, ShelfViewMode.Ledger, ShelfViewMode.Spotlight),
+            listOf(ShelfViewMode.Strip, ShelfViewMode.Ledger, ShelfViewMode.Spotlight, ShelfViewMode.Wall, ShelfViewMode.Logos),
             ShelfPresentationRules.available(),
         )
     }
@@ -93,13 +93,13 @@ class ShelfPresentationRulesTest {
     }
 
     @Test
-    fun resolveFallsBackWhenTheChoiceIsNotBuilt() {
+    fun resolveUsesTheChoiceElseTheDefault() {
         val overrides = mapOf(
             "a:movie:x" to ShelfViewMode.Spotlight,
             "b:movie:y" to ShelfViewMode.Wall,
         )
         assertEquals(ShelfViewMode.Spotlight, ShelfPresentationRepository.resolve(overrides, "a:movie:x", "Popular"))
-        assertEquals(ShelfViewMode.Strip, ShelfPresentationRepository.resolve(overrides, "b:movie:y", "Popular"))
+        assertEquals(ShelfViewMode.Wall, ShelfPresentationRepository.resolve(overrides, "b:movie:y", "Popular"))
         assertEquals(ShelfViewMode.Ledger, ShelfPresentationRepository.resolve(overrides, "c:movie:z", "Top 10"))
     }
 }

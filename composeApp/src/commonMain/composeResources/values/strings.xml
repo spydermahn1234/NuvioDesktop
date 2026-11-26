@@ -3848,6 +3848,8 @@
     <string name="settings_home_number_catalog_rows">Number catalog rows</string>
     <string name="settings_home_number_catalog_rows_description">Adds the row number to your catalogs name.</string>
     <string name="settings_home_shelf_home">Shelf home</string>
+    <string name="settings_home_shelf_home_look">Shelf home look</string>
+    <string name="settings_home_shelf_home_look_description">Dark shows the focused title's picture behind everything. Paper is light: warm paper and dark type, with the posters as the only colour.</string>
     <string name="settings_home_shelf_home_description">A Kodi-style home: one row at a time, each in its own view. Your rows and collections stay as they are. Off shows the classic home.</string>
     <string name="settings_home_catalog_provider_tag">Show catalog provider</string>
     <string name="settings_home_catalog_provider_tag_description">Tags each catalog row with the addon that supplies it.</string>

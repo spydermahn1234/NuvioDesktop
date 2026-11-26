@@ -38,6 +38,9 @@ sealed interface ShelfSource {
 
     /** One folder of a pinned collection. */
     data class CollectionFolder(val collectionId: String, val folderId: String) : ShelfSource
+
+    /** A shelf the user built from several home rows and some filters (ShelfMixes.kt). */
+    data class Mix(val mixId: String) : ShelfSource
 }
 
 data class Shelf(
@@ -95,6 +98,7 @@ object ShelfHomeRules {
         collections: Map<String, Collection>,
         progress: ShelfProgressRows = ShelfProgressRows(),
         titles: ShelfTitles = ShelfTitles(),
+        mixes: List<ShelfMix> = emptyList(),
     ): ShelfHomeModel {
         val homeShelves = mutableListOf<Shelf>()
         if (progress.continueWatching) {
@@ -105,6 +109,10 @@ object ShelfHomeRules {
         }
         if (progress.upcoming) {
             homeShelves += Shelf(UPCOMING_KEY, titles.upcoming, ShelfSource.Upcoming)
+        }
+        // The user's own shelves come next, before the catalog rows.
+        for (mix in mixes) {
+            homeShelves += Shelf(ShelfMixRules.shelfKey(mix.id), mix.title, ShelfSource.Mix(mix.id))
         }
 
         val collectionTabs = mutableListOf<ShelfTab>()

@@ -2188,7 +2188,9 @@ fun HomeScreen(
     // settings) runs as before. Off: untouched.
     if (shelfHomeSettings.enabled && isShowingHomeContent && contentMode is HomeContentMode.Normal) {
         val cwVisible = continueWatchingPreferences.isVisible
-        val shelfModel = remember(enabledHomeItems, sectionsMap, collectionsMap, cwVisible, continueWatchingRowItems.isNotEmpty(), nextUpRowItems.isNotEmpty(), upcomingRowItems.isNotEmpty()) {
+        remember { com.nuvio.app.features.home.shelves.ShelfMixRepository.ensureLoaded() }
+        val shelfMixes by com.nuvio.app.features.home.shelves.ShelfMixRepository.mixes.collectAsStateWithLifecycle()
+        val shelfModel = remember(enabledHomeItems, sectionsMap, collectionsMap, cwVisible, continueWatchingRowItems.isNotEmpty(), nextUpRowItems.isNotEmpty(), upcomingRowItems.isNotEmpty(), shelfMixes) {
             com.nuvio.app.features.home.shelves.ShelfHomeRules.build(
                 enabledItems = enabledHomeItems,
                 sections = sectionsMap,
@@ -2198,6 +2200,7 @@ fun HomeScreen(
                     upNext = cwVisible && nextUpRowItems.isNotEmpty(),
                     upcoming = cwVisible && upcomingRowItems.isNotEmpty(),
                 ),
+                mixes = shelfMixes,
             )
         }
         com.nuvio.app.features.home.shelves.ShelfHome(

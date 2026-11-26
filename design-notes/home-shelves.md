@@ -81,9 +81,19 @@ those rows are drawn and moved between. So:
    shelf home's store; `ShelfViewPicker.kt` on Menu / V / hold OK / right-click on a shelf name) and 6 Spotlight
    (`ShelfSpotlightView.kt`, a fixed focused slot with posters sliding through `graphicsLayer`) done. Defaults:
    Continue Watching, Up next, Upcoming and ranked titles (Top N, best of, most watched) -> Ledger; the rest Strip.)
+   (Nov 26, second parallel batch: 7 Wall (`ShelfWallView.kt`, fixed column count from the width) and 8 Logo strip
+   (`ShelfLogoStripView.kt`, clearlogos in a fixed slot, names in big capitals without one) done; network and
+   streaming-service rows default to Logos.)
 9. **Time-aware details** - end times, fits before bedtime, series remaining.
-10. **Mixed shelves** - the shelf builder, filters, de-duplication, paging until enough.
-11. **Paper theme** - a light theme for the shelf home only.
+10. (Nov 26, done: `ShelfMixes.kt` (model, rules, codec, `ShelfMixRepository` under "mixes"), `ShelfMixEditor.kt`
+   (the builder overlay), `ShelfSource.Mix`, "+ New shelf" at the end of Home's panel and "Edit this shelf" in the
+   view picker; a focused mix pages its sources until it has 24 titles or five pages each, more as the user scrolls.)
+    **Mixed shelves** - the shelf builder, filters, de-duplication, paging until enough.
+11. (Nov 26, done: `ShelfTheme.kt` palettes (Dark = the previous exact values; Paper warm paper, ink 1A1A1A, muted
+   ink darkened from the mockup's 8A857C to 4A4740 / 6B665E for 4.5:1, accent darkened for text when pale, no
+   backdrop), `ShelfThemeRepository` under "theme", `ProvideShelfPalette` around ShelfHome, "Shelf home look" in
+   Settings. Known risk: the classic cards' own label colours and white clearlogos on Paper.)
+    **Paper theme** - a light theme for the shelf home only.
 12. **Tidy-up** - CHANGELOG, test filter, TESTING.md pass.
 
 Each phase adds its checks to TESTING.md under "Shelf home".

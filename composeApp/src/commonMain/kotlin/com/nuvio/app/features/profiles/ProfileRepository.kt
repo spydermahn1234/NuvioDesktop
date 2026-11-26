@@ -250,6 +250,8 @@ object ProfileRepository {
         com.nuvio.app.features.livescores.LiveScoreSettingsRepository.reload() // fork:live-scores
         com.nuvio.app.features.home.shelves.ShelfHomeSettingsRepository.reload() // fork:shelf-home
         com.nuvio.app.features.home.shelves.ShelfPresentationRepository.reload() // fork:shelf-home
+        com.nuvio.app.features.home.shelves.ShelfMixRepository.reload() // fork:shelf-home
+        com.nuvio.app.features.home.shelves.ShelfThemeRepository.reload() // fork:shelf-home
         P2pSettingsRepository.onProfileChanged()
         HomeCatalogSettingsRepository.onProfileChanged()
         com.nuvio.app.features.discover.DiscoverRecommendationsRepository.onProfileChanged(profileIndex)

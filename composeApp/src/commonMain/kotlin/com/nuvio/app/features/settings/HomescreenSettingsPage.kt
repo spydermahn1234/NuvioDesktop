@@ -426,6 +426,25 @@ internal fun LazyListScope.homescreenSettingsContent(
                         ),
                         onCheckedChange = com.nuvio.app.features.home.shelves.ShelfHomeSettingsRepository::setEnabled,
                     )
+                    // fork:shelf-home - the shelf home's look (Dark / Paper), shown while it is on.
+                    if (shelfHome.enabled) {
+                        remember { com.nuvio.app.features.home.shelves.ShelfThemeRepository.ensureLoaded() }
+                        val shelfTheme by com.nuvio.app.features.home.shelves.ShelfThemeRepository.mode
+                            .collectAsStateWithLifecycle()
+                        SettingsGroupDivider(isTablet = isTablet)
+                        SettingsChoiceRow(
+                            title = stringResource(Res.string.settings_home_shelf_home_look),
+                            description = stringResource(Res.string.settings_home_shelf_home_look_description),
+                            options = listOf(
+                                SettingsChoiceOption(com.nuvio.app.features.home.shelves.ShelfThemeMode.Dark, "Dark"),
+                                SettingsChoiceOption(com.nuvio.app.features.home.shelves.ShelfThemeMode.Paper, "Paper"),
+                            ),
+                            selectedValue = shelfTheme,
+                            isTablet = isTablet,
+                            modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("home-shelf-home-look")),
+                            onSelected = com.nuvio.app.features.home.shelves.ShelfThemeRepository::set,
+                        )
+                    }
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_homescreen_animate_collection_gifs_on_focus_only),

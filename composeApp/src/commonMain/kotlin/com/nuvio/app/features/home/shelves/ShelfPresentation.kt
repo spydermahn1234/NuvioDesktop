@@ -14,8 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 
 object ShelfPresentationRules {
-    /** The views that are built. Wall and Logos join this list when they are. */
-    fun available(): List<ShelfViewMode> = listOf(ShelfViewMode.Strip, ShelfViewMode.Ledger, ShelfViewMode.Spotlight)
+    /** The views that are built (all five since Nov 26). */
+    fun available(): List<ShelfViewMode> = ShelfViewMode.entries.toList()
 
     private val progressKeys = setOf(
         ShelfHomeRules.CONTINUE_WATCHING_KEY,
@@ -38,9 +38,9 @@ object ShelfPresentationRules {
     fun defaultView(shelfKey: String, title: String): ShelfViewMode = when {
         shelfKey in progressKeys -> ShelfViewMode.Ledger
         isRanked(title) -> ShelfViewMode.Ledger
-        // Folders of a collection and service/network rows: Strip until the Logos view is built.
+        // Folders of a collection stay a row of posters; streaming service and network rows read best as logos.
         '/' in shelfKey -> ShelfViewMode.Strip
-        isNetwork(shelfKey) || isNetwork(title) -> ShelfViewMode.Strip
+        isNetwork(shelfKey) || isNetwork(title) -> ShelfViewMode.Logos
         else -> ShelfViewMode.Strip
     }
 

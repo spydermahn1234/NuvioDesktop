@@ -2373,6 +2373,7 @@ private fun settingsSearchEntries(
         PlaybackSearchRow("home-catalog-see-more", resolve(Res.string.settings_home_see_more_arrows), resolve(Res.string.settings_home_see_more_arrows_description)),
         PlaybackSearchRow("home-catalog-row-numbers", resolve(Res.string.settings_home_number_catalog_rows), resolve(Res.string.settings_search_append_each_rows_position_to_its)),
         PlaybackSearchRow("home-shelf-home", resolve(Res.string.settings_home_shelf_home), resolve(Res.string.settings_home_shelf_home_description)), // fork:shelf-home
+        PlaybackSearchRow("home-shelf-home-look", resolve(Res.string.settings_home_shelf_home_look), resolve(Res.string.settings_home_shelf_home_look_description)), // fork:shelf-home
         PlaybackSearchRow("home-collection-gifs-on-focus", resolve(Res.string.settings_search_animate_collection_gifs_on_focus_only), resolve(Res.string.settings_search_collection_gifs_play_only_on_the)),
         PlaybackSearchRow("home-catalog-provider-tag", resolve(Res.string.settings_home_catalog_provider_tag), resolve(Res.string.settings_search_tag_each_catalog_row_with_the)),
         PlaybackSearchRow("hero-backdrop-crossfade", resolve(Res.string.settings_hero_backdrop_crossfade), resolve(Res.string.settings_search_how_long_the_hero_backdrop_takes)),
