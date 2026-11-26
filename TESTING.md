@@ -1068,6 +1068,21 @@ Upstream's windows-tv-adaptive (56d7c587) merged into Spyder. Its new things, an
 - [ ] **BROKEN** (must) With the remote or a controller: moving up and down the shelf names shows each shelf's cards along the bottom; Left goes into the cards, Right comes back to the names (2026-11-26): no keyboard or D-pad focus at all, only the mouse
   - [ ] (must) Re-check after the fix: opening Home with Shelf home on, the current shelf name is highlighted and the arrows, D-pad and controller move it without touching the mouse
 - [ ] The mouse wheel over the cards scrolls them sideways
+- [ ] (must) Pressing Menu or V (or holding OK, or right-clicking) on a shelf name opens "View <shelf> as" with Strip, Ledger and Spotlight; the current one is ticked, and picking one switches the shelf at once
+- [ ] A shelf's chosen view is still there after restarting Nuvio; "Use the default" puts it back; each profile keeps its own choices
+- [ ] Back or Escape closes the view picker and focus returns to the same shelf name; Up/Down never leave the picker
+- [ ] Continue watching and a "Top 10" or "Top 100" shelf open as Ledger without choosing it
+- [ ] Ledger: a big-type list with no artwork; the focused row has an accent bar and accent title and nothing moves or resizes
+- [ ] Ledger: a film row shows its length and end time on the right ("1h 49m · 21:16"); a Continue watching row shows "1h 16m left · 20:41"; a Top 10 shelf numbers its rows
+- [ ] Ledger: OK opens the focused title; scrolling to the bottom of a long catalog loads more; switching shelf starts back at the top
+- [ ] (must) Spotlight: one big poster with smaller ones either side; Left/Right slide the posters past while the big one stays in the same place
+- [ ] Spotlight: Right on the last poster moves to the shelf names; Left on the first poster stays put; OK opens the big poster; clicking a small poster makes it the big one; the mouse wheel moves one poster per notch
+- [ ] Spotlight: the backdrop and title block follow the big poster; the accent ring shows only while the posters have focus; Top 10 shelves show the rank on the big poster
+- [ ] (must) On a pinned collection's tab (Spotlight, Genres...), a folder shelf shows that folder's titles within a few seconds, not just the folder card
+- [ ] A long folder shelf loads more titles at its end, and the cards already showing do not move
+- [ ] Switching to another folder shelf and back shows the titles at once; the classic folder page still works after using the shelf
+- [ ] A folder whose addon is missing still shows the folder card rather than an empty shelf
+- [ ] Long-pressing a Continue watching card on the shelf home opens the same menu as on the classic home
 - [ ] Moving onto a tab in the slash menu (Home / a pinned collection) switches to it; selecting Library opens the Library page
 - [ ] (must) It looks like the mockups: the focused title's backdrop fills the screen behind everything (darker on the left), the slash menu top left, the clock top right (hour heavy, minutes light), the shelf names in a dark panel down the right with the focused one filled in the accent colour
 - [ ] The focused title shows big as "Name / YEAR / 2H 9M" with accent slashes, a letter-spaced line of genres, IMDb and rating, "starts now, ends 9:30 PM" (12-hour clock if set in Tonight), and two lines of description; the cards do not jump as it changes

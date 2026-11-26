@@ -4,6 +4,14 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -90,12 +98,6 @@ internal object ShelfHomeMemory {
     val shelfByTab = HashMap<String, String>()
 }
 
-/** One card on a shelf, whatever the shelf's source. */
-private sealed interface ShelfCard {
-    data class Meta(val item: MetaPreview) : ShelfCard
-    data class Progress(val item: ContinueWatchingItem) : ShelfCard
-    data class Folder(val collectionId: String, val folder: CollectionFolder) : ShelfCard
-}
 
 private val Ink = Color.White
 private val InkSoft = Color.White.copy(alpha = 0.78f)
@@ -115,6 +117,7 @@ fun ShelfHome(
     onPosterClick: ((MetaPreview) -> Unit)? = null,
     onPosterLongClick: ((MetaPreview) -> Unit)? = null,
     onContinueWatchingClick: ((ContinueWatchingItem) -> Unit)? = null,
+    onContinueWatchingLongPress: ((ContinueWatchingItem) -> Unit)? = null,
     onFolderClick: ((collectionId: String, folderId: String) -> Unit)? = null,
     onOpenLibrary: (() -> Unit)? = null,
     onLoadMoreCatalog: ((HomeCatalogSection) -> Unit)? = null,
@@ -147,7 +150,11 @@ fun ShelfHome(
         ShelfHomeMemory.shelfByTab[t.id] = key
     }
 
-    val cards: List<ShelfCard> = remember(shelf, sections, collections, continueWatching, upNext, upcoming) {
+    // A pinned collection's folder shelf shows the folder's titles, loaded only while it is the shelf in focus.
+    val folderSrc = shelf?.source as? ShelfSource.CollectionFolder
+    val folderItems = folderSrc?.let { rememberShelfFolderItems(it.collectionId, it.folderId) }
+
+    val cards: List<ShelfCard> = remember(shelf, sections, collections, continueWatching, upNext, upcoming, folderItems?.items) {
         when (val source = shelf?.source) {
             null -> emptyList()
             is ShelfSource.Catalog -> sections[source.sectionKey]?.items.orEmpty().map(ShelfCard::Meta)
@@ -157,14 +164,58 @@ fun ShelfHome(
             is ShelfSource.CollectionFolders ->
                 collections[ShelfHomeRules.collectionTabId(source.collectionId)]?.folders.orEmpty()
                     .map { ShelfCard.Folder(source.collectionId, it) }
+            // The folder card stands in while the titles load, or if every source fails.
             is ShelfSource.CollectionFolder ->
-                collections[ShelfHomeRules.collectionTabId(source.collectionId)]?.folders.orEmpty()
-                    .filter { it.id == source.folderId }
-                    .map { ShelfCard.Folder(source.collectionId, it) }
+                folderItems?.items?.takeIf { it.isNotEmpty() }?.map(ShelfCard::Meta)
+                    ?: collections[ShelfHomeRules.collectionTabId(source.collectionId)]?.folders.orEmpty()
+                        .filter { it.id == source.folderId }
+                        .map { ShelfCard.Folder(source.collectionId, it) }
         }
     }
     val section = (shelf?.source as? ShelfSource.Catalog)?.let { sections[it.sectionKey] }
     val shown = focusedCard ?: cards.firstOrNull()
+
+    // Each shelf's view: the user's choice for that shelf (kept by catalog key), else its default.
+    remember { ShelfPresentationRepository.ensureLoaded() }
+    val viewOverrides by ShelfPresentationRepository.overrides.collectAsStateWithLifecycle()
+    val mode = shelf?.let { ShelfPresentationRepository.resolve(viewOverrides, it.key, it.title) } ?: ShelfViewMode.Strip
+    var pickerFor by remember { mutableStateOf<Shelf?>(null) }
+
+    val currentSection by rememberUpdatedState(section)
+    val currentFolder by rememberUpdatedState(folderItems)
+    val loadMore by rememberUpdatedState(onLoadMoreCatalog)
+    val viewState = ShelfViewState(
+        shelfKey = shelf?.key.orEmpty(),
+        cards = cards,
+        nowMinute = nowMinute,
+        ranked = shelf?.let { ShelfPresentationRules.isRanked(it.title) } ?: false,
+        onFocusCard = { focusedCard = it },
+        onOpen = { card ->
+            when (card) {
+                is ShelfCard.Meta -> onPosterClick?.invoke(card.item)
+                is ShelfCard.Progress -> onContinueWatchingClick?.invoke(card.item)
+                is ShelfCard.Folder -> onFolderClick?.invoke(card.collectionId, card.folder.id)
+            }
+        },
+        onLongPress = { card ->
+            when (card) {
+                is ShelfCard.Meta -> onPosterLongClick?.invoke(card.item)
+                is ShelfCard.Progress -> onContinueWatchingLongPress?.invoke(card.item)
+                is ShelfCard.Folder -> Unit
+            }
+        },
+        onNearEnd = { last ->
+            val f = currentFolder
+            if (f != null) {
+                if (f.canLoadMore && !f.isLoadingMore && last >= f.items.size - 6) f.loadMore()
+            } else {
+                val s = currentSection
+                if (s != null && s.nextSkip != null && !s.isLoadingMore && last >= s.items.size - 6) {
+                    loadMore?.invoke(s)
+                }
+            }
+        },
+    )
 
     // The app's key router (KeyLayers) gives a screen focus when it is shown and puts focus back when
     // an arrow goes nowhere; the classic home registers as "Home", so the shelf home must register
@@ -174,7 +225,7 @@ fun ShelfHome(
     Box(
         modifier
             .fillMaxSize()
-            .keyLayer("ShelfHome") { entry.requestFocusLogged() }
+            .keyLayer("ShelfHome", active = pickerFor == null) { entry.requestFocusLogged() }
             .focusGroup()
             .background(Color.Black),
     ) {
@@ -243,63 +294,14 @@ fun ShelfHome(
                     count = cards.size,
                     card = shown,
                     nowMinute = nowMinute,
+                    height = if (mode == ShelfViewMode.Strip) 330.dp else 250.dp,
                 )
-                Spacer(Modifier.height(28.dp))
-
-                val rowState = rememberLazyListState()
-                LaunchedEffect(shelf?.key) { runCatching { rowState.scrollToItem(0) } }
-                val currentSection by rememberUpdatedState(section)
-                val loadMore by rememberUpdatedState(onLoadMoreCatalog)
-                LaunchedEffect(rowState, shelf?.key) {
-                    snapshotFlow { rowState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
-                        .collect { last ->
-                            val s = currentSection ?: return@collect
-                            if (s.nextSkip != null && !s.isLoadingMore && last >= s.items.size - 6) {
-                                loadMore?.invoke(s)
-                            }
-                        }
-                }
-                val wheelScope = rememberCoroutineScope()
-                LazyRow(
-                    state = rowState,
-                    horizontalArrangement = Arrangement.spacedBy(18.dp),
-                    contentPadding = PaddingValues(end = 40.dp, top = 6.dp, bottom = 6.dp),
-                    // A mouse wheel turns the row sideways (a plain wheel does nothing on a horizontal list).
-                    modifier = Modifier.fillMaxWidth().onPointerEvent(PointerEventType.Scroll) { event ->
-                        val delta = event.changes.firstOrNull()?.scrollDelta ?: return@onPointerEvent
-                        val by = (delta.y + delta.x) * 90f
-                        if (by != 0f) wheelScope.launch { rowState.scrollBy(by) }
-                    },
-                ) {
-                    itemsIndexed(cards, key = { index, _ -> "${shelf?.key}:$index" }) { _, card ->
-                        val focusModifier = Modifier.onFocusChanged { if (it.hasFocus) focusedCard = card }
-                        when (card) {
-                            is ShelfCard.Meta -> HomePosterCard(
-                                item = card.item,
-                                modifier = focusModifier,
-                                onClick = onPosterClick?.let { { it(card.item) } },
-                                onLongClick = onPosterLongClick?.let { { it(card.item) } },
-                            )
-                            is ShelfCard.Progress -> NuvioPosterCard(
-                                title = card.item.title,
-                                imageUrl = card.item.customLandscape ?: card.item.episodeThumbnail
-                                    ?: card.item.background ?: card.item.imageUrl,
-                                fallbackImageUrl = card.item.poster,
-                                shape = NuvioPosterShape.Landscape,
-                                detailLine = card.item.subtitle,
-                                modifier = focusModifier,
-                                onClick = onContinueWatchingClick?.let { { it(card.item) } },
-                            )
-                            is ShelfCard.Folder -> NuvioPosterCard(
-                                title = card.folder.title,
-                                imageUrl = card.folder.coverImageUrl,
-                                shape = NuvioPosterShape.Poster,
-                                showTitleBelow = !card.folder.hideTitle,
-                                modifier = focusModifier,
-                                onClick = onFolderClick?.let { { it(card.collectionId, card.folder.id) } },
-                            )
-                        }
-                    }
+                Spacer(Modifier.height(24.dp))
+                when (mode) {
+                    ShelfViewMode.Ledger -> ShelfLedgerView(viewState, Modifier.fillMaxWidth().height(540.dp))
+                    ShelfViewMode.Spotlight -> ShelfSpotlightView(viewState, Modifier.fillMaxWidth().height(540.dp))
+                    // Wall and Logos are not built yet; Strip stands in.
+                    else -> ShelfStripView(viewState, Modifier.fillMaxWidth())
                 }
             }
 
@@ -338,6 +340,7 @@ fun ShelfHome(
                             last = index == shelves.lastIndex,
                             modifier = if (isCurrent) Modifier.focusRequester(entry) else Modifier,
                             onFocus = { selectShelf(s.key) },
+                            onMenu = { pickerFor = s },
                         )
                     }
                     if (shelves.isEmpty()) {
@@ -348,14 +351,26 @@ fun ShelfHome(
                 }
             }
         }
+
+        // "View <shelf> as": Menu, V, a long press or a right-click on a shelf name opens it.
+        pickerFor?.let { target ->
+            ShelfViewPicker(
+                shelfTitle = target.title,
+                current = ShelfPresentationRepository.resolve(viewOverrides, target.key, target.title),
+                isDefault = ShelfPresentationRepository.isDefault(target.key),
+                onPick = { picked ->
+                    ShelfPresentationRepository.set(target.key, picked)
+                    pickerFor = null
+                },
+                onReset = {
+                    ShelfPresentationRepository.set(target.key, null)
+                    pickerFor = null
+                },
+                onDismiss = { pickerFor = null },
+            )
+        }
     }
 }
-
-private fun ShelfCard.backdropUrl(): String? = when (this) {
-    is ShelfCard.Meta -> item.banner ?: item.landscapePoster ?: item.poster
-    is ShelfCard.Progress -> item.background ?: item.customLandscape ?: item.imageUrl ?: item.poster
-    is ShelfCard.Folder -> folder.heroBackdropUrl ?: folder.coverImageUrl
-}?.takeIf { it.isNotBlank() }
 
 /** The mockups' clock: the hour heavy, the minutes light. */
 @Composable
@@ -380,7 +395,7 @@ private fun Clock(nowMinute: Int, modifier: Modifier = Modifier) {
  * Fixed height, so the cards below never move as focus changes.
  */
 @Composable
-private fun TitleBlock(shelfTitle: String, count: Int, card: ShelfCard?, nowMinute: Int) {
+private fun TitleBlock(shelfTitle: String, count: Int, card: ShelfCard?, nowMinute: Int, height: Dp = 330.dp) {
     val accent = MaterialTheme.nuvio.colors.accent
     val title: String
     val parts: List<String>
@@ -438,7 +453,7 @@ private fun TitleBlock(shelfTitle: String, count: Int, card: ShelfCard?, nowMinu
             about = null
         }
     }
-    Column(Modifier.height(330.dp).padding(end = 40.dp), verticalArrangement = Arrangement.Bottom) {
+    Column(Modifier.height(height).padding(end = 40.dp), verticalArrangement = Arrangement.Bottom) {
         Text(
             buildString {
                 append(shelfTitle.uppercase())
@@ -520,6 +535,7 @@ private fun TabLabel(
 }
 
 /** A row of the right panel, as in Kodi's list view: the focused row filled with the accent. */
+@OptIn(ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun ShelfName(
     title: String,
@@ -527,6 +543,7 @@ private fun ShelfName(
     last: Boolean,
     modifier: Modifier = Modifier,
     onFocus: () -> Unit,
+    onMenu: () -> Unit,
 ) {
     val source = remember { MutableInteractionSource() }
     val focused by source.collectIsFocusedAsState()
@@ -536,7 +553,17 @@ private fun ShelfName(
             .fillMaxWidth()
             .height(58.dp)
             .onFocusChanged { if (it.isFocused) onFocus() }
-            .clickable(interactionSource = source, indication = null, onClick = onFocus)
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (event.key) {
+                    Key.Menu, Key.V -> { onMenu(); true }
+                    else -> false
+                }
+            }
+            .onPointerEvent(PointerEventType.Press) { event ->
+                if (event.buttons.isSecondaryPressed) onMenu()
+            }
+            .combinedClickable(interactionSource = source, indication = null, onClick = onFocus, onLongClick = onMenu)
             .background(if (focused) colors.accent else Color.Transparent),
         contentAlignment = Alignment.CenterStart,
     ) {
@@ -570,6 +597,65 @@ private fun ShelfName(
                     .height(30.dp)
                     .background(colors.accent),
             )
+        }
+    }
+}
+
+/**
+ * The Strip view: the classic home's own cards in a row. A mouse wheel turns the row sideways (a
+ * plain wheel does nothing on a horizontal list).
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun ShelfStripView(state: ShelfViewState, modifier: Modifier = Modifier) {
+    val rowState = rememberLazyListState()
+    LaunchedEffect(state.shelfKey) { runCatching { rowState.scrollToItem(0) } }
+    val nearEnd by rememberUpdatedState(state.onNearEnd)
+    LaunchedEffect(rowState, state.shelfKey) {
+        snapshotFlow { rowState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+            .collect { last -> if (last >= 0) nearEnd(last) }
+    }
+    val wheelScope = rememberCoroutineScope()
+    LazyRow(
+        state = rowState,
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
+        contentPadding = PaddingValues(end = 40.dp, top = 6.dp, bottom = 6.dp),
+        modifier = modifier.onPointerEvent(PointerEventType.Scroll) { event ->
+            val delta = event.changes.firstOrNull()?.scrollDelta ?: return@onPointerEvent
+            val by = (delta.y + delta.x) * 90f
+            if (by != 0f) wheelScope.launch { rowState.scrollBy(by) }
+        },
+    ) {
+        itemsIndexed(state.cards, key = { index, _ -> "${state.shelfKey}:$index" }) { _, card ->
+            val focusModifier = Modifier.onFocusChanged { if (it.hasFocus) state.onFocusCard(card) }
+            val longPress = state.onLongPress?.let { { it(card) } }
+            when (card) {
+                is ShelfCard.Meta -> HomePosterCard(
+                    item = card.item,
+                    modifier = focusModifier,
+                    onClick = { state.onOpen(card) },
+                    onLongClick = longPress,
+                )
+                is ShelfCard.Progress -> NuvioPosterCard(
+                    title = card.item.title,
+                    imageUrl = card.item.customLandscape ?: card.item.episodeThumbnail
+                        ?: card.item.background ?: card.item.imageUrl,
+                    fallbackImageUrl = card.item.poster,
+                    shape = NuvioPosterShape.Landscape,
+                    detailLine = card.item.subtitle,
+                    modifier = focusModifier,
+                    onClick = { state.onOpen(card) },
+                    onLongClick = longPress,
+                )
+                is ShelfCard.Folder -> NuvioPosterCard(
+                    title = card.folder.title,
+                    imageUrl = card.folder.coverImageUrl,
+                    shape = NuvioPosterShape.Poster,
+                    showTitleBelow = !card.folder.hideTitle,
+                    modifier = focusModifier,
+                    onClick = { state.onOpen(card) },
+                )
+            }
         }
     }
 }

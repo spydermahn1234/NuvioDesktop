@@ -69,9 +69,18 @@ those rows are drawn and moved between. So:
    "finish by 8:41 PM", two lines of description) above the shelf's cards. Times from `ShelfTime` (tested).
 3. **Strip polish** - a pinned collection's folder shelves show the folder's titles (not just the folder card);
    Continue Watching's long press and source shortcut; the classic card sizes and landscape setting checked.
+   (Nov 26, done in one go with 4-6 by parallel helper sessions, integrated together: `ShelfFolderItems.kt` loads a
+   folder's titles through the same resolvers as the folder page but in its own per-folder session cache (the folder
+   page's repository holds one folder at a time, so it is not reused), merging sources round-robin with a short hold so
+   cards never move; Continue Watching's long press is passed through. Every view implements the `ShelfViewState`
+   contract in `ShelfCards.kt`; the Strip is `ShelfStripView` in ShelfHome.kt. The source shortcut is still to do.)
 4. **Ledger view** - text rows, time left, end time; numbered style for ranked rows.
 5. **Per-shelf view choice** - "View as…", automatic defaults, the fork-only presentation store.
 6. **Spotlight view**. 7. **Wall view**. 8. **Logo strip view**.
+   (Nov 26: 4 Ledger (`ShelfLedgerView.kt`), 5 the per-shelf choice (`ShelfPresentation.kt`, one "views" key in the
+   shelf home's store; `ShelfViewPicker.kt` on Menu / V / hold OK / right-click on a shelf name) and 6 Spotlight
+   (`ShelfSpotlightView.kt`, a fixed focused slot with posters sliding through `graphicsLayer`) done. Defaults:
+   Continue Watching, Up next, Upcoming and ranked titles (Top N, best of, most watched) -> Ledger; the rest Strip.)
 9. **Time-aware details** - end times, fits before bedtime, series remaining.
 10. **Mixed shelves** - the shelf builder, filters, de-duplication, paging until enough.
 11. **Paper theme** - a light theme for the shelf home only.

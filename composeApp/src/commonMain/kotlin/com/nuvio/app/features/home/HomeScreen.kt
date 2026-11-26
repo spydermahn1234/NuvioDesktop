@@ -2212,6 +2212,7 @@ fun HomeScreen(
             onPosterClick = onPosterClick,
             onPosterLongClick = onPosterLongClick,
             onContinueWatchingClick = onContinueWatchingClick,
+            onContinueWatchingLongPress = onContinueWatchingLongPress,
             onFolderClick = onFolderClick,
             onOpenLibrary = onNavigateToLibrary,
             onLoadMoreCatalog = onLoadMoreCatalog,
