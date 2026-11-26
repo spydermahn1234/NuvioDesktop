@@ -1065,7 +1065,9 @@ Upstream's windows-tv-adaptive (56d7c587) merged into Spyder. Its new things, an
 - [ ] (must) With Shelf home on, Home's shelf names in the right-hand panel are in the same order as the classic home's rows (custom row names kept, hidden rows missing)
 - [ ] A collection pinned to the top shows as its own tab with one shelf per folder; an unpinned one is a single shelf on Home
 - [ ] Continue watching (and Up next / Upcoming when they are separate rows) lead Home's shelves when they have something
-- [ ] (must) With the remote or a controller: moving up and down the shelf names shows each shelf's cards along the bottom; Left goes into the cards, Right comes back to the names
+- [ ] **BROKEN** (must) With the remote or a controller: moving up and down the shelf names shows each shelf's cards along the bottom; Left goes into the cards, Right comes back to the names (2026-11-26): no keyboard or D-pad focus at all, only the mouse
+  - [ ] (must) Re-check after the fix: opening Home with Shelf home on, the current shelf name is highlighted and the arrows, D-pad and controller move it without touching the mouse
+- [ ] The mouse wheel over the cards scrolls them sideways
 - [ ] Moving onto a tab in the slash menu (Home / a pinned collection) switches to it; selecting Library opens the Library page
 - [ ] (must) It looks like the mockups: the focused title's backdrop fills the screen behind everything (darker on the left), the slash menu top left, the clock top right (hour heavy, minutes light), the shelf names in a dark panel down the right with the focused one filled in the accent colour
 - [ ] The focused title shows big as "Name / YEAR / 2H 9M" with accent slashes, a letter-spaced line of genres, IMDb and rating, "starts now, ends 9:30 PM" (12-hour clock if set in Tonight), and two lines of description; the cards do not jump as it changes

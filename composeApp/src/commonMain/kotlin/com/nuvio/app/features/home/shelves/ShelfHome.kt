@@ -4,6 +4,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -31,11 +32,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.foundation.gestures.scrollBy
+import kotlinx.coroutines.launch
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -50,6 +57,8 @@ import androidx.compose.ui.unit.sp
 import com.nuvio.app.core.ui.NuvioAsyncImage
 import com.nuvio.app.core.ui.NuvioPosterCard
 import com.nuvio.app.core.ui.NuvioPosterShape
+import com.nuvio.app.core.ui.keyLayer
+import com.nuvio.app.core.ui.requestFocusLogged
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.features.collection.Collection
 import com.nuvio.app.features.collection.CollectionFolder
@@ -92,6 +101,7 @@ private val Ink = Color.White
 private val InkSoft = Color.White.copy(alpha = 0.78f)
 private val InkDim = Color.White.copy(alpha = 0.55f)
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun ShelfHome(
     model: ShelfHomeModel,
@@ -156,14 +166,18 @@ fun ShelfHome(
     val section = (shelf?.source as? ShelfSource.Catalog)?.let { sections[it.sectionKey] }
     val shown = focusedCard ?: cards.firstOrNull()
 
-    // Land on the shelf names when Home opens, so the remote has somewhere to start.
+    // The app's key router (KeyLayers) gives a screen focus when it is shown and puts focus back when
+    // an arrow goes nowhere; the classic home registers as "Home", so the shelf home must register
+    // too or the remote and keyboard never reach it. It settles on the current shelf name.
     val entry = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
-        delay(120)
-        runCatching { entry.requestFocus() }
-    }
 
-    Box(modifier.fillMaxSize().background(Color.Black)) {
+    Box(
+        modifier
+            .fillMaxSize()
+            .keyLayer("ShelfHome") { entry.requestFocusLogged() }
+            .focusGroup()
+            .background(Color.Black),
+    ) {
         // The focused title's backdrop, full-bleed, cross-fading as focus moves.
         Crossfade(
             targetState = shown?.backdropUrl(),
@@ -245,11 +259,17 @@ fun ShelfHome(
                             }
                         }
                 }
+                val wheelScope = rememberCoroutineScope()
                 LazyRow(
                     state = rowState,
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                     contentPadding = PaddingValues(end = 40.dp, top = 6.dp, bottom = 6.dp),
-                    modifier = Modifier.fillMaxWidth(),
+                    // A mouse wheel turns the row sideways (a plain wheel does nothing on a horizontal list).
+                    modifier = Modifier.fillMaxWidth().onPointerEvent(PointerEventType.Scroll) { event ->
+                        val delta = event.changes.firstOrNull()?.scrollDelta ?: return@onPointerEvent
+                        val by = (delta.y + delta.x) * 90f
+                        if (by != 0f) wheelScope.launch { rowState.scrollBy(by) }
+                    },
                 ) {
                     itemsIndexed(cards, key = { index, _ -> "${shelf?.key}:$index" }) { _, card ->
                         val focusModifier = Modifier.onFocusChanged { if (it.hasFocus) focusedCard = card }
