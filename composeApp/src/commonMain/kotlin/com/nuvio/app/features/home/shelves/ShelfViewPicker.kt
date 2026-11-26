@@ -53,7 +53,9 @@ import com.nuvio.app.core.ui.requestFocusLogged
 
 /*
  * fork:shelf-home - phase 5: "View <shelf> as": one centred card over a dark scrim, a row per built view
- * (ShelfPresentationRules.available) plus "Use the default" when the shelf has a choice of its own.
+ * (ShelfPresentationRules.available: Posters and Logos) plus "Use the default" when the shelf has a
+ * choice of its own, and "Edit this shelf" for a shelf the user built. Opened from the Shelves overlay's
+ * Menu ("View as"); V on a row toggles Posters and Logos without it.
  * Fixed sizes: the card is the same width whatever the shelf is called, every row the same height.
  * Up/Down move between the rows and never leave the card; OK picks; Back/Escape or a click outside closes.
  */
@@ -67,11 +69,8 @@ private val RowShape = RoundedCornerShape(12.dp)
 private val CloseKeys = setOf(Key.Back, Key.Escape)
 
 internal fun shelfViewDescription(mode: ShelfViewMode): String = when (mode) {
-    ShelfViewMode.Strip -> "A row of posters"
-    ShelfViewMode.Ledger -> "A list with times"
-    ShelfViewMode.Spotlight -> "One big poster at a time"
-    ShelfViewMode.Wall -> "A wall of posters"
-    ShelfViewMode.Logos -> "A row of logos"
+    ShelfViewMode.Posters -> "A row of posters"
+    ShelfViewMode.Logos -> "A row of title logos"
 }
 
 @Composable

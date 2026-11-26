@@ -2219,6 +2219,13 @@ fun HomeScreen(
             onFolderClick = onFolderClick,
             onOpenLibrary = onNavigateToLibrary,
             onLoadMoreCatalog = onLoadMoreCatalog,
+            // fork:shelf-home - Info's Play / Trailer / More like this / Add to list on Nuvio's own actions.
+            infoActions = com.nuvio.app.features.home.shelves.rememberShelfInfoActions(
+                onPosterClick = onPosterClick,
+                onContinueWatchingClick = onContinueWatchingClick,
+                onContinueWatchingPlay = onContinueWatchingPlay,
+                onFolderClick = onFolderClick,
+            ),
         )
         return
     }

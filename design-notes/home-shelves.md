@@ -97,3 +97,18 @@ those rows are drawn and moved between. So:
 12. **Tidy-up** - CHANGELOG, test filter, TESTING.md pass.
 
 Each phase adds its checks to TESTING.md under "Shelf home".
+
+## Fan-art first (Nov 26, night)
+
+After the first build Nick asked for a fan-art-centric skin: no panel over the art. New mockups (canvas page
+"v2 · Fan-art first", with an interactive prototype) and a rebuild by four parallel helpers:
+- `ShelfHome.kt` is one state-driven focusable root (Browse / Shelves / Info, plus the idle gallery); it owns every key,
+  so the rows are not focusable lists. `ShelfPosterRow.kt` and `ShelfLogoRow`/`ShelfTitleLogo` (in
+  `ShelfLogoStripView.kt`) are drawn from an index. Pure parts are in `ShelfFrameRules` (`ShelfCards.kt`).
+- `ShelfGroups.kt` sorts a tab's rows into Yours / For you / Charts / Catalogs (catalogs bucketed A – C ... U – Z past
+  eight); `ShelfShelvesOverlay.kt` draws and drives the overlay.
+- `ShelfInfoOverlay.kt`: the Info page and `rememberShelfInfoActions` (Play through `RemotePlayerHub.playEpisode` for
+  films, Trailer through `RemotePlayerHub.openYouTube` with `fromPhone = false`, Add to list via `LibraryRepository`).
+- Views are Posters and Logos only; old stored view names read back as Posters.
+Guesses taken while Nick was away are listed (GUESS) in TESTING.md under "Shelf home, fan-art first".
+

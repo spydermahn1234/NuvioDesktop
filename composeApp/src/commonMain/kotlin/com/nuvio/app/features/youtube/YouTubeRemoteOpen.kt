@@ -12,7 +12,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * still opens, titled "YouTube video"). Null, after saying so, when none of its streams would open.
  */
 internal suspend fun youTubeRemoteLaunch(request: RemoteYouTubeOpen): PlayerLaunch? {
-    NuvioToastController.show("Opening a video from your phone…")
+    NuvioToastController.show(if (request.fromPhone) "Opening a video from your phone…" else "Opening the trailer…")
     val details = withTimeoutOrNull(DETAILS_WAIT_MS) {
         try {
             YouTubeFeedRepository.watchPage(request.videoId).details
@@ -33,7 +33,7 @@ internal suspend fun youTubeRemoteLaunch(request: RemoteYouTubeOpen): PlayerLaun
     )
     val launch = youTubePlayerLaunch(video)
     if (launch == null) {
-        NuvioToastController.show("Couldn't play the video from your phone")
+        NuvioToastController.show(if (request.fromPhone) "Couldn't play the video from your phone" else "Couldn't play the trailer")
         return null
     }
     // A link with a time in it (?t=90) starts there rather than where YouTube's history left off.

@@ -1,14 +1,16 @@
 package com.nuvio.app.features.home.shelves
 
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
+import com.nuvio.app.features.collection.Collection
 import com.nuvio.app.features.collection.CollectionFolder
+import com.nuvio.app.features.home.HomeCatalogSection
 import com.nuvio.app.features.home.MetaPreview
 import com.nuvio.app.features.watchprogress.ContinueWatchingItem
 
 /*
- * fork:shelf-home - what every shelf view is given, so the views (Strip, Ledger, Spotlight, ...) are
- * interchangeable inside ShelfHome's frame. See design-notes/home-shelves.md.
+ * fork:shelf-home - the cards of a shelf and the words the fan-art-first frame shows for them
+ * (mockups V2Browse, V2Logos, V2Idle). ShelfHome.kt draws one row at a time over the focused card's
+ * fan-art; its two row styles are Posters (ShelfPosterRow.kt) and Logos (ShelfLogoStripView.kt), and
+ * the Shelves and Info overlays get the same cards. See design-notes/home-shelves.md.
  */
 
 /** One card on a shelf, whatever the shelf's source. */
@@ -30,37 +32,166 @@ internal fun ShelfCard.posterUrl(): String? = when (this) {
     is ShelfCard.Folder -> folder.coverImageUrl
 }?.takeIf { it.isNotBlank() }
 
+/** Any wide picture for the card, falling back to its poster (kept for callers that want something). */
 internal fun ShelfCard.backdropUrl(): String? = when (this) {
     is ShelfCard.Meta -> item.banner ?: item.landscapePoster ?: item.poster
     is ShelfCard.Progress -> item.background ?: item.customLandscape ?: item.imageUrl ?: item.poster
     is ShelfCard.Folder -> folder.heroBackdropUrl ?: folder.coverImageUrl
 }?.takeIf { it.isNotBlank() }
 
-/** How a shelf is drawn. Strip is the classic row of cards. */
-enum class ShelfViewMode { Strip, Ledger, Spotlight, Wall, Logos }
+/**
+ * The card's fan-art only: a real backdrop, never a poster or art with the title drawn into it. Null
+ * when it has none; the frame then shows the poster enlarged and blurred.
+ */
+internal fun ShelfCard.fanartUrl(): String? = when (this) {
+    is ShelfCard.Meta -> item.banner
+    is ShelfCard.Progress -> item.background ?: item.episodeThumbnail
+    is ShelfCard.Folder -> folder.heroBackdropUrl
+}?.takeIf { it.isNotBlank() }
+
+/** A key that is the same for the same title, for remembering and comparing cards. */
+internal fun ShelfCard.stableId(): String = when (this) {
+    is ShelfCard.Meta -> "m:${item.type}:${item.id}"
+    is ShelfCard.Progress -> "p:${item.parentMetaId}:${item.videoId}"
+    is ShelfCard.Folder -> "f:$collectionId/${folder.id}"
+}
+
+/** How a shelf's row is drawn: a row of posters, or a row of title logos (clearlogos). */
+enum class ShelfViewMode { Posters, Logos }
 
 /**
- * Everything a view needs. A view fills the area ShelfHome gives it (below the title block, left of
- * the shelf panel; about 1300 x 560 dp on a 1080p TV) and must:
- *  - make each card focusable and call [onFocusCard] when it gains focus (the frame shows its
- *    backdrop and details) and [onOpen] when it is selected (OK / click);
- *  - call [onNearEnd] with the index of the last card it shows, so the focused shelf can page;
- *  - keep its own layout fixed in size: nothing may move or resize as focus or content changes.
- * Left/Right/Up/Down between the view, the shelf panel (on the right) and the slash menu (above)
- * is left to Compose's focus search.
+ * A shelf's cards from what the home has loaded. [folderItems] are a folder shelf's loaded titles
+ * (null or empty: the folder's own card stands in); [mixItems] a built mix's titles.
  */
-internal class ShelfViewState(
-    val shelfKey: String,
-    val cards: List<ShelfCard>,
-    /** Minutes after midnight, for "ends 9:30 PM" lines (format with tonight.clockLabel). */
-    val nowMinute: Int,
-    /** True for ranked rows (Top 10, best this week): number the cards. */
-    val ranked: Boolean,
-    val onFocusCard: (ShelfCard) -> Unit,
-    val onOpen: (ShelfCard) -> Unit,
-    val onLongPress: ((ShelfCard) -> Unit)?,
-    val onNearEnd: (lastShownIndex: Int) -> Unit,
-)
+internal fun shelfCardsFor(
+    shelf: Shelf?,
+    sections: Map<String, HomeCatalogSection>,
+    collections: Map<String, Collection>,
+    continueWatching: List<ContinueWatchingItem>,
+    upNext: List<ContinueWatchingItem>,
+    upcoming: List<ContinueWatchingItem>,
+    folderItems: List<MetaPreview>? = null,
+    mixItems: List<MetaPreview>? = null,
+): List<ShelfCard> = when (val source = shelf?.source) {
+    null -> emptyList()
+    is ShelfSource.Catalog -> sections[source.sectionKey]?.items.orEmpty().map(ShelfCard::Meta)
+    ShelfSource.ContinueWatching -> continueWatching.map(ShelfCard::Progress)
+    ShelfSource.UpNext -> upNext.map(ShelfCard::Progress)
+    ShelfSource.Upcoming -> upcoming.map(ShelfCard::Progress)
+    is ShelfSource.CollectionFolders ->
+        collections[ShelfHomeRules.collectionTabId(source.collectionId)]?.folders.orEmpty()
+            .map { ShelfCard.Folder(source.collectionId, it) }
+    is ShelfSource.Mix -> mixItems.orEmpty().map(ShelfCard::Meta)
+    // The folder card stands in while the titles load, or if every source fails.
+    is ShelfSource.CollectionFolder ->
+        folderItems?.takeIf { it.isNotEmpty() }?.map(ShelfCard::Meta)
+            ?: collections[ShelfHomeRules.collectionTabId(source.collectionId)]?.folders.orEmpty()
+                .filter { it.id == source.folderId }
+                .map { ShelfCard.Folder(source.collectionId, it) }
+}
 
-/** A view: a composable drawing [ShelfViewState] into the given modifier's area. */
-internal typealias ShelfView = @Composable (state: ShelfViewState, modifier: Modifier) -> Unit
+/** The frame's words for a card, pure so they are tested (ShelfFrameRulesTest). */
+internal object ShelfFrameRules {
+    private val yearPattern = Regex("""\b(\d{4})\b""")
+
+    /** Cards from the loaded end at which the focused row asks for its next page. */
+    const val PAGE_AHEAD = 6
+
+    /** The first four-digit year in a release line ("2019", "2019-2023", "2019-05-01"), or null. */
+    fun year(text: String?): String? = text?.let { yearPattern.find(it)?.groupValues?.get(1) }
+
+    fun year(card: ShelfCard): String? = when (card) {
+        is ShelfCard.Meta -> year(card.item.releaseInfo) ?: year(card.item.rawReleaseDate)
+        is ShelfCard.Progress -> year(card.item.released)
+        is ShelfCard.Folder -> null
+    }
+
+    private fun episodeOf(item: ContinueWatchingItem): String? =
+        if (item.seasonNumber != null && item.episodeNumber != null) "S${item.seasonNumber} E${item.episodeNumber}" else null
+
+    /** Minutes left of a part-watched item; the whole length of one not started (Up next). */
+    private fun leftOf(item: ContinueWatchingItem): Int? = ShelfTime.minutesLeft(item.durationMs, item.resumePositionMs)
+
+    /**
+     * The tracked line under the title, in capitals:
+     *  - a film or show: "1999 · ANIMATION / FAMILY · 1H 26M · IMDB 8.1" (year, up to two genres, length, rating; any may be missing);
+     *  - a Continue Watching card: "S4 E1 · USS CALLISTER · 1H 16M LEFT";
+     *  - a folder: nothing.
+     */
+    fun facts(card: ShelfCard): String = when (card) {
+        is ShelfCard.Meta -> {
+            val item = card.item
+            listOfNotNull(
+                year(card),
+                item.genres.map { it.trim() }.filter { it.isNotEmpty() }.take(2).takeIf { it.isNotEmpty() }?.joinToString(" / "),
+                ShelfTime.runtimeMinutes(item.runtime)?.let { ShelfTime.length(it) },
+                item.imdbRating?.trim()?.takeIf { it.isNotEmpty() }?.let { "IMDb $it" },
+            ).joinToString(" · ").uppercase()
+        }
+        is ShelfCard.Progress -> {
+            val item = card.item
+            val episode = episodeOf(item)
+            val left = leftOf(item)?.let { ShelfTime.length(it) + if (item.resumePositionMs > 0L) " left" else "" }
+            listOfNotNull(
+                episode,
+                item.episodeTitle?.trim()?.takeIf { it.isNotEmpty() } ?: item.subtitle.trim().takeIf { episode == null && it.isNotEmpty() },
+                left,
+            ).joinToString(" · ").uppercase()
+        }
+        is ShelfCard.Folder -> ""
+    }
+
+    /**
+     * The "ends" line as (lead, time): ("Starts now, ends", 21:23) for a title with a length,
+     * ("Finish by", 21:23) for a part-watched one; null without a length (or for a folder).
+     * [clock] formats a minute of the day (the screen passes Tonight's clockLabel).
+     */
+    fun ends(card: ShelfCard, nowMinute: Int, clock: (Int) -> String): Pair<String, String>? = when (card) {
+        is ShelfCard.Meta -> ShelfTime.runtimeMinutes(card.item.runtime)?.let {
+            "Starts now, ends" to clock(ShelfTime.endsAt(nowMinute, it))
+        }
+        is ShelfCard.Progress -> leftOf(card.item)?.let {
+            (if (card.item.resumePositionMs > 0L) "Finish by" else "Starts now, ends") to clock(ShelfTime.endsAt(nowMinute, it))
+        }
+        is ShelfCard.Folder -> null
+    }
+
+    /** The one-line description, or null. */
+    fun description(card: ShelfCard): String? = when (card) {
+        is ShelfCard.Meta -> card.item.description
+        is ShelfCard.Progress -> card.item.pauseDescription
+        is ShelfCard.Folder -> null
+    }?.trim()?.takeIf { it.isNotEmpty() }
+
+    /** The gallery's small line: "2007 · 2H 38M"; a Continue Watching card: "S4 E1 · 1H 16M LEFT". */
+    fun yearLength(card: ShelfCard): String = when (card) {
+        is ShelfCard.Meta -> listOfNotNull(
+            year(card),
+            ShelfTime.runtimeMinutes(card.item.runtime)?.let { ShelfTime.length(it) },
+        ).joinToString(" · ").uppercase()
+        is ShelfCard.Progress -> listOfNotNull(
+            episodeOf(card.item) ?: year(card),
+            leftOf(card.item)?.let { ShelfTime.length(it) + if (card.item.resumePositionMs > 0L) " left" else "" },
+        ).joinToString(" · ").uppercase()
+        is ShelfCard.Folder -> ""
+    }
+
+    /** "9 OF 50 · ROW 7 OF 85"; without cards just the row. Indices are 0-based. */
+    fun position(index: Int, count: Int, row: Int, rows: Int): String {
+        val rowPart = "ROW ${row + 1} OF $rows"
+        return if (count <= 0) rowPart else "${index.coerceIn(0, count - 1) + 1} OF $count · $rowPart"
+    }
+
+    /** The Logos row's right-hand count: "1 OF 50", empty without cards. */
+    fun count(index: Int, count: Int): String =
+        if (count <= 0) "" else "${index.coerceIn(0, count - 1) + 1} OF $count"
+
+    /** [index] moved by [delta], kept inside the row (0 for an empty row). */
+    fun move(index: Int, delta: Int, count: Int): Int = if (count <= 0) 0 else (index + delta).coerceIn(0, count - 1)
+
+    /** The gallery's next card: one on, back to the first after the last loaded one. */
+    fun galleryNext(index: Int, count: Int): Int = if (count <= 0) 0 else (index + 1).let { if (it >= count) 0 else it }
+
+    /** Whether the row should ask for its next page with [index] in focus. */
+    fun nearEnd(index: Int, loaded: Int): Boolean = loaded > 0 && index >= loaded - PAGE_AHEAD
+}

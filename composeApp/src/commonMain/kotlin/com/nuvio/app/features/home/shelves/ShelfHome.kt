@@ -1,120 +1,169 @@
 package com.nuvio.app.features.home.shelves
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.pointer.isSecondaryPressed
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.ui.draw.alpha
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
-import androidx.compose.foundation.gestures.scrollBy
-import kotlinx.coroutines.launch
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nuvio.app.core.ui.LocalScreenCovered
 import com.nuvio.app.core.ui.NuvioAsyncImage
-import com.nuvio.app.core.ui.NuvioPosterCard
-import com.nuvio.app.core.ui.NuvioPosterShape
-import com.nuvio.app.core.ui.arrowKeyFocusNavigation
 import com.nuvio.app.core.ui.keyLayer
+import com.nuvio.app.core.ui.navigationKey
 import com.nuvio.app.core.ui.requestFocusLogged
-import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.features.collection.Collection
-import com.nuvio.app.features.collection.CollectionFolder
 import com.nuvio.app.features.home.HomeCatalogSection
 import com.nuvio.app.features.home.MetaPreview
-import com.nuvio.app.features.home.components.HomePosterCard
-import com.nuvio.app.features.tonight.TonightClock
 import com.nuvio.app.features.home.WatchedContentFilter
-import com.nuvio.app.features.watched.WatchedRepository
+import com.nuvio.app.features.tonight.TonightClock
 import com.nuvio.app.features.tonight.TonightSettingsRepository
 import com.nuvio.app.features.tonight.clockLabel
+import com.nuvio.app.features.watched.WatchedRepository
 import com.nuvio.app.features.watchprogress.ContinueWatchingItem
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 
 /*
- * fork:shelf-home - the Kodi-style home (plan in design-notes/home-shelves.md; mockups on the
- * canvas "Nuvio home - Kodi-style mockups").
+ * fork:shelf-home - the fan-art-first home (mockups V2Browse, V2Logos, V2Idle, V2Flow and V2Prototype;
+ * plan in design-notes/home-shelves.md).
  *
- * The frame every view sits in, after the mockups: the focused title's backdrop full-bleed behind
- * everything, darkened from the left; the slash menu top left; on the left a typographic block for
- * the focused title (big name / year / length with accent slashes, a letter-spaced credit line,
- * "1h 16m left · ends 8:41 PM", two lines of description) above the focused shelf's cards; on the
- * right a dark panel with the clock and the tab's shelf names (the Kodi list-and-info layout).
- * Moving onto a tab or a shelf name shows it; Left from the panel goes into the shelf, Right comes
- * back. Only the focused shelf asks for more pages.
+ * The focused card's fan-art fills the screen and is never covered by a panel. Words sit lower left
+ * over two soft scrims: a breadcrumb (tab / row) top left, the clock top right, the focused title's
+ * block, then ONE row of cards along the bottom (Posters, or Logos) with "i OF n · ROW r OF m" above
+ * it and the next row's name below. Left/Right move along the row and the art follows (after the
+ * selection has been still for 250 ms, cross-fading 600 ms); Up/Down swap the whole row in place
+ * (old one slides down and fades, the new one rises: 300 ms) and each row remembers its card.
+ *
+ * Everything else appears only when asked for: the Shelves overlay (Up on the first row, Menu, or
+ * Back on a row's first card; ShelfShelvesOverlay.kt), Info (I or hold OK; ShelfInfoOverlay.kt), the
+ * view picker and the shelf builder. After 12 s untouched the screen becomes a gallery: everything
+ * but the title and the clock fades away, the art drifts and moves on to the next card every 20 s.
+ *
+ * The screen is one focusable root that owns the selection and every key (Compose Desktop moves
+ * focus on Tab only); the rows draw the selection and never take focus.
  */
 
 /** Where the shelf home was, kept for the session so coming back to Home lands in the same place. */
 internal object ShelfHomeMemory {
     var tabId: String = ShelfHomeRules.HOME_TAB
     val shelfByTab = HashMap<String, String>()
+
+    /** The focused card of each row, by [rowId]. */
+    val cardByRow = HashMap<String, Int>()
+
+    fun rowId(tabId: String?, shelfKey: String?): String = "${tabId.orEmpty()}|${shelfKey.orEmpty()}"
 }
 
+private enum class ShelfScreenMode { Browse, Shelves, Info }
 
-// The text colours come from the shelf home's look (Dark or Paper, ShelfTheme.kt).
-private val Ink: Color
-    @Composable @ReadOnlyComposable get() = LocalShelfPalette.current.ink
-private val InkSoft: Color
-    @Composable @ReadOnlyComposable get() = LocalShelfPalette.current.inkSoft
-private val InkDim: Color
-    @Composable @ReadOnlyComposable get() = LocalShelfPalette.current.inkDim
+/** The frame's timings, from V2Flow. */
+private object ShelfMotion {
+    const val ART_WAIT_MS = 250L
+    const val ART_FADE_MS = 600
+    const val WORDS_FADE_MS = 200
+    const val ROW_HALF_MS = 150
+    const val INFO_FADE_MS = 300
+    const val SHELVES_FADE_MS = 200
+    const val IDLE_AFTER_MS = 12_000L
+    const val IDLE_FADE_MS = 1_500
+    const val WAKE_FADE_MS = 400
+    const val GALLERY_STEP_MS = 20_000L
+    const val DRIFT_MS = 30_000
+    const val TOAST_MS = 1_800L
+    const val HOLD_MS = 500L
+}
+
+/** The mockups' scrim colour, rgba(6,9,10). */
+private val MockScrim = Color(0xFF06090A)
+
+/** The row's cards and where it is, as the row area draws it; [id] changes only when the row does. */
+private data class ShelfRowView(
+    val id: String,
+    val title: String,
+    val cards: List<ShelfCard>,
+    val index: Int,
+    val mode: ShelfViewMode,
+    val row: Int,
+    val rows: Int,
+)
+
+private data class ShelfTitleView(val card: ShelfCard?, val mode: ShelfViewMode)
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun ShelfHome(
+internal fun ShelfHome(
     model: ShelfHomeModel,
     sections: Map<String, HomeCatalogSection>,
     collections: Map<String, Collection>,
@@ -130,16 +179,37 @@ fun ShelfHome(
     onFolderClick: ((collectionId: String, folderId: String) -> Unit)? = null,
     onOpenLibrary: (() -> Unit)? = null,
     onLoadMoreCatalog: ((HomeCatalogSection) -> Unit)? = null,
+    infoActions: ShelfInfoActions = ShelfInfoActions(),
 ) {
     remember { TonightSettingsRepository.ensureLoaded() }
     remember { ShelfThemeRepository.ensureLoaded() }
+    remember { ShelfMixRepository.ensureLoaded() }
+    remember { ShelfPresentationRepository.ensureLoaded() }
     val shelfTheme by ShelfThemeRepository.mode.collectAsStateWithLifecycle()
+    val tonightSettings by TonightSettingsRepository.state.collectAsStateWithLifecycle()
+    val mixes by ShelfMixRepository.mixes.collectAsStateWithLifecycle()
+    val viewOverrides by ShelfPresentationRepository.overrides.collectAsStateWithLifecycle()
+    val watchedState by WatchedRepository.uiState.collectAsStateWithLifecycle()
+    val watchedFilter = remember(watchedState.items) { WatchedContentFilter.forHistory(watchedState.items) }
+
+    // ---- Where we are: the tab, the row within it, the card within the row. ----
     val contentTabs = model.tabs.filter { it.kind != ShelfTabKind.Library }
     var tabId by remember { mutableStateOf(ShelfHomeMemory.tabId) }
     val tab = contentTabs.firstOrNull { it.id == tabId } ?: contentTabs.firstOrNull()
-    var shelfKey by remember(tab?.id) { mutableStateOf(tab?.id?.let { ShelfHomeMemory.shelfByTab[it] }) }
-    val shelf = tab?.shelves?.firstOrNull { it.key == shelfKey } ?: tab?.shelves?.firstOrNull()
-    var focusedCard by remember(shelf?.key) { mutableStateOf<ShelfCard?>(null) }
+    val shelves = tab?.shelves.orEmpty()
+    var shelfKey by remember { mutableStateOf(ShelfHomeMemory.shelfByTab[ShelfHomeMemory.tabId]) }
+    val rowIndex = shelves.indexOfFirst { it.key == shelfKey }.takeIf { it >= 0 } ?: 0
+    val shelf = shelves.getOrNull(rowIndex)
+    val rowId = ShelfHomeMemory.rowId(tab?.id, shelf?.key)
+    val cardByRow = remember { mutableStateMapOf<String, Int>().apply { putAll(ShelfHomeMemory.cardByRow) } }
+
+    fun go(toTab: String, toShelf: String?) {
+        tabId = toTab
+        ShelfHomeMemory.tabId = toTab
+        val key = toShelf ?: ShelfHomeMemory.shelfByTab[toTab]
+        shelfKey = key
+        if (key != null) ShelfHomeMemory.shelfByTab[toTab] = key
+    }
 
     // The wall clock, re-read every 20 s so the clock and every "ends at" stay true.
     var nowMinute by remember { mutableIntStateOf(TonightClock.now().minuteOfDay) }
@@ -150,26 +220,11 @@ fun ShelfHome(
         }
     }
 
-    fun selectTab(id: String) {
-        tabId = id
-        ShelfHomeMemory.tabId = id
-    }
-    fun selectShelf(key: String) {
-        val t = tab ?: return
-        shelfKey = key
-        ShelfHomeMemory.shelfByTab[t.id] = key
-    }
-
-    // A pinned collection's folder shelf shows the folder's titles, loaded only while it is the shelf in focus.
+    // ---- The focused row's cards. ----
+    // A pinned collection's folder shelf shows the folder's titles, loaded only while it is the row in focus.
     val folderSrc = shelf?.source as? ShelfSource.CollectionFolder
     val folderItems = folderSrc?.let { rememberShelfFolderItems(it.collectionId, it.folderId) }
-
     // A shelf the user built: its rows merged and filtered (ShelfMixes.kt).
-    remember { ShelfMixRepository.ensureLoaded() }
-    val mixes by ShelfMixRepository.mixes.collectAsStateWithLifecycle()
-    val tonightSettings by TonightSettingsRepository.state.collectAsStateWithLifecycle()
-    val watchedState by WatchedRepository.uiState.collectAsStateWithLifecycle()
-    val watchedFilter = remember(watchedState.items) { WatchedContentFilter.forHistory(watchedState.items) }
     val mix = (shelf?.source as? ShelfSource.Mix)?.let { src -> mixes.firstOrNull { it.id == src.mixId } }
     val mixItems = remember(mix, sections, watchedFilter, nowMinute, tonightSettings.bedMinuteOfDay) {
         mix?.let {
@@ -186,580 +241,872 @@ fun ShelfHome(
             onLoadMoreCatalog?.invoke(s)
         }
     }
-
     val cards: List<ShelfCard> = remember(shelf, sections, collections, continueWatching, upNext, upcoming, folderItems?.items, mixItems) {
-        when (val source = shelf?.source) {
-            null -> emptyList()
-            is ShelfSource.Catalog -> sections[source.sectionKey]?.items.orEmpty().map(ShelfCard::Meta)
-            ShelfSource.ContinueWatching -> continueWatching.map(ShelfCard::Progress)
-            ShelfSource.UpNext -> upNext.map(ShelfCard::Progress)
-            ShelfSource.Upcoming -> upcoming.map(ShelfCard::Progress)
-            is ShelfSource.CollectionFolders ->
-                collections[ShelfHomeRules.collectionTabId(source.collectionId)]?.folders.orEmpty()
-                    .map { ShelfCard.Folder(source.collectionId, it) }
-            is ShelfSource.Mix -> mixItems.map(ShelfCard::Meta)
-            // The folder card stands in while the titles load, or if every source fails.
-            is ShelfSource.CollectionFolder ->
-                folderItems?.items?.takeIf { it.isNotEmpty() }?.map(ShelfCard::Meta)
-                    ?: collections[ShelfHomeRules.collectionTabId(source.collectionId)]?.folders.orEmpty()
-                        .filter { it.id == source.folderId }
-                        .map { ShelfCard.Folder(source.collectionId, it) }
-        }
+        shelfCardsFor(shelf, sections, collections, continueWatching, upNext, upcoming, folderItems?.items, mixItems)
     }
     val section = (shelf?.source as? ShelfSource.Catalog)?.let { sections[it.sectionKey] }
-    val shown = focusedCard ?: cards.firstOrNull()
+    val cardIndex = (cardByRow[rowId] ?: 0).coerceIn(0, (cards.size - 1).coerceAtLeast(0))
+    val focusedCard = cards.getOrNull(cardIndex)
 
-    // Each shelf's view: the user's choice for that shelf (kept by catalog key), else its default.
-    remember { ShelfPresentationRepository.ensureLoaded() }
-    val viewOverrides by ShelfPresentationRepository.overrides.collectAsStateWithLifecycle()
-    val mode = shelf?.let { ShelfPresentationRepository.resolve(viewOverrides, it.key, it.title) } ?: ShelfViewMode.Strip
+    fun setIndex(i: Int) {
+        cardByRow[rowId] = i
+        ShelfHomeMemory.cardByRow[rowId] = i
+    }
+
+    /** Any shelf's cards from what is loaded, for the Shelves overlay's preview. Loads nothing. */
+    val previewFor: (Shelf) -> List<ShelfCard> = { s ->
+        if (s.key == shelf?.key) {
+            cards
+        } else {
+            val folder = (s.source as? ShelfSource.CollectionFolder)?.let {
+                ShelfFolderItems.flow(it.collectionId, it.folderId).value.items
+            }
+            val built = (s.source as? ShelfSource.Mix)?.let { src ->
+                mixes.firstOrNull { it.id == src.mixId }?.let {
+                    ShelfMixRules.build(it, sections, { m -> watchedFilter.isWatched(m.type, m.id) }, nowMinute, tonightSettings.bedMinuteOfDay)
+                }
+            }
+            shelfCardsFor(s, sections, collections, continueWatching, upNext, upcoming, folder, built)
+        }
+    }
+
+    // ---- Paging: only the focused row asks for more, when its card is within 6 of the loaded end. ----
+    val loadMore by rememberUpdatedState(onLoadMoreCatalog)
+    LaunchedEffect(rowId, cardIndex, cards.size) {
+        if (!ShelfFrameRules.nearEnd(cardIndex, cards.size)) return@LaunchedEffect
+        val m = mix
+        val f = folderItems
+        val s = section
+        when {
+            m != null ->
+                // Scrolling on raises the target, so a mix keeps filling as far as the user goes.
+                ShelfMixRules.needsMore(m, mixItems, sections, mixPages, target = cardIndex + 7, maxPages = 50).forEach { k ->
+                    sections[k]?.let {
+                        mixPages[k] = (mixPages[k] ?: 0) + 1
+                        loadMore?.invoke(it)
+                    }
+                }
+            f != null -> if (f.canLoadMore && !f.isLoadingMore) f.loadMore()
+            s != null -> if (s.nextSkip != null && !s.isLoadingMore) loadMore?.invoke(s)
+        }
+    }
+
+    // ---- The row's view (Posters or Logos), the overlays and the gallery. ----
+    val viewMode = shelf?.let { ShelfPresentationRepository.resolve(viewOverrides, it.key, it.title) } ?: ShelfViewMode.Posters
+    var mode by remember { mutableStateOf(ShelfScreenMode.Browse) }
+    var infoCard by remember { mutableStateOf<ShelfCard?>(null) }
     var pickerFor by remember { mutableStateOf<Shelf?>(null) }
     // The shelf builder: open with null for a new shelf, or the mix being edited.
     var editorOpen by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<ShelfMix?>(null) }
+    val browsing = mode == ShelfScreenMode.Browse && pickerFor == null && !editorOpen
 
-    val currentSection by rememberUpdatedState(section)
-    val currentFolder by rememberUpdatedState(folderItems)
-    val currentMix by rememberUpdatedState(mix)
-    val currentMixItems by rememberUpdatedState(mixItems)
-    val currentSections by rememberUpdatedState(sections)
-    val loadMore by rememberUpdatedState(onLoadMoreCatalog)
-    val viewState = ShelfViewState(
-        shelfKey = shelf?.key.orEmpty(),
-        cards = cards,
-        nowMinute = nowMinute,
-        ranked = shelf?.let { ShelfPresentationRules.isRanked(it.title) } ?: false,
-        onFocusCard = { focusedCard = it },
-        onOpen = { card ->
-            when (card) {
-                is ShelfCard.Meta -> onPosterClick?.invoke(card.item)
-                is ShelfCard.Progress -> onContinueWatchingClick?.invoke(card.item)
-                is ShelfCard.Folder -> onFolderClick?.invoke(card.collectionId, card.folder.id)
+    var idle by remember { mutableStateOf(false) }
+    var inputSerial by remember { mutableIntStateOf(0) }
+    val covered = LocalScreenCovered.current
+    val canIdle = browsing && !covered && cards.isNotEmpty()
+    fun noteInput() {
+        inputSerial++
+    }
+    fun wake() {
+        idle = false
+        noteInput()
+    }
+    LaunchedEffect(inputSerial, canIdle, idle) {
+        if (!canIdle) {
+            idle = false
+            return@LaunchedEffect
+        }
+        if (idle) return@LaunchedEffect
+        delay(ShelfMotion.IDLE_AFTER_MS)
+        idle = true
+    }
+    // The gallery moves on to the next card every 20 s, back to the first after the last loaded one.
+    val galleryCards by rememberUpdatedState(cards)
+    val galleryIndex by rememberUpdatedState(cardIndex)
+    val gallerySetIndex by rememberUpdatedState<(Int) -> Unit>(::setIndex)
+    LaunchedEffect(idle) {
+        while (idle) {
+            delay(ShelfMotion.GALLERY_STEP_MS)
+            gallerySetIndex(ShelfFrameRules.galleryNext(galleryIndex, galleryCards.size))
+        }
+    }
+
+    // A short note in the middle of the screen ("View this row as Logos").
+    var toast by remember { mutableStateOf("") }
+    var toastShown by remember { mutableStateOf(false) }
+    var toastSerial by remember { mutableIntStateOf(0) }
+    fun say(text: String) {
+        toast = text
+        toastShown = true
+        toastSerial++
+    }
+    LaunchedEffect(toastSerial) {
+        if (toastSerial == 0) return@LaunchedEffect
+        delay(ShelfMotion.TOAST_MS)
+        toastShown = false
+    }
+
+    // ---- Actions. ----
+    fun openCard(card: ShelfCard) {
+        when (card) {
+            is ShelfCard.Meta -> onPosterClick?.invoke(card.item)
+            is ShelfCard.Progress -> onContinueWatchingClick?.invoke(card.item)
+            is ShelfCard.Folder -> onFolderClick?.invoke(card.collectionId, card.folder.id)
+        }
+    }
+    fun longPress(card: ShelfCard) {
+        when (card) {
+            is ShelfCard.Meta -> onPosterLongClick?.invoke(card.item)
+            is ShelfCard.Progress -> onContinueWatchingLongPress?.invoke(card.item)
+            is ShelfCard.Folder -> Unit
+        }
+    }
+    fun openShelves() {
+        mode = ShelfScreenMode.Shelves
+    }
+    fun openInfo() {
+        val card = focusedCard ?: return
+        infoCard = card
+        mode = ShelfScreenMode.Info
+    }
+    fun move(delta: Int) {
+        if (cards.isEmpty()) return
+        setIndex(ShelfFrameRules.move(cardIndex, delta, cards.size))
+    }
+    fun changeRow(to: Int) {
+        val target = shelves.getOrNull(to) ?: return
+        val t = tab ?: return
+        go(t.id, target.key)
+    }
+    fun toggleView() {
+        val s = shelf ?: return
+        val next = ShelfPresentationRules.toggled(viewMode)
+        ShelfPresentationRepository.set(s.key, next)
+        say("View this row as ${next.name}")
+    }
+    fun clickCard(i: Int) {
+        if (i !in cards.indices) return
+        if (i == cardIndex) openCard(cards[i]) else setIndex(i)
+    }
+
+    // ---- Keys. ----
+    val rootFocus = remember { FocusRequester() }
+    var enterDownAt by remember { mutableStateOf(0L) }
+    var holdFired by remember { mutableStateOf(false) }
+    var backDown by remember { mutableStateOf(false) }
+    var swallowUp by remember { mutableStateOf<Key?>(null) }
+
+    fun onKey(event: KeyEvent): Boolean {
+        val navKey = event.navigationKey()
+        val isEnter = navKey == Key.Enter || navKey == Key.NumPadEnter
+        // An OK held into Info: its repeats and its release belong to the press that opened Info, not to Info's buttons.
+        if (isEnter && enterDownAt != 0L && !browsing) {
+            if (event.type == KeyEventType.KeyUp) enterDownAt = 0L
+            return true
+        }
+        if (!browsing) return false
+        noteInput()
+        // In the gallery any key only wakes the screen; its release is swallowed too.
+        if (idle) {
+            if (event.type == KeyEventType.KeyDown) {
+                wake()
+                swallowUp = event.key
             }
-        },
-        onLongPress = { card ->
-            when (card) {
-                is ShelfCard.Meta -> onPosterLongClick?.invoke(card.item)
-                is ShelfCard.Progress -> onContinueWatchingLongPress?.invoke(card.item)
-                is ShelfCard.Folder -> Unit
+            return true
+        }
+        if (event.type == KeyEventType.KeyUp && swallowUp == event.key) {
+            swallowUp = null
+            return true
+        }
+        val isBack = event.key == Key.Back || navKey == Key.Backspace || navKey == Key.Escape
+        if (isBack) {
+            // Back acts as the key comes up, as it does across the app; only for a press that started here.
+            when (event.type) {
+                KeyEventType.KeyDown -> backDown = true
+                KeyEventType.KeyUp -> if (backDown) {
+                    backDown = false
+                    if (cardIndex > 0) setIndex(0) else openShelves()
+                }
+                else -> Unit
             }
-        },
-        onNearEnd = { last ->
-            val f = currentFolder
-            val m = currentMix
-            if (m != null) {
-                // Scrolling on raises the target, so a mix keeps filling as far as the user goes.
-                ShelfMixRules.needsMore(m, currentMixItems, currentSections, mixPages, target = last + 7, maxPages = 50)
-                    .forEach { k ->
-                        currentSections[k]?.let {
-                            mixPages[k] = (mixPages[k] ?: 0) + 1
-                            loadMore?.invoke(it)
+            return true
+        }
+        if (isEnter) {
+            val now = System.currentTimeMillis()
+            when (event.type) {
+                KeyEventType.KeyDown -> {
+                    if (enterDownAt == 0L) {
+                        enterDownAt = now
+                        holdFired = false
+                    } else if (!holdFired && now - enterDownAt >= ShelfMotion.HOLD_MS) {
+                        // The key has started repeating: held long enough, so Info now rather than on release.
+                        holdFired = true
+                        openInfo()
+                    }
+                }
+                KeyEventType.KeyUp -> {
+                    if (enterDownAt != 0L) {
+                        val held = now - enterDownAt
+                        enterDownAt = 0L
+                        when {
+                            holdFired -> Unit
+                            held >= ShelfMotion.HOLD_MS -> openInfo()
+                            else -> focusedCard?.let(::openCard)
                         }
                     }
-            } else if (f != null) {
-                if (f.canLoadMore && !f.isLoadingMore && last >= f.items.size - 6) f.loadMore()
-            } else {
-                val s = currentSection
-                if (s != null && s.nextSkip != null && !s.isLoadingMore && last >= s.items.size - 6) {
-                    loadMore?.invoke(s)
                 }
+                else -> Unit
             }
-        },
-    )
+            return true
+        }
+        if (event.isCtrlPressed || event.isAltPressed || event.isMetaPressed) return false
+        val handled = navKey in BrowseKeys
+        if (event.type != KeyEventType.KeyDown) return handled
+        when (navKey) {
+            Key.DirectionLeft -> move(-1)
+            Key.DirectionRight -> move(1)
+            Key.DirectionUp -> if (rowIndex > 0) changeRow(rowIndex - 1) else openShelves()
+            Key.DirectionDown -> if (rowIndex < shelves.lastIndex) changeRow(rowIndex + 1)
+            Key.I -> openInfo()
+            Key.V -> toggleView()
+            Key.Menu -> openShelves()
+            else -> return false
+        }
+        return true
+    }
 
-    // The app's key router (KeyLayers) gives a screen focus when it is shown and puts focus back when
-    // an arrow goes nowhere; the classic home registers as "Home", so the shelf home must register
-    // too or the remote and keyboard never reach it. It settles on the current shelf name.
-    val entry = remember { FocusRequester() }
+    // Back from an overlay: the root takes the keyboard again (the router only does when nothing holds focus).
+    var wasCovered by remember { mutableStateOf(false) }
+    LaunchedEffect(browsing) {
+        if (!browsing) {
+            wasCovered = true
+        } else if (wasCovered) {
+            wasCovered = false
+            delay(32)
+            rootFocus.requestFocusLogged()
+        }
+    }
+
+    // ---- The art, after the selection has been still for 250 ms; the previous art stays meanwhile. ----
+    var artCard by remember { mutableStateOf<ShelfCard?>(null) }
+    LaunchedEffect(focusedCard?.stableId()) {
+        val next = focusedCard ?: return@LaunchedEffect
+        if (artCard != null) delay(ShelfMotion.ART_WAIT_MS)
+        artCard = next
+    }
+    // The gallery's slow drift: 30 s one way and back, eased off when the screen wakes.
+    val drift = remember { Animatable(0f) }
+    LaunchedEffect(idle) {
+        if (idle) {
+            while (true) {
+                drift.animateTo(1f, tween(ShelfMotion.DRIFT_MS))
+                drift.animateTo(0f, tween(ShelfMotion.DRIFT_MS))
+            }
+        } else {
+            drift.animateTo(0f, tween(ShelfMotion.WAKE_FADE_MS))
+        }
+    }
+
+    val browseAlpha by animateFloatAsState(
+        targetValue = if (mode == ShelfScreenMode.Browse && !idle) 1f else 0f,
+        animationSpec = tween(
+            when {
+                idle -> ShelfMotion.IDLE_FADE_MS
+                mode == ShelfScreenMode.Shelves -> ShelfMotion.SHELVES_FADE_MS
+                mode == ShelfScreenMode.Info -> ShelfMotion.INFO_FADE_MS
+                else -> ShelfMotion.WAKE_FADE_MS
+            },
+        ),
+        label = "shelfBrowseAlpha",
+    )
+    val galleryAlpha by animateFloatAsState(
+        targetValue = if (idle) 1f else 0f,
+        animationSpec = tween(if (idle) ShelfMotion.IDLE_FADE_MS else ShelfMotion.WAKE_FADE_MS),
+        label = "shelfGalleryAlpha",
+    )
+    val toastAlpha by animateFloatAsState(if (toastShown) 1f else 0f, tween(600), label = "shelfToast")
+
+    // A wheel over the row moves along it, a notch a card.
+    var wheel by remember { mutableStateOf(0f) }
+    var lastPointer by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
 
     ProvideShelfPalette(shelfTheme) {
-    Box(
-        modifier
-            .fillMaxSize()
-            .keyLayer("ShelfHome", active = pickerFor == null && !editorOpen) { entry.requestFocusLogged() }
-            .focusGroup()
-            // Compose Desktop moves focus on Tab only: arrows (and a pad's D-pad, which arrives as arrows) must be
-            // turned into focus moves here, in the bubble phase, after views that use them (Spotlight, Logos).
-            .arrowKeyFocusNavigation()
-            // An Enter nothing used would be read by desktop Compose as "focus the first thing inside" and jump.
-            .onKeyEvent { it.key == Key.Enter || it.key == Key.NumPadEnter }
-            .background(LocalShelfPalette.current.page),
-    ) {
-        // The focused title's backdrop, full-bleed, cross-fading as focus moves.
-        Crossfade(
-            targetState = shown?.backdropUrl(),
-            animationSpec = tween(450),
-            modifier = Modifier.fillMaxSize(),
-        ) { url ->
-            val backdropAlpha = LocalShelfPalette.current.backdropAlpha
-            if (url != null && backdropAlpha > 0f) {
-                NuvioAsyncImage(
-                    model = url,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().alpha(backdropAlpha),
-                )
-            }
-        }
-        // Darkened from the left, where the words are, and along the bottom, where the cards are.
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.horizontalGradient(
-                    0f to LocalShelfPalette.current.scrim.copy(alpha = 0.92f),
-                    0.42f to LocalShelfPalette.current.scrim.copy(alpha = 0.72f),
-                    0.75f to LocalShelfPalette.current.scrim.copy(alpha = 0.25f),
-                    1f to LocalShelfPalette.current.scrim.copy(alpha = 0.35f),
-                ),
-            ),
-        )
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(
-                    0f to LocalShelfPalette.current.scrim.copy(alpha = 0.35f),
-                    0.25f to Color.Transparent,
-                    0.6f to Color.Transparent,
-                    1f to LocalShelfPalette.current.scrim.copy(alpha = 0.9f),
-                ),
-            ),
-        )
+        val palette = LocalShelfPalette.current
+        val ink = palette.ink
+        val accent = palette.accentInk
+        BoxWithConstraints(
+            modifier
+                .fillMaxSize()
+                .background(palette.page)
+                .keyLayer("ShelfHome", active = browsing) { rootFocus.requestFocusLogged() }
+                .focusGroup()
+                .focusRequester(rootFocus)
+                .onPreviewKeyEvent(::onKey)
+                // An Enter nothing used would be read by desktop Compose as "focus the first thing inside" and jump.
+                .onKeyEvent { it.key == Key.Enter || it.key == Key.NumPadEnter }
+                .focusable()
+                // Any real mouse use counts as input; in the gallery it only wakes the screen.
+                .onPointerEvent(PointerEventType.Move, PointerEventPass.Initial) { event ->
+                    val at = event.changes.firstOrNull()?.position ?: return@onPointerEvent
+                    val before = lastPointer
+                    lastPointer = at
+                    // Compose sends a move when the layout under a still pointer changes: only a real move counts.
+                    if (before != null && (abs(at.x - before.x) > 2f || abs(at.y - before.y) > 2f) && browsing) {
+                        if (idle) wake() else noteInput()
+                    }
+                }
+                .onPointerEvent(PointerEventType.Press, PointerEventPass.Initial) { event ->
+                    if (!browsing) return@onPointerEvent
+                    if (idle) {
+                        wake()
+                        event.changes.forEach { it.consume() }
+                    } else {
+                        noteInput()
+                    }
+                    rootFocus.requestFocusLogged()
+                }
+                .onPointerEvent(PointerEventType.Scroll, PointerEventPass.Initial) { event ->
+                    if (!browsing) return@onPointerEvent
+                    if (idle) {
+                        wake()
+                        event.changes.forEach { it.consume() }
+                    } else {
+                        noteInput()
+                    }
+                },
+        ) {
+            val dy = maxHeight - 1080.dp
+            val topShift = (topPadding - 72.dp).coerceIn(0.dp, 40.dp)
+            fun y(v: Int): Dp = (v.dp + dy).coerceAtLeast(0.dp)
 
-        Row(Modifier.fillMaxSize()) {
-            // Left: the slash menu, the focused title and the shelf's cards.
-            Column(
+            // The art, full-bleed, drifting slowly in the gallery.
+            Box(
                 Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .padding(start = 72.dp, top = topPadding.coerceAtMost(96.dp), bottom = 40.dp),
+                    .fillMaxSize()
+                    .clipToBounds()
+                    .graphicsLayer {
+                        val d = drift.value
+                        scaleX = 1f + 0.06f * d
+                        scaleY = 1f + 0.06f * d
+                        translationX = -36.dp.toPx() * d
+                        translationY = -14.dp.toPx() * d
+                    },
             ) {
-                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    model.tabs.forEachIndexed { index, t ->
-                        if (index > 0) Text("/", fontSize = 28.sp, fontWeight = FontWeight.Light, color = LocalShelfPalette.current.accentInk)
-                        TabLabel(
-                            title = t.title,
-                            selected = t.id == tab?.id,
-                            onFocus = { if (t.kind != ShelfTabKind.Library) selectTab(t.id) },
-                            onClick = {
-                                if (t.kind == ShelfTabKind.Library) onOpenLibrary?.invoke() else selectTab(t.id)
+                Crossfade(
+                    targetState = artCard,
+                    animationSpec = tween(ShelfMotion.ART_FADE_MS),
+                    modifier = Modifier.fillMaxSize(),
+                    label = "shelfArt",
+                ) { card -> ShelfArt(card) }
+            }
+
+            // The scrims: from the left, where the words are, and along the bottom, where the row is.
+            Box(
+                Modifier.fillMaxSize().alpha(browseAlpha).background(
+                    Brush.horizontalGradient(
+                        0f to scrimOf(palette, 0.82f),
+                        0.30f to scrimOf(palette, 0.45f),
+                        0.55f to scrimOf(palette, 0f),
+                    ),
+                ),
+            )
+            Box(
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .height(520.dp)
+                    .alpha(browseAlpha)
+                    .background(
+                        Brush.verticalGradient(
+                            0f to scrimOf(palette, 0f),
+                            0.55f to scrimOf(palette, 0.55f),
+                            1f to scrimOf(palette, 0.9f),
+                        ),
+                    ),
+            )
+            // The gallery's own shade under its title line (V2Idle).
+            Box(
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .height(260.dp)
+                    .alpha(galleryAlpha)
+                    .background(Brush.verticalGradient(0f to scrimOf(palette, 0f), 1f to scrimOf(palette, 0.7f))),
+            )
+
+            // ---- Browse ----
+            if (browseAlpha > 0f) {
+                Box(Modifier.fillMaxSize().alpha(browseAlpha)) {
+                    // Breadcrumb: TAB / ROW.
+                    Row(
+                        modifier = Modifier.padding(start = 96.dp, top = 64.dp + topShift),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(18.dp),
+                    ) {
+                        Text(
+                            (tab?.title ?: "").uppercase(),
+                            fontSize = 17.sp,
+                            letterSpacing = 4.76.sp,
+                            color = ink.copy(alpha = 0.8f),
+                            maxLines = 1,
+                        )
+                        if (shelf != null) {
+                            Text("/", fontSize = 17.sp, color = accent, maxLines = 1)
+                            Crossfade(targetState = shelf.title, animationSpec = tween(ShelfMotion.WORDS_FADE_MS), label = "shelfCrumb") { title ->
+                                Text(
+                                    title.uppercase(),
+                                    fontSize = 17.sp,
+                                    letterSpacing = 4.76.sp,
+                                    color = ink,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.widthIn(max = 1200.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    // The focused title's block; its words fade, never slide.
+                    Crossfade(
+                        targetState = ShelfTitleView(focusedCard, viewMode),
+                        animationSpec = tween(ShelfMotion.WORDS_FADE_MS),
+                        modifier = Modifier.padding(start = 96.dp, top = if (viewMode == ShelfViewMode.Logos) y(470) else y(520)),
+                        label = "shelfTitle",
+                    ) { view ->
+                        TitleBlock(view, nowMinute)
+                    }
+
+                    // The row: header and cards, swapped in place on Up/Down.
+                    val rowView = ShelfRowView(
+                        id = rowId,
+                        title = shelf?.title.orEmpty(),
+                        cards = cards,
+                        index = cardIndex,
+                        mode = viewMode,
+                        row = rowIndex,
+                        rows = shelves.size,
+                    )
+                    val rise = with(LocalDensity.current) { 30.dp.roundToPx() }
+                    AnimatedContent(
+                        targetState = rowView,
+                        transitionSpec = {
+                            (fadeIn(tween(ShelfMotion.ROW_HALF_MS, delayMillis = ShelfMotion.ROW_HALF_MS)) +
+                                slideInVertically(tween(ShelfMotion.ROW_HALF_MS, delayMillis = ShelfMotion.ROW_HALF_MS)) { rise }) togetherWith
+                                (fadeOut(tween(ShelfMotion.ROW_HALF_MS)) + slideOutVertically(tween(ShelfMotion.ROW_HALF_MS)) { rise }) using
+                                SizeTransform(clip = false)
+                        },
+                        contentKey = { it.id },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .onPointerEvent(PointerEventType.Scroll) { event ->
+                                if (!browsing || idle) return@onPointerEvent
+                                val delta = event.changes.firstOrNull()?.scrollDelta ?: return@onPointerEvent
+                                wheel += delta.y + delta.x
+                                while (wheel >= 1f) {
+                                    wheel -= 1f
+                                    move(1)
+                                }
+                                while (wheel <= -1f) {
+                                    wheel += 1f
+                                    move(-1)
+                                }
                             },
-                        )
-                    }
-                }
-
-                Spacer(Modifier.weight(1f))
-                TitleBlock(
-                    shelfTitle = shelf?.title.orEmpty(),
-                    count = cards.size,
-                    card = shown,
-                    nowMinute = nowMinute,
-                    height = if (mode == ShelfViewMode.Strip) 330.dp else 250.dp,
-                )
-                Spacer(Modifier.height(24.dp))
-                when (mode) {
-                    ShelfViewMode.Ledger -> ShelfLedgerView(viewState, Modifier.fillMaxWidth().height(540.dp))
-                    ShelfViewMode.Spotlight -> ShelfSpotlightView(viewState, Modifier.fillMaxWidth().height(540.dp))
-                    ShelfViewMode.Wall -> ShelfWallView(viewState, Modifier.fillMaxWidth().height(540.dp))
-                    ShelfViewMode.Logos -> ShelfLogoStripView(viewState, Modifier.fillMaxWidth().height(540.dp))
-                    ShelfViewMode.Strip -> ShelfStripView(viewState, Modifier.fillMaxWidth())
-                }
-            }
-
-            // Right: the clock and the tab's shelves, in a dark panel.
-            Column(
-                Modifier
-                    .width(520.dp)
-                    .fillMaxHeight()
-                    .background(LocalShelfPalette.current.panel)
-                    .padding(start = 36.dp, end = 40.dp, top = (topPadding.coerceAtMost(96.dp) - 12.dp).coerceAtLeast(0.dp), bottom = 32.dp),
-            ) {
-                Clock(nowMinute, Modifier.align(Alignment.End))
-                Spacer(Modifier.height(28.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(
-                        (tab?.title ?: "").uppercase(),
-                        fontSize = 15.sp,
-                        letterSpacing = 4.sp,
-                        color = InkSoft,
-                    )
-                    Text(
-                        "${tab?.shelves?.size ?: 0}",
-                        fontSize = 15.sp,
-                        letterSpacing = 4.sp,
-                        color = InkSoft,
-                    )
-                }
-                Spacer(Modifier.height(14.dp))
-                LazyColumn(Modifier.fillMaxSize()) {
-                    val shelves = tab?.shelves.orEmpty()
-                    itemsIndexed(shelves, key = { _, s -> s.key }) { index, s ->
-                        val isCurrent = s.key == shelf?.key
-                        ShelfName(
-                            title = s.title,
-                            selected = isCurrent,
-                            last = index == shelves.lastIndex,
-                            modifier = if (isCurrent) Modifier.focusRequester(entry) else Modifier,
-                            onFocus = { selectShelf(s.key) },
-                            onMenu = { pickerFor = s },
-                        )
-                    }
-                    if (tab?.kind == ShelfTabKind.Home) {
-                        item(key = "new-mix") {
-                            ShelfName(
-                                title = "+ New shelf",
-                                selected = false,
-                                last = true,
-                                onFocus = {},
-                                onMenu = {},
-                                onClick = {
-                                    editing = null
-                                    editorOpen = true
-                                },
+                        label = "shelfRow",
+                    ) { view ->
+                        Crossfade(targetState = view.mode, animationSpec = tween(ShelfMotion.WORDS_FADE_MS), label = "shelfRowMode") { rowMode ->
+                            RowArea(
+                                view = view,
+                                rowMode = rowMode,
+                                top = ::y,
+                                onClickCard = ::clickCard,
+                                onSecondaryClickCard = { i -> view.cards.getOrNull(i)?.let(::longPress) },
                             )
                         }
                     }
-                    if (shelves.isEmpty()) {
-                        item {
-                            Text("Nothing here yet", fontSize = 22.sp, color = InkDim, modifier = Modifier.padding(vertical = 14.dp))
+
+                    // The next row's name, bottom left.
+                    val next = shelves.getOrNull(rowIndex + 1)?.title?.uppercase()
+                        ?: "END OF ${(tab?.title ?: "Home").uppercase()}"
+                    Row(
+                        modifier = Modifier.align(Alignment.BottomStart).padding(start = 96.dp, bottom = 34.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, tint = ink.copy(alpha = 0.45f), modifier = Modifier.size(16.dp))
+                        Crossfade(targetState = next, animationSpec = tween(ShelfMotion.WORDS_FADE_MS), label = "shelfNext") { name ->
+                            Text(name, fontSize = 14.sp, letterSpacing = 3.64.sp, color = ink.copy(alpha = 0.45f), maxLines = 1)
                         }
                     }
                 }
             }
-        }
 
-        // "View <shelf> as": Menu, V, a long press or a right-click on a shelf name opens it.
-        pickerFor?.let { target ->
-            ShelfViewPicker(
-                shelfTitle = target.title,
-                current = ShelfPresentationRepository.resolve(viewOverrides, target.key, target.title),
-                isDefault = ShelfPresentationRepository.isDefault(target.key),
-                onPick = { picked ->
-                    ShelfPresentationRepository.set(target.key, picked)
-                    pickerFor = null
-                },
-                onReset = {
-                    ShelfPresentationRepository.set(target.key, null)
-                    pickerFor = null
-                },
-                onDismiss = { pickerFor = null },
-                onEdit = (target.source as? ShelfSource.Mix)?.let { src ->
-                    {
-                        pickerFor = null
-                        editing = ShelfMixRepository.mix(src.mixId)
+            // ---- The gallery's line, bottom left, and its clock, bottom right ----
+            if (galleryAlpha > 0f) {
+                Crossfade(
+                    targetState = focusedCard,
+                    animationSpec = tween(ShelfMotion.ART_FADE_MS),
+                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 96.dp, bottom = 72.dp).alpha(galleryAlpha),
+                    label = "shelfGalleryLine",
+                ) { card ->
+                    if (card != null) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+                            Text(
+                                card.title(),
+                                fontSize = 30.sp,
+                                fontWeight = FontWeight.Light,
+                                color = ink,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.alignByBaseline().widthIn(max = 1100.dp),
+                            )
+                            Text(
+                                ShelfFrameRules.yearLength(card),
+                                fontSize = 15.sp,
+                                letterSpacing = 4.2.sp,
+                                color = ink.copy(alpha = 0.7f),
+                                maxLines = 1,
+                                modifier = Modifier.alignByBaseline(),
+                            )
+                        }
+                    }
+                }
+                ShelfClock(
+                    nowMinute = nowMinute,
+                    hourSize = 40,
+                    minuteSize = 30,
+                    color = ink.copy(alpha = 0.9f),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 96.dp, bottom = 66.dp).alpha(galleryAlpha),
+                )
+            }
+
+            // ---- The clock, top right, in every mode but the gallery ----
+            ShelfClock(
+                nowMinute = nowMinute,
+                hourSize = 44,
+                minuteSize = 34,
+                color = ink,
+                modifier = Modifier.align(Alignment.TopEnd).padding(end = 96.dp, top = 52.dp + topShift).alpha(1f - galleryAlpha),
+            )
+
+            // ---- Shelves: Up on the first row, Menu, or Back on a row's first card ----
+            androidx.compose.animation.AnimatedVisibility(
+                visible = mode == ShelfScreenMode.Shelves,
+                enter = fadeIn(tween(ShelfMotion.SHELVES_FADE_MS)),
+                exit = fadeOut(tween(ShelfMotion.SHELVES_FADE_MS)),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                ShelfShelvesOverlay(
+                    model = model,
+                    currentTabId = tab?.id ?: ShelfHomeRules.HOME_TAB,
+                    currentShelfKey = shelf?.key,
+                    previewFor = previewFor,
+                    onPick = { pickedTab, pickedShelf ->
+                        if (pickedTab == ShelfHomeRules.LIBRARY_TAB) {
+                            mode = ShelfScreenMode.Browse
+                            onOpenLibrary?.invoke()
+                        } else {
+                            go(pickedTab, pickedShelf)
+                            mode = ShelfScreenMode.Browse
+                        }
+                    },
+                    onOpenLibrary = onOpenLibrary?.let { open ->
+                        {
+                            mode = ShelfScreenMode.Browse
+                            open()
+                        }
+                    },
+                    onViewAs = { s -> pickerFor = s },
+                    onNewShelf = {
+                        editing = null
                         editorOpen = true
-                    }
-                },
-            )
-        }
+                    },
+                    onDismiss = { mode = ShelfScreenMode.Browse },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
 
-        // The shelf builder ("+ New shelf" at the end of Home's list, or "Edit this shelf" in the picker).
-        if (editorOpen) {
-            val rows = model.tab(ShelfHomeRules.HOME_TAB)?.shelves.orEmpty()
-                .mapNotNull { s -> (s.source as? ShelfSource.Catalog)?.let { it.sectionKey to s.title } }
-            val editingNow = editing
-            ShelfMixEditor(
-                existing = editingNow,
-                availableRows = rows,
-                onSave = { m ->
-                    ShelfMixRepository.save(if (m.id.isEmpty()) m.copy(id = ShelfMixRepository.newId()) else m)
-                    editorOpen = false
-                },
-                onDelete = editingNow?.let { e ->
-                    {
-                        ShelfMixRepository.delete(e.id)
+            // ---- Info: I or hold OK ----
+            androidx.compose.animation.AnimatedVisibility(
+                visible = mode == ShelfScreenMode.Info && infoCard != null,
+                enter = fadeIn(tween(ShelfMotion.INFO_FADE_MS)),
+                exit = fadeOut(tween(ShelfMotion.INFO_FADE_MS)),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                val card = infoCard
+                if (card != null) {
+                    ShelfInfoOverlay(
+                        card = card,
+                        rowTitle = shelf?.title.orEmpty(),
+                        nowMinute = nowMinute,
+                        actions = infoActions,
+                        onDismiss = { mode = ShelfScreenMode.Browse },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+
+            // ---- "View this row as Logos" ----
+            if (toastAlpha > 0f) {
+                Box(
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .offset(y = maxHeight * 0.48f - 40.dp)
+                        .alpha(toastAlpha)
+                        .background(Color(0xDB0A0A0C))
+                        .border(1.dp, Color.White.copy(alpha = 0.2f))
+                        .padding(horizontal = 40.dp, vertical = 22.dp),
+                ) {
+                    Text(toast, fontSize = 26.sp, color = Color.White, maxLines = 1)
+                }
+            }
+
+            // ---- "View <shelf> as": from the Shelves overlay's Menu ----
+            pickerFor?.let { target ->
+                ShelfViewPicker(
+                    shelfTitle = target.title,
+                    current = ShelfPresentationRepository.resolve(viewOverrides, target.key, target.title),
+                    isDefault = ShelfPresentationRepository.isDefault(target.key),
+                    onPick = { picked ->
+                        ShelfPresentationRepository.set(target.key, picked)
+                        pickerFor = null
+                    },
+                    onReset = {
+                        ShelfPresentationRepository.set(target.key, null)
+                        pickerFor = null
+                    },
+                    onDismiss = { pickerFor = null },
+                    onEdit = (target.source as? ShelfSource.Mix)?.let { src ->
+                        {
+                            pickerFor = null
+                            editing = ShelfMixRepository.mix(src.mixId)
+                            editorOpen = true
+                        }
+                    },
+                )
+            }
+
+            // ---- The shelf builder ("+ New shelf" in Shelves, or "Edit this shelf" in the picker) ----
+            if (editorOpen) {
+                val rows = model.tab(ShelfHomeRules.HOME_TAB)?.shelves.orEmpty()
+                    .mapNotNull { s -> (s.source as? ShelfSource.Catalog)?.let { it.sectionKey to s.title } }
+                val editingNow = editing
+                ShelfMixEditor(
+                    existing = editingNow,
+                    availableRows = rows,
+                    onSave = { m ->
+                        ShelfMixRepository.save(if (m.id.isEmpty()) m.copy(id = ShelfMixRepository.newId()) else m)
                         editorOpen = false
-                    }
-                },
-                onDismiss = { editorOpen = false },
-            )
+                    },
+                    onDelete = editingNow?.let { e ->
+                        {
+                            ShelfMixRepository.delete(e.id)
+                            editorOpen = false
+                        }
+                    },
+                    onDismiss = { editorOpen = false },
+                )
+            }
         }
-    }
     }
 }
 
-/** The mockups' clock: the hour heavy, the minutes light. */
+/** The keys Browse uses, so their releases are taken too. */
+private val BrowseKeys = setOf(
+    Key.DirectionLeft, Key.DirectionRight, Key.DirectionUp, Key.DirectionDown,
+    Key.I, Key.V, Key.Menu,
+)
+
+private fun scrimOf(palette: ShelfPalette, alpha: Float): Color =
+    // Dark uses the mockups' near-black; Paper keeps its own page colour.
+    (if (palette.backdropAlpha > 0f) MockScrim else palette.scrim).copy(alpha = alpha)
+
+/**
+ * One card's art: its fan-art over its own poster enlarged and blurred, so a missing or failed
+ * backdrop still leaves a picture (never black). Nothing at all (no poster either): a soft accent wash.
+ */
 @Composable
-private fun Clock(nowMinute: Int, modifier: Modifier = Modifier) {
+private fun ShelfArt(card: ShelfCard?) {
+    val palette = LocalShelfPalette.current
+    if (palette.backdropAlpha <= 0f) return
+    Box(Modifier.fillMaxSize().alpha(palette.backdropAlpha)) {
+        val poster = card?.posterUrl()
+        val fanart = card?.fanartUrl()
+        if (poster != null) {
+            NuvioAsyncImage(
+                model = poster,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = 1.25f
+                        scaleY = 1.25f
+                    }
+                    .blur(40.dp, BlurredEdgeTreatment.Rectangle),
+            )
+        } else if (fanart == null) {
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.linearGradient(listOf(palette.accent.copy(alpha = 0.35f), palette.page)),
+                ),
+            )
+        }
+        if (fanart != null) {
+            NuvioAsyncImage(
+                model = fanart,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+/** The mockups' clock: the hour SemiBold, the minutes Light (Tonight's 12-hour setting respected). */
+@Composable
+private fun ShelfClock(nowMinute: Int, hourSize: Int, minuteSize: Int, color: Color, modifier: Modifier = Modifier) {
     val label = clockLabel(nowMinute)
     val hour = label.substringBefore(':')
     val rest = label.substringAfter(':', "")
-    Row(modifier, verticalAlignment = Alignment.Bottom) {
-        Text(hour, fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, color = Ink, maxLines = 1)
-        Spacer(Modifier.width(6.dp))
-        Text(rest, fontSize = 46.sp, fontWeight = FontWeight.Light, color = Ink, maxLines = 1)
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(hour, fontSize = hourSize.sp, lineHeight = hourSize.sp, fontWeight = FontWeight.SemiBold, color = color, maxLines = 1, modifier = Modifier.alignByBaseline())
+        Text(rest, fontSize = minuteSize.sp, lineHeight = minuteSize.sp, fontWeight = FontWeight.Light, color = color, maxLines = 1, modifier = Modifier.alignByBaseline())
     }
 }
 
 /**
- * The focused title in type, after the mockups' Ledger and Kodi's list view:
- *   CONTINUE WATCHING · 6
- *   Black Mirror / S4 E1 / 1h 16m left
- *   USS CALLISTER
- *   ends 8:41 PM
- *   two lines of description
- * Fixed height, so the cards below never move as focus changes.
+ * The focused title's block (V2Browse; Logos: V2Logos). Every line has a fixed height and is drawn
+ * even when empty, so no line ever moves when the card changes.
  */
 @Composable
-private fun TitleBlock(shelfTitle: String, count: Int, card: ShelfCard?, nowMinute: Int, height: Dp = 330.dp) {
-    val accent = LocalShelfPalette.current.accentInk
-    val title: String
-    val parts: List<String>
-    val credit: String
-    val minutes: Int?
-    val minutesAreLeft: Boolean
-    val about: String?
-    when (card) {
-        is ShelfCard.Meta -> {
-            val item = card.item
-            val length = ShelfTime.runtimeMinutes(item.runtime)
-            title = item.name
-            parts = listOfNotNull(
-                item.releaseInfo?.takeIf { it.isNotBlank() }?.take(4),
-                length?.let { ShelfTime.length(it) },
-            )
-            credit = listOfNotNull(
-                item.genres.take(3).takeIf { it.isNotEmpty() }?.joinToString(" / "),
-                item.imdbRating?.takeIf { it.isNotBlank() }?.let { "IMDb $it" },
-                item.ageRating?.takeIf { it.isNotBlank() },
-            ).joinToString("  ·  ")
-            minutes = length
-            minutesAreLeft = false
-            about = item.description
-        }
-        is ShelfCard.Progress -> {
-            val item = card.item
-            val left = ShelfTime.minutesLeft(item.durationMs, item.resumePositionMs)
-            title = item.title
-            val episode = if (item.seasonNumber != null && item.episodeNumber != null) {
-                "S${item.seasonNumber} E${item.episodeNumber}"
-            } else {
-                null
-            }
-            parts = listOfNotNull(episode, left?.takeIf { item.progressFraction > 0f }?.let { "${ShelfTime.length(it)} left" })
-            credit = item.episodeTitle?.takeIf { it.isNotBlank() } ?: item.subtitle.takeIf { episode == null }.orEmpty()
-            minutes = left
-            minutesAreLeft = true
-            about = item.pauseDescription
-        }
-        is ShelfCard.Folder -> {
-            title = card.folder.title
-            parts = emptyList()
-            credit = ""
-            minutes = null
-            minutesAreLeft = false
-            about = null
-        }
-        null -> {
-            title = ""
-            parts = emptyList()
-            credit = ""
-            minutes = null
-            minutesAreLeft = false
-            about = null
-        }
-    }
-    Column(Modifier.height(height).padding(end = 40.dp), verticalArrangement = Arrangement.Bottom) {
-        Text(
-            buildString {
-                append(shelfTitle.uppercase())
-                if (count > 0) append("  ·  $count")
-            },
-            fontSize = 16.sp,
-            letterSpacing = 4.sp,
-            color = InkSoft,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.height(14.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
+private fun TitleBlock(view: ShelfTitleView, nowMinute: Int) {
+    val ink = LocalShelfPalette.current.ink
+    val card = view.card
+    val facts = card?.let(ShelfFrameRules::facts).orEmpty()
+    val ends = card?.let { ShelfFrameRules.ends(it, nowMinute) { m -> clockLabel(m) } }
+    Column(Modifier.width(if (view.mode == ShelfViewMode.Logos) 900.dp else 1000.dp)) {
+        if (view.mode == ShelfViewMode.Logos) {
+            ShelfTitleLogo(card = card, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(16.dp))
+        } else {
             Text(
-                title,
-                fontSize = 68.sp,
+                card?.title().orEmpty(),
+                fontSize = 84.sp,
+                lineHeight = 88.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = Ink,
+                letterSpacing = (-1.68).sp,
+                color = ink,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
+                modifier = Modifier.height(92.dp),
             )
-            for (part in parts) {
-                Text("  /  ", fontSize = 34.sp, color = accent, maxLines = 1, modifier = Modifier.padding(bottom = 8.dp))
-                Text(part.uppercase(), fontSize = 34.sp, fontWeight = FontWeight.SemiBold, color = Ink, maxLines = 1, modifier = Modifier.padding(bottom = 8.dp))
-            }
+            Spacer(Modifier.height(18.dp))
         }
-        if (credit.isNotBlank()) {
-            Spacer(Modifier.height(10.dp))
-            Text(credit.uppercase(), fontSize = 19.sp, letterSpacing = 3.sp, color = InkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        if (minutes != null) {
-            Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(if (minutesAreLeft) "finish by " else "starts now, ends ", fontSize = 22.sp, fontWeight = FontWeight.Light, color = InkSoft)
-                Text(clockLabel(ShelfTime.endsAt(nowMinute, minutes)), fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = Ink)
-            }
-        }
-        if (!about.isNullOrBlank()) {
+        Text(
+            facts,
+            fontSize = 19.sp,
+            letterSpacing = 4.56.sp,
+            color = ink.copy(alpha = 0.85f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.height(28.dp),
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            buildAnnotatedString {
+                if (ends != null) {
+                    append(ends.first)
+                    append(' ')
+                    withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = ink)) { append(ends.second) }
+                }
+            },
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Light,
+            color = ink.copy(alpha = 0.85f),
+            maxLines = 1,
+            modifier = Modifier.height(32.dp),
+        )
+        if (view.mode == ShelfViewMode.Posters) {
             Spacer(Modifier.height(12.dp))
             Text(
-                about,
+                card?.let(ShelfFrameRules::description).orEmpty(),
                 fontSize = 19.sp,
                 fontWeight = FontWeight.Light,
                 lineHeight = 28.sp,
-                color = InkSoft,
-                maxLines = 2,
+                color = ink.copy(alpha = 0.72f),
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 1000.dp),
+                modifier = Modifier.widthIn(max = 880.dp).height(30.dp),
             )
         }
     }
 }
 
+/** The row header and the cards: Posters at 790 / 826 (V2Browse), Logos at 840 / 880 (V2Logos). */
 @Composable
-private fun TabLabel(
-    title: String,
-    selected: Boolean,
-    onFocus: () -> Unit,
-    onClick: () -> Unit,
+private fun RowArea(
+    view: ShelfRowView,
+    rowMode: ShelfViewMode,
+    top: (Int) -> Dp,
+    onClickCard: (Int) -> Unit,
+    onSecondaryClickCard: (Int) -> Unit,
 ) {
-    val source = remember { MutableInteractionSource() }
-    val focused by source.collectIsFocusedAsState()
-    val accent = LocalShelfPalette.current.accentInk
-    Text(
-        text = title,
-        fontSize = 28.sp,
-        fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Light,
-        color = when {
-            focused -> accent
-            selected -> Ink
-            else -> InkSoft
-        },
-        maxLines = 1,
-        modifier = Modifier
-            .onFocusChanged { if (it.isFocused) onFocus() }
-            .clickable(interactionSource = source, indication = null, onClick = onClick),
-    )
-}
-
-/** A row of the right panel, as in Kodi's list view: the focused row filled with the accent. */
-@OptIn(ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
-@Composable
-private fun ShelfName(
-    title: String,
-    selected: Boolean,
-    last: Boolean,
-    modifier: Modifier = Modifier,
-    onFocus: () -> Unit,
-    onMenu: () -> Unit,
-    onClick: () -> Unit = onFocus,
-) {
-    val source = remember { MutableInteractionSource() }
-    val focused by source.collectIsFocusedAsState()
-    val colors = MaterialTheme.nuvio.colors
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(58.dp)
-            .onFocusChanged { if (it.isFocused) onFocus() }
-            .onKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-                when (event.key) {
-                    Key.Menu, Key.V -> { onMenu(); true }
-                    else -> false
-                }
-            }
-            .onPointerEvent(PointerEventType.Press) { event ->
-                if (event.buttons.isSecondaryPressed) onMenu()
-            }
-            .combinedClickable(interactionSource = source, indication = null, onClick = onClick, onLongClick = onMenu)
-            .background(if (focused) LocalShelfPalette.current.focusFill else Color.Transparent),
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        Text(
-            text = title,
-            fontSize = 24.sp,
-            fontWeight = if (selected || focused) FontWeight.SemiBold else FontWeight.Light,
-            color = when {
-                focused -> LocalShelfPalette.current.focusText
-                selected -> Ink
-                else -> InkSoft
-            },
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
-        if (!last && !focused) {
-            Box(
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(LocalShelfPalette.current.divider),
+    val ink = LocalShelfPalette.current.ink
+    val logos = rowMode == ShelfViewMode.Logos
+    Box(Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 96.dp, end = 96.dp, top = top(if (logos) 840 else 790)),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                view.title.uppercase() + if (logos) " · VIEW AS LOGOS" else "",
+                fontSize = 15.sp,
+                letterSpacing = 4.2.sp,
+                color = ink.copy(alpha = 0.75f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.alignByBaseline().weight(1f, fill = false),
+            )
+            Spacer(Modifier.width(32.dp))
+            Text(
+                if (logos) ShelfFrameRules.count(view.index, view.cards.size)
+                else ShelfFrameRules.position(view.index, view.cards.size, view.row, view.rows),
+                fontSize = 15.sp,
+                letterSpacing = 4.2.sp,
+                color = ink.copy(alpha = 0.55f),
+                maxLines = 1,
+                modifier = Modifier.alignByBaseline(),
             )
         }
-        if (selected && !focused) {
-            Box(
+        when {
+            view.cards.isEmpty() -> Box(
                 Modifier
-                    .align(Alignment.CenterStart)
-                    .width(4.dp)
-                    .height(30.dp)
-                    .background(LocalShelfPalette.current.accent),
-            )
-        }
-    }
-}
-
-/**
- * The Strip view: the classic home's own cards in a row. A mouse wheel turns the row sideways (a
- * plain wheel does nothing on a horizontal list).
- */
-@OptIn(ExperimentalComposeUiApi::class)
-@Composable
-private fun ShelfStripView(state: ShelfViewState, modifier: Modifier = Modifier) {
-    val rowState = rememberLazyListState()
-    LaunchedEffect(state.shelfKey) { runCatching { rowState.scrollToItem(0) } }
-    val nearEnd by rememberUpdatedState(state.onNearEnd)
-    LaunchedEffect(rowState, state.shelfKey) {
-        snapshotFlow { rowState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
-            .collect { last -> if (last >= 0) nearEnd(last) }
-    }
-    val wheelScope = rememberCoroutineScope()
-    LazyRow(
-        state = rowState,
-        horizontalArrangement = Arrangement.spacedBy(18.dp),
-        contentPadding = PaddingValues(end = 40.dp, top = 6.dp, bottom = 6.dp),
-        modifier = modifier.onPointerEvent(PointerEventType.Scroll) { event ->
-            val delta = event.changes.firstOrNull()?.scrollDelta ?: return@onPointerEvent
-            val by = (delta.y + delta.x) * 90f
-            if (by != 0f) wheelScope.launch { rowState.scrollBy(by) }
-        },
-    ) {
-        itemsIndexed(state.cards, key = { index, _ -> "${state.shelfKey}:$index" }) { _, card ->
-            val focusModifier = Modifier.onFocusChanged { if (it.hasFocus) state.onFocusCard(card) }
-            val longPress = state.onLongPress?.let { { it(card) } }
-            when (card) {
-                is ShelfCard.Meta -> HomePosterCard(
-                    item = card.item,
-                    modifier = focusModifier,
-                    onClick = { state.onOpen(card) },
-                    onLongClick = longPress,
-                )
-                is ShelfCard.Progress -> NuvioPosterCard(
-                    title = card.item.title,
-                    imageUrl = card.item.customLandscape ?: card.item.episodeThumbnail
-                        ?: card.item.background ?: card.item.imageUrl,
-                    fallbackImageUrl = card.item.poster,
-                    shape = NuvioPosterShape.Landscape,
-                    detailLine = card.item.subtitle,
-                    modifier = focusModifier,
-                    onClick = { state.onOpen(card) },
-                    onLongClick = longPress,
-                )
-                is ShelfCard.Folder -> NuvioPosterCard(
-                    title = card.folder.title,
-                    imageUrl = card.folder.coverImageUrl,
-                    shape = NuvioPosterShape.Poster,
-                    showTitleBelow = !card.folder.hideTitle,
-                    modifier = focusModifier,
-                    onClick = { state.onOpen(card) },
-                )
+                    .padding(start = 96.dp, top = top(if (logos) 880 else 826))
+                    .height(if (logos) 110.dp else ShelfPosterRowRules.CARD_H.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Text("Loading…", fontSize = 18.sp, fontWeight = FontWeight.Light, color = ink.copy(alpha = 0.55f), maxLines = 1)
             }
+            logos -> ShelfLogoRow(
+                cards = view.cards,
+                focusedIndex = view.index,
+                onClickCard = onClickCard,
+                modifier = Modifier.padding(start = 96.dp, end = 96.dp, top = top(880)),
+            )
+            else -> ShelfPosterRow(
+                cards = view.cards,
+                focusedIndex = view.index,
+                onClickCard = onClickCard,
+                onSecondaryClickCard = onSecondaryClickCard,
+                // The row's own padding keeps the focused card's outline clear of its edges.
+                modifier = Modifier.padding(
+                    start = (96 - ShelfPosterRowRules.RING_ROOM).dp,
+                    top = top(826) - ShelfPosterRowRules.RING_ROOM.dp,
+                ),
+            )
         }
     }
 }

@@ -1062,34 +1062,21 @@ Upstream's windows-tv-adaptive (56d7c587) merged into Spyder. Its new things, an
 - [ ] With Shelf home on, Search, Library and Discover still open their classic pages
 - [ ] Settings search for "shelf" finds the Shelf home switch
 - [ ] Shelf home is remembered per profile: on for one profile, off for another after switching
-- [ ] (must) With Shelf home on, Home's shelf names in the right-hand panel are in the same order as the classic home's rows (custom row names kept, hidden rows missing)
+- [ ] (must) With Shelf home on, the Shelves overlay (Up on the first row) lists Home's rows in the same order as the classic home's rows (custom row names kept, hidden rows missing)
 - [ ] A collection pinned to the top shows as its own tab with one shelf per folder; an unpinned one is a single shelf on Home
 - [ ] Continue watching (and Up next / Upcoming when they are separate rows) lead Home's shelves when they have something
 - [ ] **BROKEN** (must) With the remote or a controller: moving up and down the shelf names shows each shelf's cards along the bottom; Left goes into the cards, Right comes back to the names (2026-11-26): no keyboard or D-pad focus at all, only the mouse
   - [ ] **BROKEN** (must) Re-check after the fix: opening Home with Shelf home on, the current shelf name is highlighted and the arrows, D-pad and controller move it without touching the mouse (2026-11-26): still no keyboard navigation on the new screens
     - [ ] (must) Re-check after the second fix: the arrow keys, D-pad and controller move between the shelf names, into the cards (Left), back (Right) and up to the slash menu, in every view
+      - [ ] (must) Re-check on the fan-art design: with only the remote, keyboard or controller, Left/Right move along the row, Up/Down change row, Up on the first row opens Shelves, and nothing needs the mouse
 - [ ] The mouse wheel over the cards scrolls them sideways
-- [ ] (must) Pressing Menu or V (or holding OK, or right-clicking) on a shelf name opens "View <shelf> as" with Strip, Ledger and Spotlight; the current one is ticked, and picking one switches the shelf at once
 - [ ] A shelf's chosen view is still there after restarting Nuvio; "Use the default" puts it back; each profile keeps its own choices
-- [ ] Back or Escape closes the view picker and focus returns to the same shelf name; Up/Down never leave the picker
-- [ ] Continue watching and a "Top 10" or "Top 100" shelf open as Ledger without choosing it
-- [ ] Ledger: a big-type list with no artwork; the focused row has an accent bar and accent title and nothing moves or resizes
-- [ ] Ledger: a film row shows its length and end time on the right ("1h 49m · 21:16"); a Continue watching row shows "1h 16m left · 20:41"; a Top 10 shelf numbers its rows
-- [ ] Ledger: OK opens the focused title; scrolling to the bottom of a long catalog loads more; switching shelf starts back at the top
-- [ ] (must) Spotlight: one big poster with smaller ones either side; Left/Right slide the posters past while the big one stays in the same place
-- [ ] Spotlight: Right on the last poster moves to the shelf names; Left on the first poster stays put; OK opens the big poster; clicking a small poster makes it the big one; the mouse wheel moves one poster per notch
-- [ ] Spotlight: the backdrop and title block follow the big poster; the accent ring shows only while the posters have focus; Top 10 shelves show the rank on the big poster
 - [ ] (must) On a pinned collection's tab (Spotlight, Genres...), a folder shelf shows that folder's titles within a few seconds, not just the folder card
 - [ ] A long folder shelf loads more titles at its end, and the cards already showing do not move
 - [ ] Switching to another folder shelf and back shows the titles at once; the classic folder page still works after using the shelf
 - [ ] A folder whose addon is missing still shows the folder card rather than an empty shelf
 - [ ] Long-pressing a Continue watching card on the shelf home opens the same menu as on the classic home
-- [ ] The view picker now offers Wall and Logos too; a streaming service or network row (Netflix, Disney+, BBC...) starts as Logos
-- [ ] (must) Wall: a grid of posters about 8 across with a title under each; the focused poster gets an accent ring and brightens, and nothing moves or resizes
-- [ ] Wall: Down scrolls the grid and more titles load at the end; Right from the last column reaches the shelf names; OK opens, a long press opens the menu
-- [ ] (must) Logos: the focused title's logo big with an underline, smaller faded logos either side; Left/Right slide them past a fixed spot
-- [ ] Logos: a title with no logo shows its name in big capitals in the same space; under the strip "year · genres" (Continue watching "S4 E1"); the underline turns accent while the strip has focus
-- [ ] (must) Home's shelf list ends with "+ New shelf": it opens the shelf builder; name it "The Hang", tick two rows, choose 100 min, Hide watched, Save: the shelf appears after Continue watching with titles from both rows alternating
+- [ ] (must) the Shelves overlay's YOURS column ends with "+ New shelf": it opens the shelf builder; name it "The Hang", tick two rows, choose 100 min, Hide watched, Save: the shelf appears after Continue watching with titles from both rows alternating
 - [ ] The Hang shows nothing over 100 minutes and nothing watched; with "Must finish before bedtime" on, late in the evening nothing ends after bedtime
 - [ ] A built shelf with few matches loads more pages by itself, then stops (no endless loading)
 - [ ] In the shelf builder the remote reaches every control, the home behind never takes focus, and Back closes without saving
@@ -1106,9 +1093,58 @@ Upstream's windows-tv-adaptive (56d7c587) merged into Spyder. Its new things, an
 - [ ] Scrolling to the end of a long catalog shelf (e.g. Trending) loads more titles
 - [ ] Leaving Home and coming back lands on the same tab and shelf
 
+
+## Shelf home, fan-art first (Nov 26, night)
+
+The shelf home rebuilt to the v2 mockups (canvas "Nuvio home — Kodi-style mockups", page "v2 · Fan-art first", and its interactive prototype). Guesses made while Nick was away are marked GUESS: say if one is wrong.
+
+- [ ] (must) No panel anywhere: the focused title's fan-art fills the screen, darkened only on the left and along the bottom; the words sit lower left, the clock top right, "HOME / ROW NAME" top left
+- [ ] Left/Right move along the row: the art cross-fades to each title (holding the key, it waits until you stop); the title, facts line ("1999 · ANIMATION / FAMILY · 1H 26M · IMDB 8.1"), "Starts now, ends 21:23" and one line of story change in place without moving
+- [ ] (must) Up/Down swap the whole row in place: the old row slides down and fades, the new one rises; coming back to a row lands on the card you left; the line bottom-left names the next row
+- [ ] The row header reads "9 OF 50 · ROW 7 OF 85"; the focused poster is bigger with a white outline and its name inside; the first and last posters are never cut off
+- [ ] A title with no fan-art shows its poster enlarged and blurred instead, never a black screen
+- [ ] OK plays or resumes the focused card, as before (a folder card opens the folder)
+- [ ] (must) Up on the first row, or Menu, or Back on the row's first card opens Shelves: the art dims, the tabs run across the top and the rows sit in four columns, YOURS / FOR YOU / CHARTS / CATALOGS, with a preview of the focused row's posters at the bottom
+- [ ] Shelves: arrows move between and within the columns; OK on a row clears the screen back to that row; Back closes it; Up from a column reaches the tabs, Left/Right switch tab, OK on Library opens the Library
+- [ ] Shelves: with more than 8 catalog rows, CATALOGS shows letter ranges (A – C, D – F…); OK opens a range in place with "‹ All catalogs" at the top, and Back closes it first
+- [ ] Shelves: a long column shows "N more" at the bottom and scrolls as you go down it (GUESS: 7 rows plus "N more")
+- [ ] Shelves: Menu or V on a row opens "View as" Posters / Logos; on a built shelf it also offers "Edit this shelf"
+- [ ] (must) V in Browse switches the row between Posters and Logos, with a short "View this row as Logos" message; the choice is kept per row after a restart (GUESS: V here no longer opens Live TV)
+- [ ] Logos: the title's clearlogo stands in for its name in big, facts and end time below it, and a row of logos along the bottom, the focused one bright with a white bar under it; a title with no logo shows its name in heavy capitals in the same place
+- [ ] A row you had set to Ledger, Spotlight, Wall or Strip opens as Posters; a Netflix, Disney+ or other service row starts as Logos
+- [ ] (must) I, or holding OK, opens Info: the row drops away and the full story, director, scores, cast and Play / Trailer / More like this / Add to list rise in its place; Back (or I) returns to the same card
+- [ ] Info: Play on a film starts it (resuming where you left off); on a show it opens the show's page (GUESS: a show needs an episode picked)
+- [ ] Info: Trailer plays the trailer full screen (the message says "Opening the trailer…"); a title with no trailer says so
+- [ ] Info: More like this opens the details page; Add to list adds the title and the button then reads "In your list" (pressing it again takes it out, GUESS)
+- [ ] Info: nothing on the page jumps when the director and cast arrive a moment later; CRITICS and AUDIENCE only show for titles whose details page was opened with MDBList set up
+- [ ] (must) Leave the home untouched for 12 s: everything fades except the title lower left and the clock, which moves to the bottom right; the art drifts slowly and moves to the next title every 20 s
+- [ ] Any key wakes the gallery without doing anything else, and the row is on the title the gallery had reached (GUESS)
+- [ ] The mouse: clicking a poster focuses it, clicking it again opens it, the wheel moves along the row, right-click opens the long-press menu
+- [ ] The app's top bar can no longer be reached with Up on this screen (Up on the first row is Shelves); its shortcuts and the mouse still work (GUESS: say if Up should reach it instead)
+- [ ] Paper look: the fan-art screens are readable on paper (no backdrop, as before)
+
 # Archived (not testing)
 
 Set aside on 2026-11-22 (Nick): upstream merge checks for upstream's own features, and the old Live TV views that Stage replaced. Kept for the record; the phone's Checks tab asks nothing below this heading. To test one again, move it back up.
+
+## Shelf home, first design (replaced Nov 26)
+
+Set aside by Claude on 2026-11-26 (night): the panel, Ledger, Spotlight and Wall views these check were removed by the fan-art design. Move a line back up if Nick wants it.
+
+- [ ] (must) Pressing Menu or V (or holding OK, or right-clicking) on a shelf name opens "View <shelf> as" with Strip, Ledger and Spotlight; the current one is ticked, and picking one switches the shelf at once
+- [ ] Back or Escape closes the view picker and focus returns to the same shelf name; Up/Down never leave the picker
+- [ ] Continue watching and a "Top 10" or "Top 100" shelf open as Ledger without choosing it
+- [ ] Ledger: a big-type list with no artwork; the focused row has an accent bar and accent title and nothing moves or resizes
+- [ ] Ledger: a film row shows its length and end time on the right ("1h 49m · 21:16"); a Continue watching row shows "1h 16m left · 20:41"; a Top 10 shelf numbers its rows
+- [ ] Ledger: OK opens the focused title; scrolling to the bottom of a long catalog loads more; switching shelf starts back at the top
+- [ ] (must) Spotlight: one big poster with smaller ones either side; Left/Right slide the posters past while the big one stays in the same place
+- [ ] Spotlight: Right on the last poster moves to the shelf names; Left on the first poster stays put; OK opens the big poster; clicking a small poster makes it the big one; the mouse wheel moves one poster per notch
+- [ ] Spotlight: the backdrop and title block follow the big poster; the accent ring shows only while the posters have focus; Top 10 shelves show the rank on the big poster
+- [ ] The view picker now offers Wall and Logos too; a streaming service or network row (Netflix, Disney+, BBC...) starts as Logos
+- [ ] (must) Wall: a grid of posters about 8 across with a title under each; the focused poster gets an accent ring and brightens, and nothing moves or resizes
+- [ ] Wall: Down scrolls the grid and more titles load at the end; Right from the last column reaches the shelf names; OK opens, a long press opens the menu
+- [ ] (must) Logos: the focused title's logo big with an underline, smaller faded logos either side; Left/Right slide them past a fixed spot
+- [ ] Logos: a title with no logo shows its name in big capitals in the same space; under the strip "year · genres" (Continue watching "S4 E1"); the underline turns accent while the strip has focus
 
 ## Upstream merge (Nov 13)
 

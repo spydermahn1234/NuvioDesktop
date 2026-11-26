@@ -14,14 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 
 object ShelfPresentationRules {
-    /** The views that are built (all five since Nov 26). */
+    /** The views the shelf home draws: Posters and Logos (Strip, Ledger, Spotlight and Wall went on Nov 26). */
     fun available(): List<ShelfViewMode> = ShelfViewMode.entries.toList()
-
-    private val progressKeys = setOf(
-        ShelfHomeRules.CONTINUE_WATCHING_KEY,
-        ShelfHomeRules.UP_NEXT_KEY,
-        ShelfHomeRules.UPCOMING_KEY,
-    )
 
     private val topN = Regex("""\btop\s*\d+\b""")
     private val rankedPhrases = listOf("best of", "best this week", "most watched")
@@ -35,14 +29,17 @@ object ShelfPresentationRules {
     /** Distinctive enough to find inside a run-together key word such as "netflixmovies" or "disneyplus". */
     private val networkFragments = listOf("netflix", "disney", "hulu", "hbo", "paramount", "peacock", "appletv")
 
+    /** Streaming service and network rows read best as logos; everything else is a row of posters. */
     fun defaultView(shelfKey: String, title: String): ShelfViewMode = when {
-        shelfKey in progressKeys -> ShelfViewMode.Ledger
-        isRanked(title) -> ShelfViewMode.Ledger
-        // Folders of a collection stay a row of posters; streaming service and network rows read best as logos.
-        '/' in shelfKey -> ShelfViewMode.Strip
+        // Folders of a collection stay a row of posters, whatever they are called.
+        '/' in shelfKey -> ShelfViewMode.Posters
         isNetwork(shelfKey) || isNetwork(title) -> ShelfViewMode.Logos
-        else -> ShelfViewMode.Strip
+        else -> ShelfViewMode.Posters
     }
+
+    /** The other view, for V. */
+    fun toggled(mode: ShelfViewMode): ShelfViewMode =
+        if (mode == ShelfViewMode.Logos) ShelfViewMode.Posters else ShelfViewMode.Logos
 
     fun isRanked(title: String): Boolean {
         val words = normalise(title)
@@ -69,7 +66,8 @@ object ShelfPresentationRules {
  * The stored format, one override per line: `ModeName<TAB>escapedKey`. Mode names never hold a tab or a
  * newline; in the key a backslash, tab or newline is escaped as `\\`, `\t`, `\n`, so any key
  * (`manifest:type:catalog`, `collection_x/folder`) round-trips. Lines that do not parse are skipped,
- * as are mode names this build does not know.
+ * as are mode names this build does not know. The views removed on Nov 26 (Strip, Ledger, Spotlight,
+ * Wall) read back as Posters, so a shelf someone had set to one of them stays a row of pictures.
  */
 internal object ShelfPresentationCodec {
     fun encode(views: Map<String, ShelfViewMode>): String =
@@ -83,13 +81,20 @@ internal object ShelfPresentationCodec {
         for (line in text.split('\n')) {
             val tab = line.indexOf('\t')
             if (tab <= 0) continue
-            val mode = ShelfViewMode.entries.firstOrNull { it.name == line.substring(0, tab) } ?: continue
+            val mode = modeOf(line.substring(0, tab)) ?: continue
             val key = unescape(line.substring(tab + 1)) ?: continue
             if (key.isEmpty()) continue
             out[key] = mode
         }
         return out
     }
+
+    /** The views that were removed, and what they read back as. */
+    private val retired = setOf("Strip", "Ledger", "Spotlight", "Wall")
+
+    fun modeOf(name: String): ShelfViewMode? =
+        ShelfViewMode.entries.firstOrNull { it.name == name }
+            ?: ShelfViewMode.Posters.takeIf { name in retired }
 
     fun escape(key: String): String = buildString(key.length) {
         for (c in key) {

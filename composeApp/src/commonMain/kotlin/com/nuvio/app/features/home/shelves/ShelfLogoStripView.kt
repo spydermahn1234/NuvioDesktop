@@ -1,134 +1,102 @@
 // fork:shelf-home
 package com.nuvio.app.features.home.shelves
 
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import com.nuvio.app.core.ui.NuvioAsyncImage
-import com.nuvio.app.core.ui.navigationKey
-import com.nuvio.app.core.ui.nuvio
-import com.nuvio.app.core.ui.requestFocusLogged
 import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
 
 /*
- * The Logo strip view (mockup "Series - Logo strip", after a Kodi skin): a row of title logos
- * (clearlogos) instead of posters, the frame's backdrop above doing the visual work. The focused logo
- * sits full size in a fixed slot centred-left with an underline below it; neighbours either side are
- * smaller and faded, and slide past the slot through graphicsLayer so nothing re-lays out. A card
- * with no logo shows its name in big capitals in the same box. One line under the slot: year and
- * genres, the episode for Continue Watching, nothing for folders. Like Spotlight, the view is one
- * focusable box that owns its selection.
+ * The Logos view of the fan-art home (mockup V2Logos): the focused row drawn as a line of clearlogos
+ * instead of posters, and the title block's name drawn as the focused title's clearlogo.
+ *
+ * Both pieces are stateless: the frame (ShelfHome) owns focus and keys and passes the focused index.
+ * Nothing here is focusable; a click only reports the card's index.
  */
 
-/** The strip's geometry, words and selection rules, in dp. Pure, so they can be tested. */
+/** The Logos view's sizes (dp / sp) and the pure rules it draws by, so they can be tested. */
 internal object ShelfLogoStripRules {
-    const val FOCUSED_W = 520f
-    const val FOCUSED_H = 160f
-    const val NEIGHBOUR_SCALE = 0.45f
-    const val NEIGHBOUR_ALPHA = 0.35f
-    const val SMALL_W = FOCUSED_W * NEIGHBOUR_SCALE
-    const val GAP = 80f
+    /** The logo row: 110 high, 64 between logos. */
+    const val ROW_H = 110f
+    const val GAP = 64f
 
-    /** Centre of the focused slot from the view's left edge: one whole neighbour fits to its left. */
-    const val ANCHOR = SMALL_W + GAP + FOCUSED_W / 2f
+    /** A logo image's height: the focused one, and the others (the mockup's 58 px and ~40 px type). */
+    const val FOCUSED_LOGO_H = 70f
+    const val LOGO_H = 48f
 
-    const val UNDERLINE_W = 240f
-    const val UNDERLINE_H = 4f
+    /** The bar under the focused logo, and the space above it. */
+    const val BAR_H = 3f
+    const val BAR_GAP = 12f
 
-    /** From the bottom of the logo box to the underline, and from the underline to the info line. */
-    const val UNDERLINE_GAP = 18f
-    const val INFO_GAP = 18f
-    const val INFO_H = 30f
+    /** Logos other than the focused one. */
+    const val DIM_ALPHA = 0.55f
 
-    /** How far the strip sits above the view's centre so strip + underline + info line are centred. */
-    const val LIFT = (UNDERLINE_GAP + UNDERLINE_H + INFO_GAP + INFO_H) / 2f
+    /** The name drawn when a title has no logo: focused and the others. */
+    const val FOCUSED_NAME_SP = 58f
+    const val NAME_SP = 40f
 
-    const val RANK_W = 64f
+    /** The title block's logo: at most 900 wide and 170 high, its box always 170 high. */
+    const val TITLE_MAX_W = 900f
+    const val TITLE_H = 170f
+    const val TITLE_NAME_SP = 150f
+    const val TITLE_FADE_MS = 600
 
-    private const val FIRST_STEP = FOCUSED_W / 2f + GAP + SMALL_W / 2f
-    private const val STEP = SMALL_W + GAP
+    /** Width over height of a logo before its picture has loaded (fanart.tv clearlogos are 800 x 310). */
+    const val DEFAULT_ASPECT = 800f / 310f
+    const val MIN_ASPECT = 0.8f
+    const val MAX_ASPECT = 6f
 
-    /** Size of a logo [distance] slots from the focused one (fractional while sliding), 1 = focused. */
-    fun scaleFor(distance: Float): Float = 1f - min(abs(distance), 1f) * (1f - NEIGHBOUR_SCALE)
-
-    /** Opacity of a logo [distance] slots from the focused one. */
-    fun alphaFor(distance: Float): Float = 1f - min(abs(distance), 1f) * (1f - NEIGHBOUR_ALPHA)
-
-    /** Horizontal offset of a logo box's centre from the focused slot's centre. */
-    fun centreOffset(distance: Float): Float {
-        val d = abs(distance)
-        val offset = if (d <= 1f) d * FIRST_STEP else FIRST_STEP + (d - 1f) * STEP
-        return if (distance < 0f) -offset else offset
-    }
-
-    /** How many neighbours on one side are at least partly inside [spanDp] from the focused centre. */
-    fun slotsFitting(spanDp: Float): Int {
-        var n = 0
-        while (n < 1000 && centreOffset((n + 1).toFloat()) - SMALL_W / 2f < spanDp) n++
-        return n
-    }
-
-    /** Indices to draw around [focus]: [before] and [after] neighbours plus one more each side for the slide. */
-    fun visibleRange(focus: Int, count: Int, before: Int, after: Int): IntRange {
-        if (count <= 0) return IntRange.EMPTY
-        val f = clamp(focus, count)
-        return max(0, f - before - 1)..min(count - 1, f + after + 1)
-    }
+    /** Past this many items a focus change jumps instead of scrolling (a row swapped in, not a step). */
+    const val JUMP_AFTER = 8
 
     fun clamp(index: Int, count: Int): Int = if (count <= 0) 0 else index.coerceIn(0, count - 1)
 
-    /** The index after a step of [delta], or null when it cannot move (at either end). */
-    fun move(index: Int, delta: Int, count: Int): Int? {
-        if (count <= 0) return null
-        val next = index + delta
-        return if (next in 0 until count && next != index) next else null
-    }
+    /** A picture's width over height, kept inside sane bounds; [DEFAULT_ASPECT] when unknown. */
+    fun aspect(widthPx: Int, heightPx: Int): Float =
+        if (widthPx <= 0 || heightPx <= 0) DEFAULT_ASPECT
+        else (widthPx.toFloat() / heightPx.toFloat()).coerceIn(MIN_ASPECT, MAX_ASPECT)
 
-    /** Left at the first logo is kept; Right at the last is let go so focus reaches the shelf panel. */
-    fun consumes(index: Int, delta: Int, count: Int): Boolean =
-        move(index, delta, count) != null || delta < 0
+    /** A logo's width at [heightDp], from its [aspect] (null = not loaded yet). */
+    fun logoWidth(heightDp: Float, aspect: Float?): Float =
+        heightDp * (aspect ?: DEFAULT_ASPECT).coerceIn(MIN_ASPECT, MAX_ASPECT)
+
+    /** True when moving the row from [from] to [to] should jump rather than scroll smoothly. */
+    fun jumps(from: Int, to: Int): Boolean = abs(to - from) > JUMP_AFTER
 
     /** The card's clearlogo, or null when it has none (then its name is drawn instead). */
     fun logoUrl(card: ShelfCard): String? = when (card) {
@@ -139,234 +107,153 @@ internal object ShelfLogoStripRules {
 
     /** The name drawn when there is no logo: capitals, trimmed. */
     fun nameLabel(card: ShelfCard): String = card.title().trim().uppercase()
-
-    /**
-     * The line under the strip:
-     *  - a film or show: "2019 · Drama, Comedy" (year and up to three genres, either may be missing);
-     *  - a Continue Watching card: "S4 E1", or the year when it is not an episode;
-     *  - a folder: nothing.
-     */
-    fun infoLine(card: ShelfCard): String = when (card) {
-        is ShelfCard.Meta -> {
-            val year = ShelfLedgerRules.year(card.item.releaseInfo) ?: ShelfLedgerRules.year(card.item.rawReleaseDate)
-            val genres = card.item.genres.map { it.trim() }.filter { it.isNotEmpty() }.take(3).joinToString(", ")
-            listOfNotNull(year, genres.takeIf { it.isNotEmpty() }).joinToString(" · ")
-        }
-        is ShelfCard.Progress -> {
-            val item = card.item
-            if (item.seasonNumber != null && item.episodeNumber != null) {
-                "S${item.seasonNumber} E${item.episodeNumber}"
-            } else {
-                ShelfLedgerRules.year(item.released).orEmpty()
-            }
-        }
-        is ShelfCard.Folder -> ""
-    }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
+/**
+ * The logo row (V2Logos, top 880): every card's clearlogo in a line, 64 apart, the focused one full
+ * white with a 3 dp bar under it as wide as the logo, the others at 55%. The row keeps the focused
+ * logo's left edge at its start when it can (the last logos stop at the end) and is always
+ * [ShelfLogoStripRules.ROW_H] high.
+ */
 @Composable
-internal fun ShelfLogoStripView(state: ShelfViewState, modifier: Modifier = Modifier) {
+internal fun ShelfLogoRow(
+    cards: List<ShelfCard>,
+    focusedIndex: Int,
+    onClickCard: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val rules = ShelfLogoStripRules
-    val accent = MaterialTheme.nuvio.colors.accent
-    val cards = state.cards
     val count = cards.size
+    val focused = rules.clamp(focusedIndex, count)
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = focused)
+    // Each logo's shape once its picture has loaded, by url, so its width is right at either size.
+    val aspects = remember { mutableStateMapOf<String, Float>() }
+    val click by rememberUpdatedState(onClickCard)
 
-    var rawIndex by remember(state.shelfKey) { mutableIntStateOf(0) }
-    val index = rules.clamp(rawIndex, count)
-    // Keep the stored index inside the shelf when its cards shrink.
-    LaunchedEffect(state.shelfKey, count) { rawIndex = rules.clamp(rawIndex, count) }
-    val position = remember(state.shelfKey) { Animatable(0f) }
-    LaunchedEffect(state.shelfKey, index) {
-        position.animateTo(index.toFloat(), tween(durationMillis = 260))
+    LaunchedEffect(focused, count) {
+        if (count == 0) return@LaunchedEffect
+        if (rules.jumps(listState.firstVisibleItemIndex, focused)) {
+            listState.scrollToItem(focused)
+        } else {
+            listState.animateScrollToItem(focused)
+        }
     }
 
-    var hasFocus by remember { mutableStateOf(false) }
-    val focusRequester = remember { FocusRequester() }
-    val current by rememberUpdatedState(state)
-
-    fun select(to: Int) {
-        if (to in 0 until current.cards.size) rawIndex = to
-    }
-
-    BoxWithConstraints(
-        modifier
-            .focusRequester(focusRequester)
-            .onFocusChanged { hasFocus = it.isFocused }
-            .onKeyEvent { event ->
-                if (count == 0) return@onKeyEvent false
-                val nav = event.navigationKey()
-                val delta = when (nav) {
-                    Key.DirectionLeft -> -1
-                    Key.DirectionRight -> 1
-                    else -> 0
-                }
-                if (delta != 0) {
-                    val consumes = rules.consumes(index, delta, count)
-                    if (consumes && event.type == KeyEventType.KeyDown) {
-                        rules.move(index, delta, count)?.let { select(it) }
-                    }
-                    return@onKeyEvent consumes
-                }
-                val isOk = nav == Key.Enter || event.key == Key.DirectionCenter || event.key == Key.NumPadEnter
-                if (isOk) {
-                    if (event.type == KeyEventType.KeyDown) cards.getOrNull(index)?.let { current.onOpen(it) }
-                    return@onKeyEvent true
-                }
-                if (event.key == Key.Menu) {
-                    val hold = current.onLongPress ?: return@onKeyEvent false
-                    if (event.type == KeyEventType.KeyDown) cards.getOrNull(index)?.let(hold)
-                    return@onKeyEvent true
-                }
-                false
-            }
-            .focusable()
-            .onPointerEvent(PointerEventType.Scroll) { event ->
-                val delta = event.changes.firstOrNull()?.scrollDelta ?: return@onPointerEvent
-                val by = delta.y + delta.x
-                if (by > 0f) rules.move(index, 1, count)?.let { select(it) }
-                if (by < 0f) rules.move(index, -1, count)?.let { select(it) }
-            },
+    LazyRow(
+        state = listState,
+        userScrollEnabled = false,
+        horizontalArrangement = Arrangement.spacedBy(rules.GAP.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.height(rules.ROW_H.dp),
     ) {
-        val viewWidth = maxWidth.value
-        val before = rules.slotsFitting(rules.ANCHOR)
-        val after = rules.slotsFitting(viewWidth - rules.ANCHOR)
-
-        val focusedCard = cards.getOrNull(index)
-        LaunchedEffect(state.shelfKey, index, focusedCard) {
-            val card = focusedCard ?: return@LaunchedEffect
-            current.onFocusCard(card)
-            current.onNearEnd(index + after)
-        }
-
-        val range = rules.visibleRange(index, count, before, after)
-        for (i in range) {
-            val card = cards[i]
-            key(state.shelfKey, i) {
-                val distanceNow = abs(i - position.value)
-                StripLogo(
-                    card = card,
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .zIndex(-distanceNow)
-                        .size(rules.FOCUSED_W.dp, rules.FOCUSED_H.dp)
-                        .graphicsLayer {
-                            val d = i - position.value
-                            val s = rules.scaleFor(d)
-                            scaleX = s
-                            scaleY = s
-                            translationX = (rules.ANCHOR - rules.FOCUSED_W / 2f + rules.centreOffset(d)).dp.toPx()
-                            translationY = (-rules.LIFT).dp.toPx()
-                            alpha = rules.alphaFor(d)
-                        }
-                        .pointerInput(state.shelfKey, i) {
-                            detectTapGestures(
-                                onTap = {
-                                    focusRequester.requestFocusLogged()
-                                    current.cards.getOrNull(i)?.let { tapped ->
-                                        if (i == rules.clamp(rawIndex, current.cards.size)) current.onOpen(tapped) else select(i)
-                                    }
-                                },
-                                onLongPress = {
-                                    current.cards.getOrNull(i)?.let { held -> current.onLongPress?.invoke(held) }
-                                },
-                            )
-                        },
-                )
-            }
-        }
-
-        // Rank just left of the focused slot, in the gap before it.
-        if (state.ranked && focusedCard != null) {
-            Box(
-                Modifier
-                    .align(Alignment.CenterStart)
-                    .zIndex(1f)
-                    .graphicsLayer {
-                        translationX = (rules.ANCHOR - rules.FOCUSED_W / 2f - rules.RANK_W - 8f).dp.toPx()
-                        translationY = (-rules.LIFT).dp.toPx()
-                    }
-                    .size(rules.RANK_W.dp, rules.FOCUSED_H.dp),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                Text(
-                    "${index + 1}",
-                    fontSize = 44.sp,
-                    fontWeight = FontWeight.Light,
-                    color = accent,
-                    maxLines = 1,
-                    textAlign = TextAlign.End,
-                )
-            }
-        }
-
-        if (focusedCard != null) {
-            // The underline under the focused slot: white, accent while the view has focus.
-            Box(
-                Modifier
-                    .align(Alignment.CenterStart)
-                    .graphicsLayer {
-                        translationX = (rules.ANCHOR - rules.UNDERLINE_W / 2f).dp.toPx()
-                        translationY = (-rules.LIFT + rules.FOCUSED_H / 2f + rules.UNDERLINE_GAP + rules.UNDERLINE_H / 2f).dp.toPx()
-                    }
-                    .size(rules.UNDERLINE_W.dp, rules.UNDERLINE_H.dp)
-                    .background(if (hasFocus) accent else LocalShelfPalette.current.ink),
+        itemsIndexed(cards) { index, card ->
+            RowLogo(
+                card = card,
+                focused = index == focused,
+                aspects = aspects,
+                modifier = Modifier.pointerInput(index) {
+                    detectTapGestures(onTap = { click(index) })
+                },
             )
-
-            // One line under it: year and genres, the episode, or nothing.
-            Box(
-                Modifier
-                    .align(Alignment.CenterStart)
-                    .graphicsLayer {
-                        translationX = (rules.ANCHOR - rules.FOCUSED_W / 2f).dp.toPx()
-                        translationY = (
-                            -rules.LIFT + rules.FOCUSED_H / 2f + rules.UNDERLINE_GAP + rules.UNDERLINE_H +
-                                rules.INFO_GAP + rules.INFO_H / 2f
-                            ).dp.toPx()
-                    }
-                    .size(rules.FOCUSED_W.dp, rules.INFO_H.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    rules.infoLine(focusedCard),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = LocalShelfPalette.current.inkSoft,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
         }
     }
 }
 
 @Composable
-private fun StripLogo(card: ShelfCard, modifier: Modifier) {
-    val url = ShelfLogoStripRules.logoUrl(card)
-    // A logo that fails to load falls back to the name, so the strip never shows a hole.
+private fun RowLogo(
+    card: ShelfCard,
+    focused: Boolean,
+    aspects: MutableMap<String, Float>,
+    modifier: Modifier = Modifier,
+) {
+    val rules = ShelfLogoStripRules
+    val ink = LocalShelfPalette.current.ink
+    val alpha by animateFloatAsState(if (focused) 1f else rules.DIM_ALPHA, tween(200))
+    val logoH by animateDpAsState((if (focused) rules.FOCUSED_LOGO_H else rules.LOGO_H).dp, tween(200))
+    val url = rules.logoUrl(card)
+    // A logo that fails to load falls back to the name, so the row never shows a hole.
     var failed by remember(url) { mutableStateOf(false) }
-    Box(modifier, contentAlignment = Alignment.Center) {
+
+    Column(
+        modifier.width(IntrinsicSize.Max).alpha(alpha),
+        horizontalAlignment = Alignment.Start,
+    ) {
         if (url != null && !failed) {
+            val w = rules.logoWidth(logoH.value, aspects[url])
             NuvioAsyncImage(
                 model = url,
                 contentDescription = card.title(),
                 contentScale = ContentScale.Fit,
+                alignment = Alignment.CenterStart,
+                onSuccess = { state ->
+                    aspects[url] = rules.aspect(state.result.image.width, state.result.image.height)
+                },
                 onError = { failed = true },
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.width(w.dp).height(logoH),
             )
         } else {
             Text(
-                ShelfLogoStripRules.nameLabel(card),
-                fontSize = 54.sp,
-                lineHeight = 58.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 3.sp,
-                color = LocalShelfPalette.current.ink,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                rules.nameLabel(card),
+                fontSize = (if (focused) rules.FOCUSED_NAME_SP else rules.NAME_SP).sp,
+                lineHeight = (if (focused) rules.FOCUSED_NAME_SP else rules.NAME_SP).sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 1.sp,
+                color = ink,
+                maxLines = 1,
+                softWrap = false,
             )
         }
+        if (focused) {
+            Spacer(Modifier.height(rules.BAR_GAP.dp))
+            Box(Modifier.fillMaxWidth().height(rules.BAR_H.dp).background(ink))
+        }
+    }
+}
+
+/**
+ * The title block's title in the Logos view: the focused title's clearlogo, fitted inside 900 x 170
+ * and sat on the bottom-left; with no logo, its name in big capitals. Always 170 high, so the facts
+ * line below never moves; cross-fades over 600 ms when the card changes.
+ */
+@Composable
+internal fun ShelfTitleLogo(card: ShelfCard?, modifier: Modifier = Modifier) {
+    val rules = ShelfLogoStripRules
+    Crossfade(
+        targetState = card,
+        animationSpec = tween(rules.TITLE_FADE_MS),
+        modifier = modifier.widthIn(max = rules.TITLE_MAX_W.dp).fillMaxWidth().height(rules.TITLE_H.dp),
+    ) { shown ->
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomStart) {
+            if (shown != null) TitleLogoContent(shown)
+        }
+    }
+}
+
+@Composable
+private fun TitleLogoContent(card: ShelfCard) {
+    val rules = ShelfLogoStripRules
+    val url = rules.logoUrl(card)
+    var failed by remember(url) { mutableStateOf(false) }
+    if (url != null && !failed) {
+        // Nothing is drawn while it loads (the name first and then the logo would flash).
+        NuvioAsyncImage(
+            model = url,
+            contentDescription = card.title(),
+            contentScale = ContentScale.Fit,
+            alignment = Alignment.BottomStart,
+            onError = { failed = true },
+            modifier = Modifier.fillMaxSize(),
+        )
+    } else {
+        Text(
+            rules.nameLabel(card),
+            fontSize = rules.TITLE_NAME_SP.sp,
+            lineHeight = (rules.TITLE_NAME_SP * 0.9f).sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 3.sp,
+            color = LocalShelfPalette.current.ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }

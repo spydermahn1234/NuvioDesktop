@@ -166,4 +166,5 @@ data class RemoteResumeRequest(
     val mode: RemotePlayMode,
 )
 
-data class RemoteYouTubeOpen(val videoId: String, val startSeconds: Int? = null)
+// fork:shelf-home - fromPhone false: opened on the TV (the shelf home's Info Trailer), so the toasts do not mention the phone.
+data class RemoteYouTubeOpen(val videoId: String, val startSeconds: Int? = null, val fromPhone: Boolean = true)
