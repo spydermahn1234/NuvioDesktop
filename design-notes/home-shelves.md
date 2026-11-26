@@ -50,9 +50,12 @@ those rows are drawn and moved between. So:
 
 ## Phases (about one session each)
 
-0. **Plan and switch** - this note, the setting, the switch and search row, a placeholder `ShelfHome`. (Nov 26)
+0. **Plan and switch** - this note, the setting, the switch and search row, a placeholder `ShelfHome`. (Nov 26, done)
 1. **Model, no UI** - pure `ShelfHomeModel`: sections + Continue Watching + collections -> tabs -> shelves, keyed by
-   catalog. `ShelfHomeModelTest`; its test filter in `windows-build.yml`.
+   catalog. `ShelfHomeModelTest`; its test filter in `windows-build.yml`. (Nov 26, done: Home = Continue Watching,
+   Up next, Upcoming, then the classic rows in order with an unpinned collection as one shelf of its folders; each
+   pinned collection is its own tab with a shelf per folder; Library last. The hook moved below HomeScreen's data and
+   the placeholder lists the tabs and shelves.)
 2. **Navigation** - slash menu, shelf list, focused shelf area; D-pad, gamepad and phone remote; focus per tab; lazy
    loading of the focused shelf only. The hook moves below HomeScreen's data so it can pass the sections in.
 3. **Strip view** - the focused shelf drawn with the existing row cards: a complete, compatible shelf home.

@@ -448,15 +448,10 @@ fun HomeScreen(
             WatchProgressRepository.ensureLoaded()
         }
     }
-    // fork:shelf-home - with the Shelf home switch on, the Kodi-style home replaces the classic one
-    // (Normal mode only; Search, Library, Discover and catalog pages stay classic). Off: untouched.
+    // fork:shelf-home - read here; the switch itself is below, once the rows are loaded.
     remember { com.nuvio.app.features.home.shelves.ShelfHomeSettingsRepository.ensureLoaded() }
     val shelfHomeSettings by com.nuvio.app.features.home.shelves.ShelfHomeSettingsRepository.state
         .collectAsStateWithLifecycle()
-    if (shelfHomeSettings.enabled && contentMode is HomeContentMode.Normal) {
-        com.nuvio.app.features.home.shelves.ShelfHome(modifier = modifier)
-        return
-    }
 
     val addonsUiState by AddonRepository.uiState.collectAsStateWithLifecycle()
     val homeUiState by HomeRepository.uiState.collectAsStateWithLifecycle()
@@ -2186,6 +2181,27 @@ fun HomeScreen(
     // (blank query = empty hero + rows, not home content) so switching to Search from
     // Library doesn't pull the user to the home page.
     val isShowingHomeContent = displayMode is HomeContentMode.Normal
+
+    // fork:shelf-home - with the Shelf home switch on, the Kodi-style home replaces the classic one in
+    // Normal mode (Search, Library, Discover and catalog pages stay classic). It gets the same rows,
+    // order, collections and Continue Watching as the classic home; everything above (loading,
+    // settings) runs as before. Off: untouched.
+    if (shelfHomeSettings.enabled && isShowingHomeContent && contentMode is HomeContentMode.Normal) {
+        val shelfModel = remember(enabledHomeItems, sectionsMap, collectionsMap, continueWatchingRowItems.isNotEmpty(), nextUpRowItems.isNotEmpty(), upcomingRowItems.isNotEmpty()) {
+            com.nuvio.app.features.home.shelves.ShelfHomeRules.build(
+                enabledItems = enabledHomeItems,
+                sections = sectionsMap,
+                collections = collectionsMap,
+                progress = com.nuvio.app.features.home.shelves.ShelfProgressRows(
+                    continueWatching = continueWatchingRowItems.isNotEmpty(),
+                    upNext = nextUpRowItems.isNotEmpty(),
+                    upcoming = upcomingRowItems.isNotEmpty(),
+                ),
+            )
+        }
+        com.nuvio.app.features.home.shelves.ShelfHome(model = shelfModel, modifier = modifier)
+        return
+    }
 
     // Row shuffle. The order is session state (HomeRowShuffleState), never the saved catalog order,
     // so it is applied per render rather than folded into the section itself — and the whole

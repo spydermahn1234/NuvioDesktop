@@ -114,6 +114,7 @@ jobs:
           --tests "com.nuvio.app.features.livescores.*"
           --tests "com.nuvio.app.features.lights.*"
           --tests "com.nuvio.app.features.home.LiveTvHomeRowTest"
+          --tests "com.nuvio.app.features.home.shelves.*"
           --tests "com.nuvio.app.features.settings.DesktopSettingsGroupHeadingsTest"
           --tests "*Trivia*"
           --tests "com.nuvio.app.features.iptv.IptvOnNowTest"

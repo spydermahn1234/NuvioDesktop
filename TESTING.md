@@ -1062,6 +1062,9 @@ Upstream's windows-tv-adaptive (56d7c587) merged into Spyder. Its new things, an
 - [ ] With Shelf home on, Search, Library and Discover still open their classic pages
 - [ ] Settings search for "shelf" finds the Shelf home switch
 - [ ] Shelf home is remembered per profile: on for one profile, off for another after switching
+- [ ] (must) With Shelf home on, the placeholder lists Home's shelves in the same order as the classic home's rows (custom row names kept, hidden rows missing)
+- [ ] A collection pinned to the top shows as its own tab with one shelf per folder; an unpinned one is a single shelf on Home
+- [ ] Continue watching (and Up next / Upcoming when they are separate rows) lead Home's shelves when they have something
 
 # Archived (not testing)
 
