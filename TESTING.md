@@ -1066,7 +1066,8 @@ Upstream's windows-tv-adaptive (56d7c587) merged into Spyder. Its new things, an
 - [ ] A collection pinned to the top shows as its own tab with one shelf per folder; an unpinned one is a single shelf on Home
 - [ ] Continue watching (and Up next / Upcoming when they are separate rows) lead Home's shelves when they have something
 - [ ] **BROKEN** (must) With the remote or a controller: moving up and down the shelf names shows each shelf's cards along the bottom; Left goes into the cards, Right comes back to the names (2026-11-26): no keyboard or D-pad focus at all, only the mouse
-  - [ ] (must) Re-check after the fix: opening Home with Shelf home on, the current shelf name is highlighted and the arrows, D-pad and controller move it without touching the mouse
+  - [ ] **BROKEN** (must) Re-check after the fix: opening Home with Shelf home on, the current shelf name is highlighted and the arrows, D-pad and controller move it without touching the mouse (2026-11-26): still no keyboard navigation on the new screens
+    - [ ] (must) Re-check after the second fix: the arrow keys, D-pad and controller move between the shelf names, into the cards (Left), back (Right) and up to the slash menu, in every view
 - [ ] The mouse wheel over the cards scrolls them sideways
 - [ ] (must) Pressing Menu or V (or holding OK, or right-clicking) on a shelf name opens "View <shelf> as" with Strip, Ledger and Spotlight; the current one is ticked, and picking one switches the shelf at once
 - [ ] A shelf's chosen view is still there after restarting Nuvio; "Use the default" puts it back; each profile keeps its own choices

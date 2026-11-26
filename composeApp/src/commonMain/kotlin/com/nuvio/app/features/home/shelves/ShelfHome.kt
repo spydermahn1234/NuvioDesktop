@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.sp
 import com.nuvio.app.core.ui.NuvioAsyncImage
 import com.nuvio.app.core.ui.NuvioPosterCard
 import com.nuvio.app.core.ui.NuvioPosterShape
+import com.nuvio.app.core.ui.arrowKeyFocusNavigation
 import com.nuvio.app.core.ui.keyLayer
 import com.nuvio.app.core.ui.requestFocusLogged
 import com.nuvio.app.core.ui.nuvio
@@ -277,6 +278,11 @@ fun ShelfHome(
             .fillMaxSize()
             .keyLayer("ShelfHome", active = pickerFor == null && !editorOpen) { entry.requestFocusLogged() }
             .focusGroup()
+            // Compose Desktop moves focus on Tab only: arrows (and a pad's D-pad, which arrives as arrows) must be
+            // turned into focus moves here, in the bubble phase, after views that use them (Spotlight, Logos).
+            .arrowKeyFocusNavigation()
+            // An Enter nothing used would be read by desktop Compose as "focus the first thing inside" and jump.
+            .onKeyEvent { it.key == Key.Enter || it.key == Key.NumPadEnter }
             .background(LocalShelfPalette.current.page),
     ) {
         // The focused title's backdrop, full-bleed, cross-fading as focus moves.
