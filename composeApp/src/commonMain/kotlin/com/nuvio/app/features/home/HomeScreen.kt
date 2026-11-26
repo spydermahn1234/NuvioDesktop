@@ -2187,19 +2187,35 @@ fun HomeScreen(
     // order, collections and Continue Watching as the classic home; everything above (loading,
     // settings) runs as before. Off: untouched.
     if (shelfHomeSettings.enabled && isShowingHomeContent && contentMode is HomeContentMode.Normal) {
-        val shelfModel = remember(enabledHomeItems, sectionsMap, collectionsMap, continueWatchingRowItems.isNotEmpty(), nextUpRowItems.isNotEmpty(), upcomingRowItems.isNotEmpty()) {
+        val cwVisible = continueWatchingPreferences.isVisible
+        val shelfModel = remember(enabledHomeItems, sectionsMap, collectionsMap, cwVisible, continueWatchingRowItems.isNotEmpty(), nextUpRowItems.isNotEmpty(), upcomingRowItems.isNotEmpty()) {
             com.nuvio.app.features.home.shelves.ShelfHomeRules.build(
                 enabledItems = enabledHomeItems,
                 sections = sectionsMap,
                 collections = collectionsMap,
                 progress = com.nuvio.app.features.home.shelves.ShelfProgressRows(
-                    continueWatching = continueWatchingRowItems.isNotEmpty(),
-                    upNext = nextUpRowItems.isNotEmpty(),
-                    upcoming = upcomingRowItems.isNotEmpty(),
+                    continueWatching = cwVisible && continueWatchingRowItems.isNotEmpty(),
+                    upNext = cwVisible && nextUpRowItems.isNotEmpty(),
+                    upcoming = cwVisible && upcomingRowItems.isNotEmpty(),
                 ),
             )
         }
-        com.nuvio.app.features.home.shelves.ShelfHome(model = shelfModel, modifier = modifier)
+        com.nuvio.app.features.home.shelves.ShelfHome(
+            model = shelfModel,
+            sections = sectionsMap,
+            collections = collectionsMap,
+            continueWatching = continueWatchingRowItems,
+            upNext = nextUpRowItems,
+            upcoming = upcomingRowItems,
+            modifier = modifier,
+            topPadding = topChromePadding ?: 72.dp,
+            onPosterClick = onPosterClick,
+            onPosterLongClick = onPosterLongClick,
+            onContinueWatchingClick = onContinueWatchingClick,
+            onFolderClick = onFolderClick,
+            onOpenLibrary = onNavigateToLibrary,
+            onLoadMoreCatalog = onLoadMoreCatalog,
+        )
         return
     }
 

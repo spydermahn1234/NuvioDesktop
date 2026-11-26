@@ -58,7 +58,11 @@ those rows are drawn and moved between. So:
    the placeholder lists the tabs and shelves.)
 2. **Navigation** - slash menu, shelf list, focused shelf area; D-pad, gamepad and phone remote; focus per tab; lazy
    loading of the focused shelf only. The hook moves below HomeScreen's data so it can pass the sections in.
-3. **Strip view** - the focused shelf drawn with the existing row cards: a complete, compatible shelf home.
+   (Nov 26, done, with the Strip view folded in: catalog shelves use the classic `HomePosterCard`, Continue Watching
+   and folders `NuvioPosterCard`; the focused title's details above the shelf; tab and shelf remembered for the
+   session in `ShelfHomeMemory`; more pages asked for only by the focused shelf.)
+3. **Strip polish** - a pinned collection's folder shelves show the folder's titles (not just the folder card);
+   Continue Watching's long press and source shortcut; the classic card sizes and landscape setting checked.
 4. **Ledger view** - text rows, time left, end time; numbered style for ranked rows.
 5. **Per-shelf view choice** - "View as…", automatic defaults, the fork-only presentation store.
 6. **Spotlight view**. 7. **Wall view**. 8. **Logo strip view**.

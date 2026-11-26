@@ -1062,9 +1062,15 @@ Upstream's windows-tv-adaptive (56d7c587) merged into Spyder. Its new things, an
 - [ ] With Shelf home on, Search, Library and Discover still open their classic pages
 - [ ] Settings search for "shelf" finds the Shelf home switch
 - [ ] Shelf home is remembered per profile: on for one profile, off for another after switching
-- [ ] (must) With Shelf home on, the placeholder lists Home's shelves in the same order as the classic home's rows (custom row names kept, hidden rows missing)
+- [ ] (must) With Shelf home on, Home's shelf names on the left are in the same order as the classic home's rows (custom row names kept, hidden rows missing)
 - [ ] A collection pinned to the top shows as its own tab with one shelf per folder; an unpinned one is a single shelf on Home
 - [ ] Continue watching (and Up next / Upcoming when they are separate rows) lead Home's shelves when they have something
+- [ ] (must) With the remote or a controller: moving up and down the shelf names shows each shelf on the right; Right goes into the shelf, Left comes back to the names
+- [ ] Moving onto a tab in the slash menu (Home / a pinned collection) switches to it; selecting Library opens the Library page
+- [ ] The focused title's name, year, genres, runtime, rating and two lines of description show above the shelf, and the shelf does not jump as they change
+- [ ] Selecting a poster opens its details; a Continue watching card resumes as on the classic home; a folder card opens the folder
+- [ ] Scrolling to the end of a long catalog shelf (e.g. Trending) loads more titles
+- [ ] Leaving Home and coming back lands on the same tab and shelf
 
 # Archived (not testing)
 
