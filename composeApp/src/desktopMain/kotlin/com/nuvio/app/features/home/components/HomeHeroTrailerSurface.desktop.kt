@@ -72,6 +72,9 @@ actual fun HomeHeroTrailerSurface(
     libraryLabel: String,
     inLibrary: Boolean,
     onAddToLibrary: () -> Unit,
+    chromeless: Boolean, // fork:shelf-home v3
+    revealFadeMs: Int, // fork:shelf-home v3
+    onProgress: (positionMs: Long, durationMs: Long) -> Unit, // fork:shelf-home v3
 ) {
     // fork:pip-browse - no trailer over a film playing on in the corner box (a pre-show is for a new
     // film, which closes the box first). Nothing is drawn, so the hero keeps its artwork; the trailer
@@ -87,6 +90,7 @@ actual fun HomeHeroTrailerSurface(
     val latestOnVolumeChange = rememberUpdatedState(onVolumeChange)
     val latestOnSurfaceDisposed = rememberUpdatedState(onSurfaceDisposed)
     val latestOnAddToLibrary = rememberUpdatedState(onAddToLibrary)
+    val latestOnProgress = rememberUpdatedState(onProgress) // fork:shelf-home v3
     // The settings toggle gates sound on/off; the shared slider sets the level.
     // fork:preshow - the pre-show has neither: it always plays at one fixed level.
     val effectiveVolume = if (preshow) PRESHOW_VOLUME else if (muted) 0 else volume.coerceIn(0, 100)
@@ -257,10 +261,17 @@ actual fun HomeHeroTrailerSurface(
             },
             // Tells the controls page it is a passive hero surface from the very first script
             // run, so it never grabs keyboard focus (which would break TV navigation).
-            controlsPageUrlSuffix = if (preshow) "?heroTrailer=1&preshow=1" else "?heroTrailer=1", // fork:preshow
+            controlsPageUrlSuffix = when { // fork:preshow fork:shelf-home v3
+                preshow -> "?heroTrailer=1&preshow=1"
+                chromeless -> "?heroTrailer=1&chromeless=1"
+                else -> "?heroTrailer=1"
+            },
             initMpvOptions = heroTrailerAudioInitOptions(effectiveMuted, effectiveVolume, normalizeAudio, preshow, sourceUrl) + // fork:preshow
-                youtubeStreamMpvOptions(sourceUrl),
+                youtubeStreamMpvOptions(sourceUrl) +
+                (if (revealFadeMs > 0) listOf("brightness=-100") else emptyList()), // fork:shelf-home v3
         )
+        // fork:shelf-home v3 - start black again on a re-open too (the property queues until the handle exists).
+        if (revealFadeMs > 0) controller.setMpvProperty("brightness", "-100")
     }
 
     // mpv "mute"/"volume" properties queue until the handle exists, so they survive the async attach.
@@ -307,6 +318,16 @@ actual fun HomeHeroTrailerSurface(
         if (playWhenReady) controller.play() else controller.pause()
     }
 
+    // fork:shelf-home v3 - lift the picture from black once it is revealed (Compose cannot fade a native window).
+    LaunchedEffect(controller, playbackRevealReady, revealFadeMs) {
+        if (revealFadeMs <= 0 || !playbackRevealReady) return@LaunchedEffect
+        val steps = (revealFadeMs / 30).coerceAtLeast(1)
+        for (step in 1..steps) {
+            controller.setMpvProperty("brightness", (-100 + 100 * step / steps).toString())
+            delay(30L)
+        }
+    }
+
     LaunchedEffect(controller, sourceUrl, forbiddenRetries, playWhenReady) { // fork:trailer-403
         var endedReported = false
         var readyReported = false
@@ -335,6 +356,7 @@ actual fun HomeHeroTrailerSurface(
                 latestOnReady.value()
             }
             if (preshow) fadeOut.maybeStart(this, readyReported, snapshot.positionMs, snapshot.durationMs) // fork:preshow
+            if (readyReported) latestOnProgress.value(snapshot.positionMs, snapshot.durationMs) // fork:shelf-home v3
             if (snapshot.isEnded && !endedReported) {
                 endedReported = true
                 latestOnEnded.value()

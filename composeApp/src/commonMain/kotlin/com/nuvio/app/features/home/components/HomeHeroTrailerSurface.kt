@@ -60,4 +60,12 @@ expect fun HomeHeroTrailerSurface(
     libraryLabel: String = "",
     inLibrary: Boolean = false,
     onAddToLibrary: () -> Unit = {},
+    // fork:shelf-home v3 - the shelf home's trailer behind the art (ShelfTrailer.kt). [chromeless] asks the controls
+    // page for the bare picture (no fades, words, mute pill), as the music player and Live TV's preview do;
+    // [revealFadeMs] > 0 starts the picture black and lifts it over that long once it is moving (a heavyweight window
+    // cannot take Compose alpha); [onProgress] reports position and duration while it shows. Defaults leave every
+    // other caller exactly as before.
+    chromeless: Boolean = false,
+    revealFadeMs: Int = 0,
+    onProgress: (positionMs: Long, durationMs: Long) -> Unit = { _, _ -> },
 )

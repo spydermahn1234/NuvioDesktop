@@ -551,6 +551,11 @@ internal fun ShelfHome(
     }
     // fork:shelf-home v3 - the art set (textless first, several per title) and the colour taken from it.
     val art = rememberShelfArt(artCard, enabled = extras.textlessArt)
+    // fork:shelf-home v3 - the focused show's theme, quietly (ShelfThemeTunes.kt).
+    val themePlaying = ShelfThemeTune(
+        card = artCard,
+        active = extras.themeTunes && (browsing || idle) && !covered,
+    )
     LaunchedEffect(artCard?.stableId(), extras.textlessArt) {
         if (extras.textlessArt) cards.getOrNull(cardIndex + 1)?.let { runCatching { ShelfArtSets.load(it) } }
     }
@@ -714,6 +719,17 @@ internal fun ShelfHome(
             )
             // fork:shelf-home v3 - the evening's amber wash, over the art and under the words (V3Evening).
             ShelfEveningWash(eveningWarmth)
+            // fork:shelf-home v3 - the trailer in the open part of the art (ShelfTrailer.kt): a native video window,
+            // so it sits beside the words rather than under them; always muted.
+            val trailer = ShelfTrailerLayer(
+                card = artCard,
+                active = extras.trailers && browsing && !idle && !covered && mode == ShelfScreenMode.Browse,
+                accent = accent,
+                modifier = Modifier.fillMaxSize(),
+                input = inputSerial,
+                topInset = topShift,
+                onFocusEscaped = { if (!covered) rootFocus.requestFocusLogged() },
+            )
 
             // ---- Browse ----
             if (browseAlpha > 0f) {
@@ -892,6 +908,18 @@ internal fun ShelfHome(
                         color = ink.copy(alpha = 0.7f),
                         maxLines = 1,
                     )
+                }
+                if (trailer.showing) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Box(Modifier.size(8.dp).background(accent, androidx.compose.foundation.shape.CircleShape))
+                        Text("TRAILER · MUTED", fontSize = 14.sp, letterSpacing = 3.64.sp, color = ink.copy(alpha = 0.75f), maxLines = 1)
+                    }
+                }
+                if (themePlaying) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("♪", fontSize = 18.sp, color = accent, maxLines = 1)
+                        Text("THEME · QUIET", fontSize = 14.sp, letterSpacing = 3.64.sp, color = ink.copy(alpha = 0.7f), maxLines = 1)
+                    }
                 }
             }
 

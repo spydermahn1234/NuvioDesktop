@@ -27,6 +27,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -60,6 +62,7 @@ import com.nuvio.app.core.ui.requestFocusLogged
 import com.nuvio.app.features.details.MetaDetails
 import com.nuvio.app.features.details.MetaDetailsRepository
 import com.nuvio.app.features.details.rankHeroTrailers
+import com.nuvio.app.features.home.HeroCastMember
 import com.nuvio.app.features.home.LIVE_TV_HOME_ITEM_TYPE
 import com.nuvio.app.features.home.MetaPreview
 import com.nuvio.app.features.library.LibraryRepository
@@ -70,6 +73,8 @@ import com.nuvio.app.features.playlist.PlaylistContentType
 import com.nuvio.app.features.remote.RemoteEpisodePlay
 import com.nuvio.app.features.remote.RemotePlayerHub
 import com.nuvio.app.features.remote.RemoteYouTubeOpen
+import com.nuvio.app.features.tmdb.TmdbMetadataService
+import com.nuvio.app.features.tmdb.TmdbService
 import com.nuvio.app.features.tonight.clockLabel
 import com.nuvio.app.features.watched.WatchedRepository
 import com.nuvio.app.features.watchprogress.ContinueWatchingItem
@@ -109,6 +114,12 @@ internal class ShelfInfoActions(
      * to [play] (which opens its page).
      */
     val playEpisode: ((ShelfCard, ShelfEpisode) -> Unit)? = null,
+    /**
+     * v3 phase 6: OK on a cast member. [openPerson] opens Nuvio's person page (the hero's cast click); when it
+     * is null, [openPersonRow] gets the person's name and their other titles to show as a row.
+     */
+    val openPerson: ((HeroCastMember) -> Unit)? = null,
+    val openPersonRow: ((name: String, titles: List<MetaPreview>) -> Unit)? = null,
 )
 
 internal enum class ShelfInfoButton { Play, SourceShortcut, Trailer, MoreLikeThis, AddToList }
@@ -317,10 +328,44 @@ internal fun ShelfInfoOverlay(
     modifier: Modifier = Modifier,
 ) {
     KeyRouteLayer("ShelfInfo")
+    // v3 phase 6: OK on a collection's part shows that part's Info in place; Back steps back to the film it
+    // came from before it closes Info.
+    val trail = remember(card) { mutableStateListOf<ShelfCard>() }
+    val dismiss by rememberUpdatedState(onDismiss)
+    // Rises in 300 ms: fades in and comes up 24 dp. Once: a part's Info swaps in without the rise.
+    val appear = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { appear.animateTo(1f, tween(300)) }
+    val shown = trail.lastOrNull() ?: card
+    key(shown) {
+        ShelfInfoPage(
+            card = shown,
+            rowTitle = rowTitle,
+            nowMinute = nowMinute,
+            actions = actions,
+            appear = { appear.value },
+            onDismiss = { if (trail.isNotEmpty()) trail.removeAt(trail.lastIndex) else dismiss() },
+            onOpenPart = { part -> trail.add(ShelfCard.Meta(part)) },
+            modifier = modifier,
+        )
+    }
+}
+
+@Composable
+private fun ShelfInfoPage(
+    card: ShelfCard,
+    rowTitle: String,
+    nowMinute: Int,
+    actions: ShelfInfoActions,
+    appear: () -> Float,
+    onDismiss: () -> Unit,
+    onOpenPart: (MetaPreview) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val palette = LocalShelfPalette.current
     val ink = palette.ink
     val accent = palette.accentInk
     val dismiss by rememberUpdatedState(onDismiss)
+    val openPart by rememberUpdatedState(onOpenPart)
     val currentActions by rememberUpdatedState(actions)
 
     // The card's record: whatever is already cached at once, then the hero's summary (cached, shared with
@@ -410,6 +455,108 @@ internal fun ShelfInfoOverlay(
         ShelfInfoRules.text(card, details, nowMinute)
     }
 
+    // v3 phase 6 (mockup V3Cast): a film gets the cast as photo circles and, in a collection, its parts.
+    // Shows keep the episode list (no room for the cast under it); cards without a record keep the old page.
+    val people = !series && key != null
+    val cast = if (people) {
+        ShelfInfoPeopleRules.cast(details, (card as? ShelfCard.Meta)?.item?.cast.orEmpty())
+    } else {
+        emptyList()
+    }
+    val collection = if (people) ShelfInfoPeopleRules.collection(details, text.title) else null
+    LaunchedEffect(collection != null) {
+        if (collection != null) {
+            WatchProgressRepository.ensureLoaded()
+            WatchedRepository.ensureLoaded()
+        }
+    }
+    val watchedParts = remember(collection, watchedState, progressState) {
+        if (collection == null) {
+            emptySet()
+        } else {
+            ShelfInfoPeopleRules.watchedParts(
+                collection.parts,
+                watchedState.watchedKeys,
+                ShelfInfoPeopleRules.watchedTitles(watchedState.items, progressState.entries),
+            )
+        }
+    }
+    val nextPart = collection?.let { c -> ShelfInfoPeopleRules.nextPart(c, watchedParts)?.let { c.parts[it] } }
+    // The next part's length: the collection lists none, so its record is read (cached, else the light fetch).
+    var partMinutes by remember(card) { mutableStateOf<Map<String, Int?>>(emptyMap()) }
+    LaunchedEffect(nextPart?.id) {
+        val part = nextPart ?: return@LaunchedEffect
+        if (partMinutes.containsKey(part.id)) return@LaunchedEffect
+        val minutes = ShelfTime.runtimeMinutes(part.runtime) ?: try {
+            val record = MetaDetailsRepository.peekAny("movie", part.id)
+                ?: MetaDetailsRepository.fetchLightweightMeta(type = "movie", id = part.id)
+            ShelfTime.runtimeMinutes(record?.runtime)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Throwable) {
+            null
+        }
+        partMinutes = partMinutes + (part.id to minutes)
+    }
+    val nextLeft = nextPart?.let { part ->
+        progressState.entries
+            .firstOrNull { (it.videoId == part.id || it.parentMetaId == part.id) && !it.isEffectivelyCompleted && it.lastPositionMs > 0L }
+            ?.let { ShelfTime.minutesLeft(it.durationMs, it.lastPositionMs) }
+    }
+    val collectionLine = collection?.let {
+        ShelfInfoPeopleRules.collectionLine(it, watchedParts, nextPart?.let { p -> partMinutes[p.id] }, nextLeft)
+    }.orEmpty()
+    val hasParts = collection != null
+    val hasCast = cast.isNotEmpty()
+    var zoneWanted by remember(card) { mutableStateOf(ShelfInfoZone.Buttons) }
+    val zone = ShelfInfoPeopleRules.settle(zoneWanted, hasParts, hasCast)
+    var castIndex by remember(card) { mutableIntStateOf(0) }
+    val castFocused = castIndex.coerceIn(0, (cast.size - 1).coerceAtLeast(0))
+    var partWanted by remember(card) { mutableIntStateOf(-1) }
+    val partFocused = collection?.let { c ->
+        if (partWanted in c.parts.indices) partWanted else c.current.coerceAtLeast(0)
+    } ?: 0
+    // A focused cast member's other titles, 300 ms after the focus settles; kept per person for the overlay's life.
+    val focusedPerson = if (zone == ShelfInfoZone.Cast) cast.getOrNull(castFocused) else null
+    var works by remember(card) { mutableStateOf<Map<String, List<MetaPreview>>>(emptyMap()) }
+    val tmdbIdNow = details?.tmdbId
+    LaunchedEffect(focusedPerson?.name) {
+        val person = focusedPerson ?: return@LaunchedEffect
+        if (works.containsKey(person.name)) return@LaunchedEffect
+        delay(300)
+        val found = try {
+            val id = person.tmdbId?.takeIf { it > 0 } ?: TmdbService.findPersonId(person.name, "Acting")
+            id?.let { TmdbMetadataService.fetchPersonDetail(it, preferCrewCredits = false) }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Throwable) {
+            null
+        }
+        works = works + (person.name to ShelfInfoPeopleRules.works(found, tmdbIdNow, text.title))
+    }
+
+    fun openCast(index: Int) {
+        val person = cast.getOrNull(index) ?: return
+        val a = currentActions
+        val page = a.openPerson
+        if (page != null) {
+            page(person.asHeroCastMember())
+        } else {
+            val titles = works[person.name] ?: return
+            if (titles.isNotEmpty()) a.openPersonRow?.invoke(person.name, titles)
+        }
+    }
+
+    fun openPartAt(index: Int) {
+        val c = collection ?: return
+        if (index == c.current) {
+            // This film's own part: back to its buttons.
+            zoneWanted = ShelfInfoZone.Buttons
+            return
+        }
+        c.parts.getOrNull(index)?.let { openPart(it) }
+    }
+
     val buttons = ShelfInfoRules.buttons(
         card,
         play = actions.play != null,
@@ -469,7 +616,12 @@ internal fun ShelfInfoOverlay(
                     okReleased = true
                     if (pressed.remove(k)) {
                         val episode = selected
-                        if (listFocused && episode != null) playEpisode(episode) else buttons.getOrNull(focused)?.let { press(it) }
+                        when {
+                            listFocused && episode != null -> playEpisode(episode)
+                            zone == ShelfInfoZone.Cast -> openCast(castFocused)
+                            zone == ShelfInfoZone.Parts -> openPartAt(partFocused)
+                            else -> buttons.getOrNull(focused)?.let { press(it) }
+                        }
                     }
                 }
                 true
@@ -482,6 +634,12 @@ internal fun ShelfInfoOverlay(
                     if (listFocused) {
                         val at = season?.let { seasons.indexOf(it) } ?: -1
                         if (at >= 0) seasons.getOrNull(at + step)?.let { changeSeason(it) }
+                    } else if (zone == ShelfInfoZone.Cast) {
+                        val next = castFocused + step
+                        if (next in cast.indices) castIndex = next
+                    } else if (zone == ShelfInfoZone.Parts) {
+                        val next = partFocused + step
+                        if (collection != null && next in collection.parts.indices) partWanted = next
                     } else {
                         // A key on the buttons before the episodes arrive keeps the focus there when they do.
                         inList = false
@@ -497,6 +655,8 @@ internal fun ShelfInfoOverlay(
                         if (selectedIndex > 0) select(seasonEpisodes[selectedIndex - 1], seasonEpisodes, listStart)
                     } else if (listUsable) {
                         inList = true
+                    } else if (people) {
+                        zoneWanted = ShelfInfoPeopleRules.up(zone, hasParts, hasCast)
                     }
                 }
                 true
@@ -510,6 +670,8 @@ internal fun ShelfInfoOverlay(
                             inList = false
                             focusedButton = 0
                         }
+                    } else if (people) {
+                        zoneWanted = ShelfInfoPeopleRules.down(zone, hasParts)
                     } else {
                         inList = false
                     }
@@ -524,6 +686,8 @@ internal fun ShelfInfoOverlay(
                         focusedButton = 0
                     } else if (listUsable) {
                         inList = true
+                    } else if (people) {
+                        zoneWanted = ShelfInfoPeopleRules.tab(zone, hasParts, hasCast)
                     }
                 }
                 true
@@ -540,14 +704,10 @@ internal fun ShelfInfoOverlay(
         }
     }
 
-    // Rises in 300 ms: fades in and comes up 24 dp.
-    val appear = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { appear.animateTo(1f, tween(300)) }
-
     val scrim = if (palette.backdropAlpha > 0f) Color(0xFF06090A) else palette.scrim
     val onFilled = if (palette.backdropAlpha > 0f) Color(0xFF0D1417) else palette.page
     val labelSpacing = 3.64.sp // .28em at 13
-    val rise = Modifier.graphicsLayer { translationY = (1f - appear.value) * 24.dp.toPx() }
+    val rise = Modifier.graphicsLayer { translationY = (1f - appear()) * 24.dp.toPx() }
 
     Box(
         modifier
@@ -558,7 +718,7 @@ internal fun ShelfInfoOverlay(
             .focusRequester(root)
             .onPreviewKeyEvent { onKey(it) }
             .focusable()
-            .graphicsLayer { alpha = appear.value },
+            .graphicsLayer { alpha = appear() },
     ) {
         Box(
             Modifier.fillMaxSize().background(
@@ -680,6 +840,107 @@ internal fun ShelfInfoOverlay(
                 },
                 modifier = rise.padding(start = 96.dp, top = 500.dp),
             )
+        } else if (people) {
+            // V3Cast: title, credit, a two-line story and the scores in one line, WITH at 420, the cast at 456,
+            // MORE WITH at 690 and its posters at 724; the collection in the right-hand column from 420. Every
+            // place is fixed, so nothing moves when the cast, the parts or a person's titles arrive.
+            Column(rise.padding(start = 96.dp, top = 170.dp).width(960.dp)) {
+                Text(
+                    text.title,
+                    fontSize = 72.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-1.44).sp,
+                    lineHeight = 72.sp,
+                    color = ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text.credit,
+                    fontSize = 18.sp,
+                    letterSpacing = 4.32.sp,
+                    color = ink.copy(alpha = 0.85f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(18.dp))
+                Text(
+                    text.description,
+                    fontSize = 21.sp,
+                    fontWeight = FontWeight.Light,
+                    lineHeight = 32.55.sp,
+                    color = ink.copy(alpha = 0.88f),
+                    minLines = 2,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    ShelfInfoPeopleRules.scoresLine(text.scores),
+                    fontSize = 14.sp,
+                    letterSpacing = 3.36.sp, // .24em
+                    color = ink.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    minLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                "WITH",
+                fontSize = 13.sp,
+                letterSpacing = labelSpacing,
+                color = ink.copy(alpha = 0.6f),
+                maxLines = 1,
+                modifier = rise.padding(start = 96.dp, top = 420.dp).alpha(if (hasCast) 1f else 0f),
+            )
+            // The 88 dp circles centre in 118 dp ring boxes in 140 dp slots: the row starts 15 dp up and 10 dp left of
+            // the board's first circle (96, 456) so that circle lands where the board has it.
+            ShelfCastRow(
+                people = cast,
+                focused = castFocused,
+                rowFocused = zone == ShelfInfoZone.Cast,
+                ink = ink,
+                placeholder = palette.placeholder,
+                onClick = { index ->
+                    if (zone == ShelfInfoZone.Cast && index == castFocused) {
+                        openCast(index)
+                    } else {
+                        zoneWanted = ShelfInfoZone.Cast
+                        castIndex = index
+                    }
+                },
+                modifier = rise.padding(start = 86.dp, top = 441.dp),
+            )
+            ShelfPersonWorks(
+                name = focusedPerson?.name,
+                works = focusedPerson?.let { works[it.name] },
+                ink = ink,
+                placeholder = palette.placeholder,
+                modifier = rise.padding(start = 96.dp, top = 690.dp),
+            )
+            if (collection != null) {
+                ShelfCollectionColumn(
+                    collection = collection,
+                    watched = watchedParts,
+                    focused = partFocused,
+                    partsFocused = zone == ShelfInfoZone.Parts,
+                    line = collectionLine,
+                    ink = ink,
+                    accent = accent,
+                    placeholder = palette.placeholder,
+                    onClick = { index ->
+                        if (zone == ShelfInfoZone.Parts && index == partFocused) {
+                            openPartAt(index)
+                        } else {
+                            zoneWanted = ShelfInfoZone.Parts
+                            partWanted = index
+                        }
+                    },
+                    // 420 wide from the board's left edge (1404) less the posters' 7 dp frame.
+                    modifier = rise.align(Alignment.TopEnd).padding(end = 103.dp, top = 420.dp),
+                )
+            }
         } else Column(rise.padding(start = 96.dp, top = 190.dp).width(960.dp)) {
             Text(
                 text.title,
@@ -743,7 +1004,7 @@ internal fun ShelfInfoOverlay(
         }
 
         Row(
-            rise.align(Alignment.BottomStart).padding(start = 96.dp, bottom = if (series) 70.dp else 96.dp),
+            rise.align(Alignment.BottomStart).padding(start = 96.dp, bottom = if (series || people) 70.dp else 96.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             val episode = selected
@@ -762,11 +1023,13 @@ internal fun ShelfInfoOverlay(
                     ),
                     play = button == ShelfInfoButton.Play,
                     // While the episode list has focus Play stays filled (the board): OK on a row does what it says.
-                    focused = if (listFocused) button == ShelfInfoButton.Play else index == focused,
+                    // So does it while the cast or the parts have the keys (the board V3Cast).
+                    focused = if (listFocused || zone != ShelfInfoZone.Buttons) button == ShelfInfoButton.Play else index == focused,
                     ink = ink,
                     onFilled = onFilled,
                     onClick = {
                         inList = false
+                        zoneWanted = ShelfInfoZone.Buttons
                         focusedButton = index
                         press(button)
                     },
@@ -775,12 +1038,16 @@ internal fun ShelfInfoOverlay(
         }
 
         Text(
-            if (listFocused) SHELF_SEASONS_HINT else "BACK RETURNS TO THE ROW",
+            when {
+                listFocused -> SHELF_SEASONS_HINT
+                people -> ShelfInfoPeopleRules.hint(zone, hasParts, hasCast)
+                else -> "BACK RETURNS TO THE ROW"
+            },
             fontSize = 14.sp,
             letterSpacing = 3.64.sp,
             color = ink.copy(alpha = 0.5f),
             maxLines = 1,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 96.dp, bottom = if (series) 86.dp else 110.dp),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 96.dp, bottom = if (series || people) 86.dp else 110.dp),
         )
     }
 }
@@ -844,6 +1111,8 @@ internal fun rememberShelfInfoActions(
     onContinueWatchingPlay: ((ContinueWatchingItem) -> Unit)?,
     onFolderClick: ((collectionId: String, folderId: String) -> Unit)?,
     onContinueWatchingSourceShortcut: ((ContinueWatchingItem) -> Unit)? = null,
+    /** v3 phase 6: OK on a cast member in Info; HomeScreen's own onCastClick (the person page). */
+    onCastClick: ((HeroCastMember) -> Unit)? = null,
 ): ShelfInfoActions {
     val library by LibraryRepository.uiState.collectAsStateWithLifecycle()
     // The same rule as the classic Continue watching card's hover button (continueWatchingSourceShortcutKind).
@@ -855,6 +1124,7 @@ internal fun rememberShelfInfoActions(
     val posterClick by rememberUpdatedState(onPosterClick)
     val cwClick by rememberUpdatedState(onContinueWatchingPlay ?: onContinueWatchingClick)
     val folderClick by rememberUpdatedState(onFolderClick)
+    val castClick by rememberUpdatedState(onCastClick)
 
     fun previewOf(card: ShelfCard): MetaPreview? = when (card) {
         is ShelfCard.Meta -> card.item
@@ -872,6 +1142,7 @@ internal fun rememberShelfInfoActions(
     }
 
     return ShelfInfoActions(
+        openPerson = onCastClick?.let { { person -> castClick?.invoke(person) } },
         playEpisode = { card, episode -> playShowEpisode(card, episode, previewOf(card), cwClick) },
         sourceShortcut = onContinueWatchingSourceShortcut?.let {
             { card -> (card as? ShelfCard.Progress)?.let { sourceShortcutClick?.invoke(it.item) } }
