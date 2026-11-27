@@ -41,6 +41,9 @@ sealed interface ShelfSource {
 
     /** A shelf the user built from several home rows and some filters (ShelfMixes.kt). */
     data class Mix(val mixId: String) : ShelfSource
+
+    /** v3 phase 4: "Fits before bed", the Home rows' titles that end before bedtime (ShelfEvening.kt). */
+    data object Evening : ShelfSource
 }
 
 data class Shelf(
@@ -81,6 +84,7 @@ object ShelfHomeRules {
     const val CONTINUE_WATCHING_KEY = "continueWatching"
     const val UP_NEXT_KEY = "upNext"
     const val UPCOMING_KEY = "upcoming"
+    const val EVENING_KEY = "evening"
     private const val COLLECTION_KEY_PREFIX = "collection_"
 
     fun collectionTabId(collectionId: String) = "$COLLECTION_KEY_PREFIX$collectionId"
@@ -91,6 +95,8 @@ object ShelfHomeRules {
      * @param sections the loaded sections by key; a row with no section, or an empty one, is left out
      *   just as the classic home leaves it out.
      * @param collections collections by their settings key (`collection_<id>`), those with folders only.
+     * @param evening true when the evening home is on and it is evening (ShelfEveningRules): a "Fits before bed"
+     *   shelf ([EVENING_KEY], [ShelfSource.Evening]) is put first on Home.
      */
     fun build(
         enabledItems: List<HomeCatalogSettingsItem>,
@@ -99,8 +105,13 @@ object ShelfHomeRules {
         progress: ShelfProgressRows = ShelfProgressRows(),
         titles: ShelfTitles = ShelfTitles(),
         mixes: List<ShelfMix> = emptyList(),
+        evening: Boolean = false,
     ): ShelfHomeModel {
         val homeShelves = mutableListOf<Shelf>()
+        // v3 phase 4: in the evening "Fits before bed" leads Home, ahead of Continue watching (board V3Evening).
+        if (evening) {
+            homeShelves += Shelf(EVENING_KEY, titles.evening, ShelfSource.Evening)
+        }
         if (progress.continueWatching) {
             homeShelves += Shelf(CONTINUE_WATCHING_KEY, titles.continueWatching, ShelfSource.ContinueWatching)
         }
@@ -164,4 +175,5 @@ data class ShelfTitles(
     val continueWatching: String = "Continue watching",
     val upNext: String = "Up next",
     val upcoming: String = "Upcoming",
+    val evening: String = "Fits before bed",
 )

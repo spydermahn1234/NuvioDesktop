@@ -61,13 +61,7 @@ object TriviaArtworkRepository {
     }
 
     private suspend fun build(meta: MetaDetails): TriviaArtwork {
-        val tmdbId = meta.tmdbId
-            ?: withTimeoutOrNull(ARTWORK_FETCH_TIMEOUT_MS) {
-                TmdbService.ensureTmdbId(meta.id, meta.type)?.toIntOrNull()
-            }
-        val extras = tmdbId
-            ?.let { withTimeoutOrNull(ARTWORK_FETCH_TIMEOUT_MS) { TmdbService.fetchBackdropUrls(it, meta.type) } }
-            .orEmpty()
+        val extras = tmdbExtraBackdrops(meta.id, meta.type, meta.tmdbId)
         val imdb = meta.imdbId ?: meta.id.takeIf { it.startsWith("tt") }
         val fallback = imdb?.let { "https://images.metahub.space/background/large/$it/img" }
         return TriviaArtwork(
@@ -75,4 +69,20 @@ object TriviaArtworkRepository {
             logo = meta.logo?.takeIf(String::isNotBlank),
         )
     }
+}
+
+/**
+ * TMDB's extra backdrops for a title, textless first (TMDB's own fallback to captioned art when it has
+ * none without a language), best voted first; empty without a TMDB key or id. Shared by the pre-show
+ * above and the shelf home's art set (fork:shelf-home, `ShelfArt.kt`). Two TMDB requests at most, the id
+ * look-up cached by [TmdbService]; each bounded by the same 8 s timeout.
+ */
+internal suspend fun tmdbExtraBackdrops(id: String, type: String, knownTmdbId: Int? = null): List<String> {
+    val tmdbId = knownTmdbId
+        ?: withTimeoutOrNull(ARTWORK_FETCH_TIMEOUT_MS) {
+            TmdbService.ensureTmdbId(id, type)?.toIntOrNull()
+        }
+    return tmdbId
+        ?.let { withTimeoutOrNull(ARTWORK_FETCH_TIMEOUT_MS) { TmdbService.fetchBackdropUrls(it, type) } }
+        .orEmpty()
 }

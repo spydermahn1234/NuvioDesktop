@@ -3851,6 +3851,14 @@
     <string name="settings_home_shelf_home_look">Shelf home look</string>
     <string name="settings_home_shelf_home_look_description">Dark shows the focused title's picture behind everything. Paper is light: warm paper and dark type, with the posters as the only colour.</string>
     <string name="settings_home_shelf_home_description">A Kodi-style home: one row at a time, each in its own view. Your rows and collections stay as they are. Off shows the classic home.</string>
+    <string name="settings_home_shelf_textless_art">Clean art first</string>
+    <string name="settings_home_shelf_textless_art_description">On the shelf home, backdrops without the title printed in them come first, and a title you stay on cycles through its other backdrops.</string>
+    <string name="settings_home_shelf_art_accent">Colour from the art</string>
+    <string name="settings_home_shelf_art_accent_description">The shelf home's highlights take their colour from each title's backdrop.</string>
+    <string name="settings_home_shelf_evening">Evening home</string>
+    <string name="settings_home_shelf_evening_description">In the evening a "Fits before bed" row leads the shelf home: titles from your rows that end before your bedtime (set in What to watch).</string>
+    <string name="settings_home_shelf_evening_start">Evening starts at</string>
+    <string name="settings_home_shelf_evening_start_description">When "Fits before bed" starts leading the shelf home.</string>
     <string name="settings_home_catalog_provider_tag">Show catalog provider</string>
     <string name="settings_home_catalog_provider_tag_description">Tags each catalog row with the addon that supplies it.</string>
     <string name="settings_home_release_status_unavailable_only">Only show unavailable release status</string>

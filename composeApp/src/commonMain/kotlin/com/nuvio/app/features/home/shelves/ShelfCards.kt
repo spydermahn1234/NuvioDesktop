@@ -72,6 +72,7 @@ internal fun shelfCardsFor(
     upcoming: List<ContinueWatchingItem>,
     folderItems: List<MetaPreview>? = null,
     mixItems: List<MetaPreview>? = null,
+    eveningItems: List<MetaPreview>? = null,
 ): List<ShelfCard> = when (val source = shelf?.source) {
     null -> emptyList()
     is ShelfSource.Catalog -> sections[source.sectionKey]?.items.orEmpty().map(ShelfCard::Meta)
@@ -82,6 +83,7 @@ internal fun shelfCardsFor(
         collections[ShelfHomeRules.collectionTabId(source.collectionId)]?.folders.orEmpty()
             .map { ShelfCard.Folder(source.collectionId, it) }
     is ShelfSource.Mix -> mixItems.orEmpty().map(ShelfCard::Meta)
+    ShelfSource.Evening -> eveningItems.orEmpty().map(ShelfCard::Meta)
     // The folder card stands in while the titles load, or if every source fails.
     is ShelfSource.CollectionFolder ->
         folderItems?.takeIf { it.isNotEmpty() }?.map(ShelfCard::Meta)

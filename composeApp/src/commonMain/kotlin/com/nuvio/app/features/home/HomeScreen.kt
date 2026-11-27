@@ -2190,7 +2190,10 @@ fun HomeScreen(
         val cwVisible = continueWatchingPreferences.isVisible
         remember { com.nuvio.app.features.home.shelves.ShelfMixRepository.ensureLoaded() }
         val shelfMixes by com.nuvio.app.features.home.shelves.ShelfMixRepository.mixes.collectAsStateWithLifecycle()
-        val shelfModel = remember(enabledHomeItems, sectionsMap, collectionsMap, cwVisible, continueWatchingRowItems.isNotEmpty(), nextUpRowItems.isNotEmpty(), upcomingRowItems.isNotEmpty(), shelfMixes) {
+        val shelfHomeSectionKeys = remember(enabledHomeItems) { enabledHomeItems.filterNot { it.isCollection }.map { it.key } }
+        // fork:shelf-home v3 - flips only when the evening starts or ends, so the model rebuilds only then.
+        val shelfEveningOn = com.nuvio.app.features.home.shelves.rememberShelfEveningOn(sectionsMap, shelfHomeSectionKeys)
+        val shelfModel = remember(enabledHomeItems, sectionsMap, collectionsMap, cwVisible, continueWatchingRowItems.isNotEmpty(), nextUpRowItems.isNotEmpty(), upcomingRowItems.isNotEmpty(), shelfMixes, shelfEveningOn) {
             com.nuvio.app.features.home.shelves.ShelfHomeRules.build(
                 enabledItems = enabledHomeItems,
                 sections = sectionsMap,
@@ -2201,6 +2204,7 @@ fun HomeScreen(
                     upcoming = cwVisible && upcomingRowItems.isNotEmpty(),
                 ),
                 mixes = shelfMixes,
+                evening = shelfEveningOn,
             )
         }
         com.nuvio.app.features.home.shelves.ShelfHome(

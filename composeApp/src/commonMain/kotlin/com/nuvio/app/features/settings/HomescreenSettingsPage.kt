@@ -444,6 +444,51 @@ internal fun LazyListScope.homescreenSettingsContent(
                             modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("home-shelf-home-look")),
                             onSelected = com.nuvio.app.features.home.shelves.ShelfThemeRepository::set,
                         )
+                        // fork:shelf-home - the v3 switches (design-notes/home-shelves-v3.md).
+                        remember { com.nuvio.app.features.home.shelves.ShelfExtrasRepository.ensureLoaded() }
+                        val shelfExtras by com.nuvio.app.features.home.shelves.ShelfExtrasRepository.state
+                            .collectAsStateWithLifecycle()
+                        SettingsGroupDivider(isTablet = isTablet)
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_home_shelf_textless_art),
+                            description = stringResource(Res.string.settings_home_shelf_textless_art_description),
+                            checked = shelfExtras.textlessArt,
+                            isTablet = isTablet,
+                            modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("home-shelf-textless-art")),
+                            onCheckedChange = { on -> com.nuvio.app.features.home.shelves.ShelfExtrasRepository.update { it.copy(textlessArt = on) } },
+                        )
+                        SettingsGroupDivider(isTablet = isTablet)
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_home_shelf_art_accent),
+                            description = stringResource(Res.string.settings_home_shelf_art_accent_description),
+                            checked = shelfExtras.artAccent,
+                            isTablet = isTablet,
+                            modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("home-shelf-art-accent")),
+                            onCheckedChange = { on -> com.nuvio.app.features.home.shelves.ShelfExtrasRepository.update { it.copy(artAccent = on) } },
+                        )
+                        SettingsGroupDivider(isTablet = isTablet)
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_home_shelf_evening),
+                            description = stringResource(Res.string.settings_home_shelf_evening_description),
+                            checked = shelfExtras.eveningHome,
+                            isTablet = isTablet,
+                            modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("home-shelf-evening")),
+                            onCheckedChange = { on -> com.nuvio.app.features.home.shelves.ShelfExtrasRepository.update { it.copy(eveningHome = on) } },
+                        )
+                        if (shelfExtras.eveningHome) {
+                            SettingsGroupDivider(isTablet = isTablet)
+                            SettingsChoiceRow(
+                                title = stringResource(Res.string.settings_home_shelf_evening_start),
+                                description = stringResource(Res.string.settings_home_shelf_evening_start_description),
+                                options = listOf(19 * 60, 20 * 60, 20 * 60 + 30, 21 * 60, 21 * 60 + 30, 22 * 60).map { minute ->
+                                    SettingsChoiceOption(minute, com.nuvio.app.features.tonight.clockLabel(minute))
+                                },
+                                selectedValue = shelfExtras.eveningStartMinute,
+                                isTablet = isTablet,
+                                modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("home-shelf-evening-start")),
+                                onSelected = { minute -> com.nuvio.app.features.home.shelves.ShelfExtrasRepository.update { it.copy(eveningStartMinute = minute) } },
+                            )
+                        }
                     }
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsSwitchRow(

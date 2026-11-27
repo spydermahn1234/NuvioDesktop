@@ -27,7 +27,7 @@ fork-UI list, `fork:shelf-home` markers in upstream files, checks in TESTING.md 
 Each phase is one helper's work in its own new file(s), with a small hook in `ShelfHome.kt` / `ShelfInfoOverlay.kt`.
 The lead merges hooks so two helpers never edit the same lines.
 
-### Batch 1 (the art and Info; the base for the rest)
+### Batch 1 (the art and Info; the base for the rest) — built Nov 27 by four parallel helpers, merged and pushed
 
 1. **Art set (boards 1–2).** `ShelfArt.kt`: per title, an ordered list of backdrops: textless first (TMDB extras via
    the same path as `TriviaArtwork`, moved to a shared helper rather than copied), the addon's background after, the

@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -65,6 +66,9 @@ internal object ShelfPosterRowRules {
     /** The row's height: the focused card plus its outline above and below. */
     const val HEIGHT = FOCUSED_H + 2 * RING_ROOM
 
+    /** Room under the row for the lines under the posters (labels). */
+    const val LABEL_ROOM = 26
+
     /** Cards kept before the focused one when the row scrolls. */
     const val LEAD = 3
 
@@ -82,6 +86,8 @@ internal fun ShelfPosterRow(
     onClickCard: (Int) -> Unit,
     modifier: Modifier = Modifier,
     onSecondaryClickCard: ((Int) -> Unit)? = null,
+    /** fork:shelf-home v3 - a line under each poster ("ENDS 22:53" on Fits before bed); null draws none. */
+    labels: ((ShelfCard) -> String?)? = null,
 ) {
     val rules = ShelfPosterRowRules
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = rules.firstVisible(focusedIndex))
@@ -101,15 +107,36 @@ internal fun ShelfPosterRow(
             top = rules.RING_ROOM.dp,
             bottom = rules.RING_ROOM.dp,
         ),
-        modifier = modifier.fillMaxWidth().height(rules.HEIGHT.dp),
+        modifier = modifier.fillMaxWidth().height((rules.HEIGHT + if (labels != null) rules.LABEL_ROOM else 0).dp),
     ) {
         itemsIndexed(cards, key = { index, card -> "$index:${card.stableId()}" }) { index, card ->
-            PosterCard(
-                card = card,
-                focused = index == focusedIndex,
-                onClick = { onClickCard(index) },
-                onSecondaryClick = onSecondaryClickCard?.let { { it(index) } },
-            )
+            val focused = index == focusedIndex
+            if (labels == null) {
+                PosterCard(
+                    card = card,
+                    focused = focused,
+                    onClick = { onClickCard(index) },
+                    onSecondaryClick = onSecondaryClickCard?.let { { it(index) } },
+                )
+            } else {
+                // Bottom-aligned like the cards, so the lines under them stay on one baseline.
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PosterCard(
+                        card = card,
+                        focused = focused,
+                        onClick = { onClickCard(index) },
+                        onSecondaryClick = onSecondaryClickCard?.let { { it(index) } },
+                    )
+                    Text(
+                        labels(card).orEmpty(),
+                        fontSize = 12.sp,
+                        letterSpacing = 1.92.sp,
+                        color = if (focused) LocalShelfPalette.current.ink else LocalShelfPalette.current.ink.copy(alpha = 0.5f),
+                        maxLines = 1,
+                        modifier = Modifier.height(16.dp),
+                    )
+                }
+            }
         }
     }
 }
@@ -128,7 +155,7 @@ private fun PosterCard(
     val height by animateDpAsState(if (focused) rules.FOCUSED_H.dp else rules.CARD_H.dp, motion, label = "posterH")
     val strength by animateFloatAsState(if (focused) 1f else 0.55f, tween(200), label = "posterAlpha")
     val ring by animateFloatAsState(if (focused) 1f else 0f, tween(200), label = "posterRing")
-    val ringColor = palette.ink
+    val ringColor = palette.ring
     val click by rememberUpdatedState(onClick)
     Box(
         modifier = Modifier

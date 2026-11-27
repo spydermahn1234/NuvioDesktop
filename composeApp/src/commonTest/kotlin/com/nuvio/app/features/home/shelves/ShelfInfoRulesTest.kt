@@ -219,6 +219,19 @@ class ShelfInfoRulesTest {
     }
 
     @Test
+    fun aShowsPlayNamesItsEpisodeAndAFilmsStaysPlay() {
+        assertEquals("Resume S4 E2", ShelfInfoRules.buttonLabel(ShelfInfoButton.Play, false, null, "Resume S4 E2"))
+        assertEquals("Play", ShelfInfoRules.buttonLabel(ShelfInfoButton.Play, false, null, null))
+        // The episode's words are Play's only.
+        assertEquals("Trailer", ShelfInfoRules.buttonLabel(ShelfInfoButton.Trailer, false, null, "Play S4 E3"))
+        // Films keep the V2 Info: no season list.
+        assertNull(ShelfInfoSeasonsRules.showKey(ShelfCard.Meta(ironGiant)))
+        assertEquals("series" to "tt2085059", ShelfInfoSeasonsRules.showKey(progress()))
+        // A show's Play falls back to the old action until an episode can be played.
+        assertNull(ShelfInfoActions().playEpisode)
+    }
+
+    @Test
     fun detailsKeyIsTheShowForAnEpisode() {
         assertEquals("series" to "tt2085059", ShelfInfoRules.detailsKey(progress()))
         assertEquals("movie" to "tt0129167", ShelfInfoRules.detailsKey(ShelfCard.Meta(ironGiant)))

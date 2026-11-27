@@ -1124,6 +1124,23 @@ The shelf home rebuilt to the v2 mockups (canvas "Nuvio home — Kodi-style mock
 - [ ] With the sidebar layout instead of the top bar, Up from Shelves' tab line does nothing (and nothing breaks)
 - [ ] Paper look: the fan-art screens are readable on paper (no backdrop, as before)
 
+## Shelf home v3, batch 1: art, colour, seasons, evening (Nov 27)
+
+Plan in design-notes/home-shelves-v3.md; boards on the canvas page "v3 · What's next". Guesses are marked GUESS.
+
+- [ ] (must) Clean art: on a title with several backdrops, the first one has no title printed in it; staying on the title, another backdrop fades in every 8 s and the row header reads "ART 2 OF 5 ● · …"
+- [ ] Moving along the row quickly does not flicker through pictures; a title with no extra backdrops keeps its own (no "ART" label)
+- [ ] With Settings > Home screen > Clean art first off, each title shows only its own backdrop, as before
+- [ ] (must) Colour from the art: the slashes, the dots, the "ART" dot and the focused poster's outline take a colour from the backdrop and ease to the next one; always bright enough to read
+- [ ] With Colour from the art off (or the Paper look), the colours are the theme's as before (white outline)
+- [ ] (must) Info on a show (I or hold OK): the season strip and the episode list (watched / time left with a line), opened on the episode you are up to; Up/Down move episodes, Left/Right change season, OK plays that episode
+- [ ] Info on a show: Play reads "Resume S4 E2" or "Play S4 E3" and plays that episode (resuming where you left off); Down from the last episode reaches the buttons, Up comes back; Back closes Info
+- [ ] Info on a film looks and works as before; Specials come last as "SPECIALS" (GUESS)
+- [ ] (must) Evening home: after 21:00 (Settings > Home screen > Evening starts at) Home starts with "Fits before bed": titles from your rows that end before your bedtime, each with "ENDS 22:53" under it, and "37 min to spare" after the end time
+- [ ] Evening home: "BED AT 23:30 · 2H 20M" under the clock and a warm tint that grows in the last hour; both gone after bedtime and before the evening starts
+- [ ] Evening home: the row loads more titles by itself and never sits empty; with Evening home off it never appears; it sits in Shelves under YOURS
+- [ ] The four new rows in Settings > Home screen show only with Shelf home on, and Settings search finds them
+
 ## Shelf home, Continue watching source shortcut (Nov 27)
 
 - [ ] (must) Info (I or hold OK) on a Continue watching card has a second pill beside Play: "Choose a source" when Play replays the last link, or "Play last source" when Play opens the source list; it does that

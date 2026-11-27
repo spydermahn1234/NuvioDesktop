@@ -97,6 +97,7 @@ internal object ShelfGroupRules {
             shelf.source is ShelfSource.UpNext ||
             shelf.source is ShelfSource.Upcoming -> true
         shelf.source is ShelfSource.Mix -> true
+        shelf.source is ShelfSource.Evening -> true
         shelf.source is ShelfSource.CollectionFolders -> true
         else -> hasPhrase(shelf.title, yoursPhrases)
     }

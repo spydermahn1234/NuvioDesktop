@@ -71,7 +71,9 @@ import com.nuvio.app.features.remote.RemoteEpisodePlay
 import com.nuvio.app.features.remote.RemotePlayerHub
 import com.nuvio.app.features.remote.RemoteYouTubeOpen
 import com.nuvio.app.features.tonight.clockLabel
+import com.nuvio.app.features.watched.WatchedRepository
 import com.nuvio.app.features.watchprogress.ContinueWatchingItem
+import com.nuvio.app.features.watchprogress.CurrentDateProvider
 import com.nuvio.app.features.watchprogress.WatchProgressRepository
 import kotlin.math.roundToInt
 import kotlin.time.TimeSource
@@ -102,6 +104,11 @@ internal class ShelfInfoActions(
      */
     val sourceShortcut: ((ShelfCard) -> Unit)? = null,
     val sourceShortcutLabel: (ShelfCard) -> String? = { null },
+    /**
+     * v3 phase 3: plays one episode of a show (Info's episode list and its Play). Null: a show's Play falls back
+     * to [play] (which opens its page).
+     */
+    val playEpisode: ((ShelfCard, ShelfEpisode) -> Unit)? = null,
 )
 
 internal enum class ShelfInfoButton { Play, SourceShortcut, Trailer, MoreLikeThis, AddToList }
@@ -165,8 +172,14 @@ internal object ShelfInfoRules {
             null -> null
         }
 
-    fun buttonLabel(button: ShelfInfoButton, inList: Boolean, sourceShortcutLabel: String? = null): String = when (button) {
-        ShelfInfoButton.Play -> "Play"
+    fun buttonLabel(
+        button: ShelfInfoButton,
+        inList: Boolean,
+        sourceShortcutLabel: String? = null,
+        /** A show's Play names its episode ("Resume S4 E2", from ShelfInfoSeasonsRules.playLabel). */
+        playLabel: String? = null,
+    ): String = when (button) {
+        ShelfInfoButton.Play -> playLabel ?: "Play"
         ShelfInfoButton.SourceShortcut -> sourceShortcutLabel ?: "Choose a source"
         ShelfInfoButton.Trailer -> "Trailer"
         ShelfInfoButton.MoreLikeThis -> "More like this"
@@ -315,6 +328,7 @@ internal fun ShelfInfoOverlay(
     val key = remember(card) { ShelfInfoRules.detailsKey(card) }
     val peeked = remember(key) { key?.let { MetaDetailsRepository.peekAny(it.first, it.second) } }
     var fetched by remember(key) { mutableStateOf<MetaDetails?>(null) }
+    var fetchDone by remember(key) { mutableStateOf(false) }
     LaunchedEffect(key) {
         val k = key ?: return@LaunchedEffect
         fetched = try {
@@ -324,12 +338,77 @@ internal fun ShelfInfoOverlay(
         } catch (_: Throwable) {
             null
         }
+        fetchDone = true
     }
     // The summary carries no MDBList scores; keep the ones a visit to the details page left in the cache.
     val details = fetched?.let { f ->
         if (f.externalRatings.isEmpty() && !peeked?.externalRatings.isNullOrEmpty()) f.copy(externalRatings = peeked!!.externalRatings) else f
     } ?: peeked
-    val text = ShelfInfoRules.text(card, details, nowMinute)
+
+    // v3 phase 3 (mockup V3Seasons): a show gets the season strip and the episode list instead of scores and cast.
+    val showKey = remember(card) { ShelfInfoSeasonsRules.showKey(card) }
+    val series = showKey != null
+    val progressState by WatchProgressRepository.uiState.collectAsStateWithLifecycle()
+    val watchedState by WatchedRepository.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(showKey) {
+        if (showKey != null) {
+            WatchProgressRepository.ensureLoaded()
+            WatchedRepository.ensureLoaded()
+        }
+    }
+    var season by remember(card) { mutableStateOf<Int?>(null) }
+    var selectedKey by remember(card) { mutableStateOf<Pair<Int, Int>?>(null) }
+    var listStart by remember(card) { mutableIntStateOf(0) }
+    var inList by remember(card) { mutableStateOf(true) }
+    val videos = rememberShelfShowVideos(showKey, details?.videos.orEmpty(), baseSettled = fetchDone || key == null, season = season)
+    val episodes = remember(showKey, videos) {
+        if (showKey == null) emptyList() else ShelfInfoSeasonsRules.episodes(showKey.second, videos)
+    }
+    val states = remember(episodes, progressState, watchedState) {
+        if (showKey == null) {
+            emptyMap()
+        } else {
+            ShelfInfoSeasonsRules.states(episodes, showKey.first, showKey.second, progressState.entries, watchedState.watchedKeys)
+        }
+    }
+    val seasons = remember(episodes) { ShelfInfoSeasonsRules.seasons(episodes) }
+    val today = remember { runCatching { CurrentDateProvider.todayIsoDate() }.getOrNull() }
+    // Opens on the episode you are up to, once the list first arrives.
+    LaunchedEffect(episodes.isNotEmpty()) {
+        if (selectedKey != null || episodes.isEmpty()) return@LaunchedEffect
+        val cw = (card as? ShelfCard.Progress)?.item
+        val open = ShelfInfoSeasonsRules.openOn(episodes, states, cw?.seasonNumber, cw?.episodeNumber, today)
+            ?: return@LaunchedEffect
+        val inSeason = ShelfInfoSeasonsRules.inSeason(episodes, open.season)
+        val index = inSeason.indexOf(open)
+        season = open.season
+        selectedKey = open.season to open.number
+        listStart = ShelfInfoSeasonsRules.windowStart(index - 1, index, inSeason.size)
+    }
+    val seasonEpisodes = season?.let { ShelfInfoSeasonsRules.inSeason(episodes, it) }.orEmpty()
+    val selected = seasonEpisodes.firstOrNull { (it.season to it.number) == selectedKey }
+    val selectedIndex = selected?.let { seasonEpisodes.indexOf(it) } ?: -1
+    val listUsable = series && selected != null
+    val listFocused = listUsable && inList
+
+    fun select(episode: ShelfEpisode, list: List<ShelfEpisode>, fromStart: Int) {
+        val index = list.indexOf(episode)
+        season = episode.season
+        selectedKey = episode.season to episode.number
+        listStart = ShelfInfoSeasonsRules.windowStart(fromStart, index, list.size)
+    }
+
+    fun changeSeason(to: Int) {
+        val entry = ShelfInfoSeasonsRules.entryFor(episodes, to, states, today) ?: return
+        val list = ShelfInfoSeasonsRules.inSeason(episodes, to)
+        select(entry, list, list.indexOf(entry) - 1)
+    }
+
+    val text = if (series) {
+        ShelfInfoSeasonsRules.text(card, details, ShelfInfoSeasonsRules.seasonCount(episodes))
+    } else {
+        ShelfInfoRules.text(card, details, nowMinute)
+    }
 
     val buttons = ShelfInfoRules.buttons(
         card,
@@ -342,10 +421,19 @@ internal fun ShelfInfoOverlay(
     var focusedButton by remember { mutableIntStateOf(0) }
     val focused = focusedButton.coerceIn(0, (buttons.size - 1).coerceAtLeast(0))
 
+    fun playEpisode(episode: ShelfEpisode) {
+        val a = currentActions
+        val play = a.playEpisode
+        if (play != null) play(card, episode) else a.play?.invoke(card)
+    }
+
     fun press(button: ShelfInfoButton) {
         val a = currentActions
         when (button) {
-            ShelfInfoButton.Play -> a.play?.invoke(card)
+            ShelfInfoButton.Play -> {
+                val episode = selected
+                if (series && episode != null) playEpisode(episode) else a.play?.invoke(card)
+            }
             ShelfInfoButton.SourceShortcut -> a.sourceShortcut?.invoke(card)
             ShelfInfoButton.Trailer -> a.trailer?.invoke(card)
             ShelfInfoButton.MoreLikeThis -> a.moreLikeThis?.invoke(card)
@@ -379,20 +467,67 @@ internal fun ShelfInfoOverlay(
                 }
                 if (up) {
                     okReleased = true
-                    if (pressed.remove(k)) buttons.getOrNull(focused)?.let { press(it) }
+                    if (pressed.remove(k)) {
+                        val episode = selected
+                        if (listFocused && episode != null) playEpisode(episode) else buttons.getOrNull(focused)?.let { press(it) }
+                    }
                 }
                 true
             }
-            Key.DirectionLeft -> {
-                if (down && focused > 0) focusedButton = focused - 1
+            // In the episode list (a show): Up/Down move through the season's episodes, Down from the last one (or
+            // Tab) reaches the buttons; Left/Right change season.
+            Key.DirectionLeft, Key.DirectionRight -> {
+                if (down) {
+                    val step = if (k == Key.DirectionLeft) -1 else 1
+                    if (listFocused) {
+                        val at = season?.let { seasons.indexOf(it) } ?: -1
+                        if (at >= 0) seasons.getOrNull(at + step)?.let { changeSeason(it) }
+                    } else {
+                        // A key on the buttons before the episodes arrive keeps the focus there when they do.
+                        inList = false
+                        val next = focused + step
+                        if (next in buttons.indices) focusedButton = next
+                    }
+                }
                 true
             }
-            Key.DirectionRight -> {
-                if (down && focused < buttons.size - 1) focusedButton = focused + 1
+            Key.DirectionUp -> {
+                if (down) {
+                    if (listFocused) {
+                        if (selectedIndex > 0) select(seasonEpisodes[selectedIndex - 1], seasonEpisodes, listStart)
+                    } else if (listUsable) {
+                        inList = true
+                    }
+                }
                 true
             }
-            // Up/Down have nowhere to go; Tab would move focus to the frame underneath.
-            Key.DirectionUp, Key.DirectionDown, Key.Tab -> true
+            Key.DirectionDown -> {
+                if (down) {
+                    if (listFocused) {
+                        if (selectedIndex in 0 until seasonEpisodes.size - 1) {
+                            select(seasonEpisodes[selectedIndex + 1], seasonEpisodes, listStart)
+                        } else {
+                            inList = false
+                            focusedButton = 0
+                        }
+                    } else {
+                        inList = false
+                    }
+                }
+                true
+            }
+            // Tab switches between the list and the buttons (never to the frame underneath).
+            Key.Tab -> {
+                if (down) {
+                    if (listFocused) {
+                        inList = false
+                        focusedButton = 0
+                    } else if (listUsable) {
+                        inList = true
+                    }
+                }
+                true
+            }
             else -> false
         }
     }
@@ -427,12 +562,22 @@ internal fun ShelfInfoOverlay(
     ) {
         Box(
             Modifier.fillMaxSize().background(
-                Brush.horizontalGradient(
-                    0f to scrim.copy(alpha = 0.9f),
-                    0.4f to scrim.copy(alpha = 0.7f),
-                    0.7f to scrim.copy(alpha = 0.1f),
-                    1f to scrim.copy(alpha = 0.1f),
-                ),
+                if (series) {
+                    // V3Seasons: darker and wider, for the episode list.
+                    Brush.horizontalGradient(
+                        0f to scrim.copy(alpha = 0.92f),
+                        0.45f to scrim.copy(alpha = 0.78f),
+                        0.75f to scrim.copy(alpha = 0.2f),
+                        1f to scrim.copy(alpha = 0.2f),
+                    )
+                } else {
+                    Brush.horizontalGradient(
+                        0f to scrim.copy(alpha = 0.9f),
+                        0.4f to scrim.copy(alpha = 0.7f),
+                        0.7f to scrim.copy(alpha = 0.1f),
+                        1f to scrim.copy(alpha = 0.1f),
+                    )
+                },
             ),
         )
         Box(
@@ -467,7 +612,75 @@ internal fun ShelfInfoOverlay(
             Text("INFO", fontSize = 17.sp, letterSpacing = 4.76.sp, color = ink, maxLines = 1)
         }
 
-        Column(rise.padding(start = 96.dp, top = 190.dp).width(960.dp)) {
+        if (series) {
+            // V3Seasons: title, credit and a one-line story, the strip at 440 and six rows from 500, every place
+            // fixed so nothing moves while the episodes load.
+            Column(rise.padding(start = 96.dp, top = 170.dp).width(900.dp)) {
+                Text(
+                    text.title,
+                    fontSize = 72.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-1.44).sp,
+                    lineHeight = 72.sp,
+                    color = ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text.credit,
+                    fontSize = 18.sp,
+                    letterSpacing = 4.32.sp,
+                    color = ink.copy(alpha = 0.85f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(18.dp))
+                Text(
+                    text.description,
+                    fontSize = 21.sp,
+                    fontWeight = FontWeight.Light,
+                    lineHeight = 32.55.sp,
+                    color = ink.copy(alpha = 0.88f),
+                    minLines = 1,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Box(rise.padding(start = 96.dp, top = 440.dp)) {
+                if (seasons.isEmpty()) {
+                    ShelfSeasonStripPlaceholder(ink)
+                } else {
+                    ShelfSeasonStrip(
+                        seasons = seasons,
+                        current = season,
+                        ink = ink,
+                        accent = accent,
+                        onPick = { picked ->
+                            inList = true
+                            if (picked != season) changeSeason(picked)
+                        },
+                    )
+                }
+            }
+            ShelfEpisodeList(
+                episodes = seasonEpisodes,
+                states = states,
+                selected = selected,
+                start = listStart,
+                listFocused = listFocused,
+                ink = ink,
+                onClick = { episode ->
+                    if (listFocused && episode == selected) {
+                        playEpisode(episode)
+                    } else {
+                        inList = true
+                        select(episode, seasonEpisodes, listStart)
+                    }
+                },
+                modifier = rise.padding(start = 96.dp, top = 500.dp),
+            )
+        } else Column(rise.padding(start = 96.dp, top = 190.dp).width(960.dp)) {
             Text(
                 text.title,
                 fontSize = 84.sp,
@@ -530,21 +743,30 @@ internal fun ShelfInfoOverlay(
         }
 
         Row(
-            rise.align(Alignment.BottomStart).padding(start = 96.dp, bottom = 96.dp),
+            rise.align(Alignment.BottomStart).padding(start = 96.dp, bottom = if (series) 70.dp else 96.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            val episode = selected
+            val playLabel = if (series && episode != null) {
+                ShelfInfoSeasonsRules.playLabel(episode, states[episode.season to episode.number])
+            } else {
+                null
+            }
             buttons.forEachIndexed { index, button ->
                 InfoPill(
                     label = ShelfInfoRules.buttonLabel(
                         button,
                         button == ShelfInfoButton.AddToList && actions.inList(card),
                         actions.sourceShortcutLabel(card),
+                        playLabel,
                     ),
                     play = button == ShelfInfoButton.Play,
-                    focused = index == focused,
+                    // While the episode list has focus Play stays filled (the board): OK on a row does what it says.
+                    focused = if (listFocused) button == ShelfInfoButton.Play else index == focused,
                     ink = ink,
                     onFilled = onFilled,
                     onClick = {
+                        inList = false
                         focusedButton = index
                         press(button)
                     },
@@ -553,12 +775,12 @@ internal fun ShelfInfoOverlay(
         }
 
         Text(
-            "BACK RETURNS TO THE ROW",
+            if (listFocused) SHELF_SEASONS_HINT else "BACK RETURNS TO THE ROW",
             fontSize = 14.sp,
             letterSpacing = 3.64.sp,
             color = ink.copy(alpha = 0.5f),
             maxLines = 1,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 96.dp, bottom = 110.dp),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 96.dp, bottom = if (series) 86.dp else 110.dp),
         )
     }
 }
@@ -607,8 +829,9 @@ private fun InfoPill(label: String, play: Boolean, focused: Boolean, ink: Color,
 /**
  * Info's four buttons on Nuvio's own actions, for the shelf home's call in HomeScreen:
  *  - Play: a film starts as the details page's Play does (its sources, then the player, resuming where it
- *    stopped) through [RemotePlayerHub.playEpisode]; a show (which needs an episode picked) and Live TV or
- *    playlist cards open as OK does; a Continue Watching card plays as the classic home's Play does; a folder opens.
+ *    stopped) through [RemotePlayerHub.playEpisode]; Live TV and playlist cards open as OK does; a Continue
+ *    Watching card plays as the classic home's Play does; a folder opens. A show plays the episode picked in
+ *    Info's list (playEpisode below); only when its episodes cannot be listed does Play open its page.
  *  - Trailer: the title's best trailer (the heroes' choice, first season only) in the player, through the
  *    YouTube path the phone remote's Send to Nuvio uses.
  *  - More like this: the title's details page (its More like this rail).
@@ -649,6 +872,7 @@ internal fun rememberShelfInfoActions(
     }
 
     return ShelfInfoActions(
+        playEpisode = { card, episode -> playShowEpisode(card, episode, previewOf(card), cwClick) },
         sourceShortcut = onContinueWatchingSourceShortcut?.let {
             { card -> (card as? ShelfCard.Progress)?.let { sourceShortcutClick?.invoke(it.item) } }
         },
@@ -730,6 +954,52 @@ internal fun rememberShelfInfoActions(
             val key = ShelfInfoRules.detailsKey(card)
             key != null && library.contains(key.second, key.first)
         },
+    )
+}
+
+/**
+ * One episode of a show from Info. The Continue watching card's own episode plays as the card does (the classic
+ * home's Play: its resume and source rules); any other episode starts as the film Play does, through
+ * [RemotePlayerHub.playEpisode], resuming where it stopped.
+ */
+private fun playShowEpisode(
+    card: ShelfCard,
+    episode: ShelfEpisode,
+    preview: MetaPreview?,
+    continueWatchingPlay: ((ContinueWatchingItem) -> Unit)?,
+) {
+    val own = (card as? ShelfCard.Progress)?.item
+    if (own != null && continueWatchingPlay != null &&
+        own.seasonNumber == episode.season && own.episodeNumber == episode.number
+    ) {
+        continueWatchingPlay(own)
+        return
+    }
+    val key = ShelfInfoSeasonsRules.showKey(card) ?: return
+    val saved = WatchProgressRepository.uiState.value.entries
+        .filter {
+            it.videoId == episode.videoId ||
+                (it.parentMetaId == key.second && it.seasonNumber == episode.season && it.episodeNumber == episode.number)
+        }
+        .maxByOrNull { it.lastUpdatedEpochMs }
+        ?.takeUnless { it.isEffectivelyCompleted }
+    RemotePlayerHub.playEpisode(
+        RemoteEpisodePlay(
+            type = key.first,
+            videoId = episode.videoId,
+            parentMetaId = key.second,
+            parentMetaType = key.first,
+            title = preview?.name ?: card.title(),
+            logo = preview?.logo,
+            poster = preview?.poster,
+            background = preview?.banner,
+            seasonNumber = episode.season,
+            episodeNumber = episode.number,
+            episodeTitle = episode.title.ifEmpty { null },
+            episodeThumbnail = episode.thumbnail,
+            pauseDescription = episode.overview,
+            resumePositionMs = saved?.lastPositionMs?.takeIf { it > 0L },
+        ),
     )
 }
 

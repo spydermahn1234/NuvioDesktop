@@ -4,7 +4,7 @@ package com.nuvio.app.features.home.shelves
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -62,6 +62,8 @@ data class ShelfPalette(
     val pickerRowBorder: Color,
     val pickerTitle: Color,
     val pickerMuted: Color,
+    /** The focused poster's outline: white, or the art's colour when "Colour from the art" is on (V3Art). */
+    val ring: Color = ink,
 )
 
 internal object ShelfPaper {
@@ -167,14 +169,25 @@ fun shelfPalette(
     )
 }
 
-val LocalShelfPalette = staticCompositionLocalOf {
+// Not static: the art's colour eases over 600 ms, and only what reads the palette should recompose.
+val LocalShelfPalette = compositionLocalOf {
     shelfPalette(ShelfThemeMode.Dark, accent = Color(0xFFFFD700), onAccent = Color.Black)
 }
 
 @Composable
-fun ProvideShelfPalette(mode: ShelfThemeMode, content: @Composable () -> Unit) {
+fun ProvideShelfPalette(
+    mode: ShelfThemeMode,
+    /** fork:shelf-home v3 - the colour taken from the focused art (ShelfAccent.kt); Dark only, Paper keeps its own. */
+    artAccent: Color? = null,
+    content: @Composable () -> Unit,
+) {
     val colors = MaterialTheme.nuvio.colors
-    val palette = shelfPalette(mode, colors.accent, colors.onAccent, colors.textPrimary, colors.textMuted)
+    val base = shelfPalette(mode, colors.accent, colors.onAccent, colors.textPrimary, colors.textMuted)
+    val palette = if (artAccent != null && mode == ShelfThemeMode.Dark) {
+        base.copy(accent = artAccent, accentInk = artAccent, ring = artAccent)
+    } else {
+        base
+    }
     CompositionLocalProvider(LocalShelfPalette provides palette, content = content)
 }
 

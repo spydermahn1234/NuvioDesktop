@@ -158,4 +158,27 @@ class ShelfHomeModelTest {
         )
         assertEquals(1, pinned.tab("collection_c")!!.shelves.size)
     }
+
+    @Test
+    fun theEveningShelfLeadsHomeOnlyWhenAskedFor() {
+        val evening = ShelfHomeRules.build(
+            enabledItems = listOf(row(trending)),
+            sections = sections,
+            collections = emptyMap(),
+            progress = ShelfProgressRows(continueWatching = true),
+            evening = true,
+        )
+        val home = evening.tab(ShelfHomeRules.HOME_TAB)!!
+        assertEquals(listOf(ShelfHomeRules.EVENING_KEY, ShelfHomeRules.CONTINUE_WATCHING_KEY, trending), home.shelves.map { it.key })
+        assertEquals("Fits before bed", home.shelves[0].title)
+        assertEquals(ShelfSource.Evening, home.shelves[0].source)
+
+        val day = ShelfHomeRules.build(
+            enabledItems = listOf(row(trending)),
+            sections = sections,
+            collections = emptyMap(),
+            progress = ShelfProgressRows(continueWatching = true),
+        )
+        assertTrue(day.tab(ShelfHomeRules.HOME_TAB)!!.shelves.none { it.source == ShelfSource.Evening })
+    }
 }

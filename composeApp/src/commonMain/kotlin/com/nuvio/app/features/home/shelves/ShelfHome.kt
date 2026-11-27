@@ -72,6 +72,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.material3.MaterialTheme
+import com.nuvio.app.core.ui.nuvio
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -158,6 +160,11 @@ private data class ShelfRowView(
     val mode: ShelfViewMode,
     val row: Int,
     val rows: Int,
+    /** Fits before bed: an "ENDS hh:mm" line under each poster, and the row sits 50 higher to fit it (V3Evening). */
+    val evening: Boolean = false,
+    val nowMinute: Int = 0,
+    /** "ART 2 OF 5" while the focused title has several backdrops (V3Art); not part of [id], so no re-animation. */
+    val artLabel: String? = null,
 )
 
 private data class ShelfTitleView(val card: ShelfCard?, val mode: ShelfViewMode)
@@ -242,8 +249,39 @@ internal fun ShelfHome(
             onLoadMoreCatalog?.invoke(s)
         }
     }
-    val cards: List<ShelfCard> = remember(shelf, sections, collections, continueWatching, upNext, upcoming, folderItems?.items, mixItems) {
-        shelfCardsFor(shelf, sections, collections, continueWatching, upNext, upcoming, folderItems?.items, mixItems)
+    // fork:shelf-home v3 - Fits before bed (ShelfEvening.kt), built like a mix from the Home rows.
+    remember { ShelfExtrasRepository.ensureLoaded() }
+    val extras by ShelfExtrasRepository.state.collectAsStateWithLifecycle()
+    val homeSectionKeys = remember(model) {
+        model.tab(ShelfHomeRules.HOME_TAB)?.shelves.orEmpty().mapNotNull { (it.source as? ShelfSource.Catalog)?.sectionKey }
+    }
+    val eveningActive = extras.eveningHome &&
+        model.tab(ShelfHomeRules.HOME_TAB)?.shelves.orEmpty().any { it.source == ShelfSource.Evening } &&
+        ShelfEveningRules.isEvening(nowMinute, extras.eveningStartMinute, tonightSettings.bedMinuteOfDay)
+    val eveningWarmth = if (eveningActive) {
+        ShelfEveningRules.warmth(nowMinute, extras.eveningStartMinute, tonightSettings.bedMinuteOfDay)
+    } else {
+        0f
+    }
+    val isEveningShelf = shelf?.source == ShelfSource.Evening
+    val eveningItems = remember(isEveningShelf, sections, homeSectionKeys, watchedFilter, nowMinute, tonightSettings.bedMinuteOfDay) {
+        if (!isEveningShelf) {
+            emptyList()
+        } else {
+            ShelfEveningRules.build(sections, homeSectionKeys, { m -> watchedFilter.isWatched(m.type, m.id) }, nowMinute, tonightSettings.bedMinuteOfDay)
+        }
+    }
+    val eveningPages = remember(isEveningShelf) { mutableMapOf<String, Int>() }
+    LaunchedEffect(isEveningShelf, eveningItems.size, sections) {
+        if (!isEveningShelf) return@LaunchedEffect
+        for (key in ShelfEveningRules.needsMore(eveningItems, sections, homeSectionKeys, eveningPages)) {
+            val s = sections[key] ?: continue
+            eveningPages[key] = (eveningPages[key] ?: 0) + 1
+            onLoadMoreCatalog?.invoke(s)
+        }
+    }
+    val cards: List<ShelfCard> = remember(shelf, sections, collections, continueWatching, upNext, upcoming, folderItems?.items, mixItems, eveningItems) {
+        shelfCardsFor(shelf, sections, collections, continueWatching, upNext, upcoming, folderItems?.items, mixItems, eveningItems)
     }
     val section = (shelf?.source as? ShelfSource.Catalog)?.let { sections[it.sectionKey] }
     val cardIndex = (cardByRow[rowId] ?: 0).coerceIn(0, (cards.size - 1).coerceAtLeast(0))
@@ -267,7 +305,12 @@ internal fun ShelfHome(
                     ShelfMixRules.build(it, sections, { m -> watchedFilter.isWatched(m.type, m.id) }, nowMinute, tonightSettings.bedMinuteOfDay)
                 }
             }
-            shelfCardsFor(s, sections, collections, continueWatching, upNext, upcoming, folder, built)
+            val evening = if (s.source == ShelfSource.Evening) {
+                ShelfEveningRules.build(sections, homeSectionKeys, { m -> watchedFilter.isWatched(m.type, m.id) }, nowMinute, tonightSettings.bedMinuteOfDay)
+            } else {
+                null
+            }
+            shelfCardsFor(s, sections, collections, continueWatching, upNext, upcoming, folder, built, evening)
         }
     }
 
@@ -284,6 +327,13 @@ internal fun ShelfHome(
                 ShelfMixRules.needsMore(m, mixItems, sections, mixPages, target = cardIndex + 7, maxPages = 50).forEach { k ->
                     sections[k]?.let {
                         mixPages[k] = (mixPages[k] ?: 0) + 1
+                        loadMore?.invoke(it)
+                    }
+                }
+            isEveningShelf ->
+                ShelfEveningRules.needsMore(eveningItems, sections, homeSectionKeys, eveningPages, target = cardIndex + 7, maxPages = 50).forEach { k ->
+                    sections[k]?.let {
+                        eveningPages[k] = (eveningPages[k] ?: 0) + 1
                         loadMore?.invoke(it)
                     }
                 }
@@ -499,6 +549,16 @@ internal fun ShelfHome(
         if (artCard != null) delay(ShelfMotion.ART_WAIT_MS)
         artCard = next
     }
+    // fork:shelf-home v3 - the art set (textless first, several per title) and the colour taken from it.
+    val art = rememberShelfArt(artCard, enabled = extras.textlessArt)
+    LaunchedEffect(artCard?.stableId(), extras.textlessArt) {
+        if (extras.textlessArt) cards.getOrNull(cardIndex + 1)?.let { runCatching { ShelfArtSets.load(it) } }
+    }
+    val artAccent by rememberShelfAccent(
+        imageUrl = art.current,
+        enabled = extras.artAccent && shelfTheme == ShelfThemeMode.Dark,
+        fallback = MaterialTheme.nuvio.colors.accent,
+    )
     // The gallery's slow drift: 30 s one way and back, eased off when the screen wakes.
     val drift = remember { Animatable(0f) }
     LaunchedEffect(idle) {
@@ -535,7 +595,7 @@ internal fun ShelfHome(
     var wheel by remember { mutableStateOf(0f) }
     var lastPointer by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
 
-    ProvideShelfPalette(shelfTheme) {
+    ProvideShelfPalette(shelfTheme, artAccent = artAccent.takeIf { extras.artAccent }) {
         val palette = LocalShelfPalette.current
         val ink = palette.ink
         val accent = palette.accentInk
@@ -598,11 +658,11 @@ internal fun ShelfHome(
                     },
             ) {
                 Crossfade(
-                    targetState = artCard,
+                    targetState = ShelfArtFrame(artCard, art.backdrop),
                     animationSpec = tween(ShelfMotion.ART_FADE_MS),
                     modifier = Modifier.fillMaxSize(),
                     label = "shelfArt",
-                ) { card -> ShelfArt(card) }
+                ) { frame -> ShelfArt(frame.card, frame.backdrop) }
             }
 
             // The scrims: from the left, where the words are, and along the bottom, where the row is: a band that
@@ -618,7 +678,13 @@ internal fun ShelfHome(
                 ),
             )
             val bandHeader by animateDpAsState(
-                y(if (viewMode == ShelfViewMode.Logos) 840 else 790),
+                y(
+                    when {
+                        viewMode == ShelfViewMode.Logos -> 840
+                        isEveningShelf -> 790 - ShelfEveningRules.ROW_LIFT
+                        else -> 790
+                    },
+                ),
                 tween(ShelfMotion.WORDS_FADE_MS),
                 label = "shelfBand",
             )
@@ -646,6 +712,8 @@ internal fun ShelfHome(
                     .alpha(galleryAlpha)
                     .background(Brush.verticalGradient(0f to scrimOf(palette, 0f), 1f to scrimOf(palette, 0.7f))),
             )
+            // fork:shelf-home v3 - the evening's amber wash, over the art and under the words (V3Evening).
+            ShelfEveningWash(eveningWarmth)
 
             // ---- Browse ----
             if (browseAlpha > 0f) {
@@ -683,10 +751,17 @@ internal fun ShelfHome(
                     Crossfade(
                         targetState = ShelfTitleView(focusedCard, viewMode),
                         animationSpec = tween(ShelfMotion.WORDS_FADE_MS),
-                        modifier = Modifier.padding(start = 96.dp, top = if (viewMode == ShelfViewMode.Logos) y(450) else y(484)),
+                        modifier = Modifier.padding(
+                            start = 96.dp,
+                            top = when {
+                                viewMode == ShelfViewMode.Logos -> y(450)
+                                isEveningShelf -> y(484 - ShelfEveningRules.ROW_LIFT)
+                                else -> y(484)
+                            },
+                        ),
                         label = "shelfTitle",
                     ) { view ->
-                        TitleBlock(view, nowMinute)
+                        TitleBlock(view, nowMinute, if (isEveningShelf) tonightSettings.bedMinuteOfDay else null)
                     }
 
                     // The row: header and cards, swapped in place on Up/Down.
@@ -698,6 +773,9 @@ internal fun ShelfHome(
                         mode = viewMode,
                         row = rowIndex,
                         rows = shelves.size,
+                        evening = isEveningShelf,
+                        nowMinute = if (isEveningShelf) nowMinute else 0,
+                        artLabel = art.label.takeIf { artCard?.stableId() == focusedCard?.stableId() },
                     )
                     val rise = with(LocalDensity.current) { 30.dp.roundToPx() }
                     AnimatedContent(
@@ -730,7 +808,7 @@ internal fun ShelfHome(
                             RowArea(
                                 view = view,
                                 rowMode = rowMode,
-                                top = ::y,
+                                top = { v -> y(if (view.evening && rowMode == ShelfViewMode.Posters) v - ShelfEveningRules.ROW_LIFT else v) },
                                 onClickCard = ::clickCard,
                                 onSecondaryClickCard = { i -> view.cards.getOrNull(i)?.let(::longPress) },
                             )
@@ -800,6 +878,22 @@ internal fun ShelfHome(
                 color = ink,
                 modifier = Modifier.align(Alignment.TopEnd).padding(end = 96.dp, top = 52.dp + topShift).alpha(1f - galleryAlpha),
             )
+            // fork:shelf-home v3 - quiet status lines under the clock (bedtime now; trailer, theme and lights later).
+            Column(
+                modifier = Modifier.align(Alignment.TopEnd).padding(end = 96.dp, top = 120.dp + topShift).alpha((1f - galleryAlpha) * browseAlpha),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                if (eveningActive) {
+                    Text(
+                        ShelfEveningRules.bedLine(tonightSettings.bedMinuteOfDay, nowMinute),
+                        fontSize = 14.sp,
+                        letterSpacing = 3.64.sp,
+                        color = ink.copy(alpha = 0.7f),
+                        maxLines = 1,
+                    )
+                }
+            }
 
             // ---- Shelves: Up on the first row, Menu, or Back on a row's first card ----
             androidx.compose.animation.AnimatedVisibility(
@@ -974,12 +1068,11 @@ private fun scrimOf(palette: ShelfPalette, alpha: Float): Color =
  * backdrop still leaves a picture (never black). Nothing at all (no poster either): a soft accent wash.
  */
 @Composable
-private fun ShelfArt(card: ShelfCard?) {
+private fun ShelfArt(card: ShelfCard?, fanart: String?) {
     val palette = LocalShelfPalette.current
     if (palette.backdropAlpha <= 0f) return
     Box(Modifier.fillMaxSize().alpha(palette.backdropAlpha)) {
         val poster = card?.posterUrl()
-        val fanart = card?.fanartUrl()
         if (poster != null) {
             NuvioAsyncImage(
                 model = poster,
@@ -1030,9 +1123,14 @@ private fun ShelfClock(nowMinute: Int, hourSize: Int, minuteSize: Int, color: Co
  * even when empty, so no line ever moves when the card changes.
  */
 @Composable
-private fun TitleBlock(view: ShelfTitleView, nowMinute: Int) {
+private fun TitleBlock(view: ShelfTitleView, nowMinute: Int, bedMinute: Int? = null) {
     val ink = LocalShelfPalette.current.ink
+    val accent = LocalShelfPalette.current.accentInk
     val card = view.card
+    // fork:shelf-home v3 - Fits before bed: "· 37 min to spare" after the end time.
+    val spare = bedMinute?.let { bed ->
+        (card as? ShelfCard.Meta)?.item?.let { ShelfEveningRules.spare(ShelfEveningRules.runtimeOf(it), nowMinute, bed) }
+    }?.let(ShelfEveningRules::spareLabel)
     val facts = card?.let(ShelfFrameRules::facts).orEmpty()
     val episodeTitle = card?.let(ShelfFrameRules::episodeTitle).orEmpty()
     val ends = card?.let { ShelfFrameRules.ends(it, nowMinute) { m -> clockLabel(m) } }
@@ -1082,6 +1180,7 @@ private fun TitleBlock(view: ShelfTitleView, nowMinute: Int) {
                     append(ends.first)
                     append(' ')
                     withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = ink)) { append(ends.second) }
+                    if (spare != null) withStyle(SpanStyle(color = accent)) { append(" · $spare") }
                 }
             },
             fontSize = 22.sp,
@@ -1134,9 +1233,19 @@ private fun RowArea(
                 modifier = Modifier.alignByBaseline().weight(1f, fill = false),
             )
             Spacer(Modifier.width(32.dp))
+            val dot = LocalShelfPalette.current.accentInk
+            val position = if (logos) ShelfFrameRules.count(view.index, view.cards.size)
+            else ShelfFrameRules.position(view.index, view.cards.size, view.row, view.rows)
             Text(
-                if (logos) ShelfFrameRules.count(view.index, view.cards.size)
-                else ShelfFrameRules.position(view.index, view.cards.size, view.row, view.rows),
+                buildAnnotatedString {
+                    view.artLabel?.takeIf { !logos }?.let { label ->
+                        append(label)
+                        append(" ")
+                        withStyle(SpanStyle(color = dot)) { append("●") }
+                        append(" · ")
+                    }
+                    append(position)
+                },
                 fontSize = 15.sp,
                 letterSpacing = 4.2.sp,
                 color = ink.copy(alpha = 0.55f),
@@ -1164,6 +1273,14 @@ private fun RowArea(
                 focusedIndex = view.index,
                 onClickCard = onClickCard,
                 onSecondaryClickCard = onSecondaryClickCard,
+                labels = if (view.evening) {
+                    { c ->
+                        (c as? ShelfCard.Meta)?.item?.let { ShelfEveningRules.endsAt(it, view.nowMinute) }
+                            ?.let { ShelfEveningRules.endsLabel(it) }
+                    }
+                } else {
+                    null
+                },
                 // The row's own padding keeps the focused card's outline clear of its edges.
                 modifier = Modifier.padding(
                     start = (96 - ShelfPosterRowRules.RING_ROOM).dp,
