@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -147,6 +148,17 @@ internal object ShelfLogoStripRules {
         is ShelfCard.Folder -> card.folder.titleLogoUrl
     }?.takeIf { it.isNotBlank() }
 
+    /** How fast a logo at the row's edge fades out when it no longer fits, or back in when it does. */
+    const val EDGE_FADE_MS = 150
+
+    /**
+     * True when a logo at [offset] (px, from the row's start) and [size] wide sits wholly inside the
+     * row's [viewportStart]..[viewportEnd]. A logo that would be cut by either edge is not drawn at all:
+     * the row shows a whole logo or none.
+     */
+    fun fullyInside(offset: Int, size: Int, viewportStart: Int, viewportEnd: Int): Boolean =
+        offset >= viewportStart && offset + size <= viewportEnd
+
     /** The name drawn when there is no logo: capitals, trimmed. */
     fun nameLabel(card: ShelfCard): String = card.title().trim().uppercase()
 }
@@ -158,7 +170,7 @@ internal object ShelfLogoStripRules {
  * other card only the focused one has it, filled. Every logo keeps the bar's room, so none moves
  * when the focus does. The row keeps the focused
  * logo's left edge at its start when it can (the last logos stop at the end) and is always
- * [ShelfLogoStripRules.ROW_H] high.
+ * [ShelfLogoStripRules.ROW_H] high. A logo the row's edges would cut is hidden, not cropped.
  */
 @Composable
 internal fun ShelfLogoRow(
@@ -174,6 +186,15 @@ internal fun ShelfLogoRow(
     // Each logo's shape once its picture has loaded, by url, so its width is right at either size.
     val aspects = remember { mutableStateMapOf<String, Float>() }
     val click by rememberUpdatedState(onClickCard)
+    // The logos wholly inside the row; one cut by either edge is faded out rather than cropped.
+    val whole by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            info.visibleItemsInfo
+                .filter { rules.fullyInside(it.offset, it.size, info.viewportStartOffset, info.viewportEndOffset) }
+                .mapTo(HashSet()) { it.index }
+        }
+    }
 
     LaunchedEffect(focused, count) {
         if (count == 0) return@LaunchedEffect
@@ -195,6 +216,7 @@ internal fun ShelfLogoRow(
             RowLogo(
                 card = card,
                 focused = index == focused,
+                whole = index in whole,
                 aspects = aspects,
                 modifier = Modifier.pointerInput(index) {
                     detectTapGestures(onTap = { click(index) })
@@ -208,12 +230,15 @@ internal fun ShelfLogoRow(
 private fun RowLogo(
     card: ShelfCard,
     focused: Boolean,
+    whole: Boolean,
     aspects: MutableMap<String, Float>,
     modifier: Modifier = Modifier,
 ) {
     val rules = ShelfLogoStripRules
     val ink = LocalShelfPalette.current.ink
-    val alpha by animateFloatAsState(if (focused) 1f else rules.DIM_ALPHA, tween(200))
+    val dim by animateFloatAsState(if (focused) 1f else rules.DIM_ALPHA, tween(200))
+    val edge by animateFloatAsState(if (whole) 1f else 0f, tween(rules.EDGE_FADE_MS))
+    val alpha = dim * edge
     val saturation by animateFloatAsState(if (focused) 1f else rules.DIM_SATURATION, tween(200))
     val url = rules.logoUrl(card)
     val base = if (focused) rules.FOCUSED_LOGO_H else rules.LOGO_H

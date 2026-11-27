@@ -1179,6 +1179,7 @@ From the review of the Logos screenshot (Nathan For You, Continue watching).
 - [ ] (must) Continue watching: the spaced capitals line is only "S1 E3 · 6M LEFT"; the episode's name ("Clothing Store / Restaurant") is its own line under it in normal type, then "Finish by 07:09"
 - [ ] A film (no episode name): the empty line leaves the same gap every time, so nothing moves between cards; nothing overlaps the row header in Posters or Logos
 - [ ] At rest on the Shelf home the app's top bar is fully gone, not faint; it shows only when the mouse is at the top or the keyboard goes up to it
+- [ ] (must) Logos: no logo is ever cut off at the left or right edge of the row; one that would not fit whole is not shown at all, and fades in as the row slides it fully into view
 
 # Archived (not testing)
 

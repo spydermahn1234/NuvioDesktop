@@ -125,4 +125,12 @@ class ShelfLogoStripRulesTest {
         assertNull(r.progress(meta()))
         assertNull(r.progress(folder()))
     }
+
+    @Test
+    fun logosCutByAnEdgeAreHidden() {
+        assertTrue(r.fullyInside(offset = 0, size = 200, viewportStart = 0, viewportEnd = 1000))
+        assertTrue(r.fullyInside(offset = 800, size = 200, viewportStart = 0, viewportEnd = 1000))
+        assertFalse(r.fullyInside(offset = 900, size = 200, viewportStart = 0, viewportEnd = 1000))
+        assertFalse(r.fullyInside(offset = -50, size = 200, viewportStart = 0, viewportEnd = 1000))
+    }
 }
