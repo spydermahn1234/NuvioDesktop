@@ -27,7 +27,7 @@ class ShelfAccentRulesTest {
             val out = ShelfAccentRules.readable(c)
             assertTrue(shelfContrast(out, scrim) >= ShelfAccentRules.MIN_CONTRAST, "contrast of $out")
             // Lifted only just enough: not run up to white.
-            assertTrue(shelfContrast(out, scrim) < 4.5f, "lifted too far: $out")
+            assertTrue(shelfContrast(out, scrim) < ShelfAccentRules.MIN_CONTRAST + 1.5f, "lifted too far: $out")
         }
     }
 
