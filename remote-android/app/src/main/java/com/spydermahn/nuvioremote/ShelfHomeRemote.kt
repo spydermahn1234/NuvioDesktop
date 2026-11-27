@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -80,7 +81,7 @@ fun ShelfHomeBody(home: ShelfHomeInfo, shelves: List<ShelfRowInfo>, viewModel: R
             RemoteImage(url = home.art, fallback = home.cards.firstOrNull { it.index == home.index }?.poster, placeholder = "", modifier = Modifier.fillMaxSize())
             Box(
                 Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(0f to Color.Transparent, 0.4f to Color.Transparent, 1f to g.ground),
+                    Brush.verticalGradient(0f to g.ground.copy(alpha = 0.6f), 0.18f to Color.Transparent, 0.4f to Color.Transparent, 1f to g.ground),
                 ),
             )
             Text(
@@ -205,7 +206,9 @@ private fun ShelfPosterRow(home: ShelfHomeInfo, onTap: (ShelfCardInfo) -> Unit) 
                     .alpha(if (focused) 1f else 0.55f)
                     .then(if (focused) Modifier.border(2.dp, Color.White, RoundedCornerShape(6.dp)).padding(3.dp) else Modifier)
                     .clip(RoundedCornerShape(4.dp))
-                    .pressable { onTap(card) },
+                    // A tap on release, cancelled by a swipe: pressable fires on touch-down, so swiping the row tapped the
+                    // poster under the thumb (Nick, Nov 27).
+                    .clickable { onTap(card) },
             ) {
                 RemoteImage(url = card.poster, fallback = null, placeholder = card.title, modifier = Modifier.fillMaxSize())
             }
@@ -387,7 +390,7 @@ private fun ShelvesSheet(
 private fun ShelvesRow(title: String, trailing: String, current: Boolean, indent: Boolean = false, onTap: () -> Unit) {
     val g = LocalGlass.current
     Row(
-        Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(10.dp)).pressable { onTap() }.padding(start = if (indent) 16.dp else 0.dp, end = 4.dp),
+        Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(10.dp)).clickable { onTap() }.padding(start = if (indent) 16.dp else 0.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(

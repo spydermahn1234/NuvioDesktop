@@ -1137,7 +1137,8 @@ Plan in design-notes/home-shelves-v3.md. Trailers, theme tunes and lights are of
 - [ ] Lights: the brightness stays under the cap (40% by default); starting a film puts the room back and Lights out takes over as before; leaving Home puts the room back too
 - [ ] Lights: bulbs that were off are switched on for the art and off again afterwards; at night (after bedtime) the cap is halved (GUESS)
 - [ ] (must) Theme tunes (Settings > Home screen > Theme tunes): on a show for 1.5 s its theme plays quietly and fades out when you move on; "♪ THEME · QUIET" under the clock; never on films, never over music or a player
-- [ ] (must) Phone: with the TV on the shelf home, Nuvio Remote shows the home: the backdrop, the title and "ENDS" time, the row and its posters following the TV; tapping a poster moves the TV to it, tapping it again plays it
+- [ ] **BROKEN** (must) Phone: with the TV on the shelf home, Nuvio Remote shows the home: the backdrop, the title and "ENDS" time, the row and its posters following the TV; tapping a poster moves the TV to it, tapping it again plays it (2026-11-27): swiping the row instantly taps the poster under the thumb
+  - [ ] (must) Re-check after the fix: swiping the phone's poster row (and scrolling the Shelves list) only scrolls; a plain tap still picks; "ON THE TV · HOME" reads on a bright backdrop
 - [ ] Phone: Play / Info / View: Posters do the same on the TV; the arrows beside the row name change row
 - [ ] Phone: Shelves opens a list of every row grouped as on the TV, with "ON TV" on the current one; typing in its search box leaves only matching rows; tapping one moves the TV to that row
 - [ ] Phone: in the shelf builder, the view picker or the top bar, the phone goes back to its pad; the demo TV (More > Shelves) shows a pretend shelf home
