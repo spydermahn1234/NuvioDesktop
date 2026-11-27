@@ -1109,7 +1109,7 @@ The shelf home rebuilt to the v2 mockups (canvas "Nuvio home — Kodi-style mock
 - [ ] Shelves: with more than 8 catalog rows, CATALOGS shows letter ranges (A – C, D – F…); OK opens a range in place with "‹ All catalogs" at the top, and Back closes it first
 - [ ] Shelves: a long column shows "N more" at the bottom and scrolls as you go down it (GUESS: 7 rows plus "N more")
 - [ ] Shelves: Menu or V on a row opens "View as" Posters / Logos; on a built shelf it also offers "Edit this shelf"
-- [ ] (must) V in Browse switches the row between Posters and Logos, with a short "View this row as Logos" message; the choice is kept per row after a restart (GUESS: V here no longer opens Live TV)
+- [ ] (must) V in Browse switches the row between Posters and Logos, with a short "View this row as Logos" message; the choice is kept per row after a restart (on the shelf home V no longer opens Live TV, as Nick chose)
 - [ ] Logos: the title's clearlogo stands in for its name in big, facts and end time below it, and a row of logos along the bottom, the focused one bright with a white bar under it; a title with no logo shows its name in heavy capitals in the same place
 - [ ] A row you had set to Ledger, Spotlight, Wall or Strip opens as Posters; a Netflix, Disney+ or other service row starts as Logos
 - [ ] (must) I, or holding OK, opens Info: the row drops away and the full story, director, scores, cast and Play / Trailer / More like this / Add to list rise in its place; Back (or I) returns to the same card
@@ -1120,7 +1120,8 @@ The shelf home rebuilt to the v2 mockups (canvas "Nuvio home — Kodi-style mock
 - [ ] (must) Leave the home untouched for 12 s: everything fades except the title lower left and the clock, which moves to the bottom right; the art drifts slowly and moves to the next title every 20 s
 - [ ] Any key wakes the gallery without doing anything else, and the row is on the title the gallery had reached (GUESS)
 - [ ] The mouse: clicking a poster focuses it, clicking it again opens it, the wheel moves along the row, right-click opens the long-press menu
-- [ ] The app's top bar can no longer be reached with Up on this screen (Up on the first row is Shelves); its shortcuts and the mouse still work (GUESS: say if Up should reach it instead)
+- [ ] (must) In Shelves, Up from the tab line goes on to the app's top bar: it stays shown, the Home icon has a soft highlight, Left/Right move along the icons and OK opens one; Down, Back or Escape come back to Shelves
+- [ ] With the sidebar layout instead of the top bar, Up from Shelves' tab line does nothing (and nothing breaks)
 - [ ] Paper look: the fan-art screens are readable on paper (no backdrop, as before)
 
 # Archived (not testing)

@@ -1,6 +1,8 @@
 package com.nuvio.app
 
 import com.nuvio.app.core.ui.requestFocusLogged
+import com.nuvio.app.core.ui.arrowKeyFocusNavigation
+import com.nuvio.app.core.ui.navigationKey
 import androidx.compose.ui.draw.clip
 import com.nuvio.app.core.ui.NuvioGlass
 import com.nuvio.app.core.ui.accentFill
@@ -11,6 +13,7 @@ import com.nuvio.app.core.ui.smoothBorder
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.runtime.key
 import com.nuvio.app.core.perf.PerfTelemetry
@@ -7632,7 +7635,9 @@ private fun TabletFloatingTopBar(
         // it and the menu is left floating over nothing.
         targetValue = when {
             hidden -> 0f
-            dimUntilHovered && !isSearchActive && !activationZoneHovered && !libraryMenuVisible -> 0f
+            // fork:shelf-home - shown while it has the keyboard (TopBarKeys).
+            dimUntilHovered && !isSearchActive && !activationZoneHovered && !libraryMenuVisible &&
+                !com.nuvio.app.features.navbar.TopBarKeys.focused -> 0f
             else -> 1f
         },
         animationSpec = tween(durationMillis = 200),
@@ -7953,7 +7958,21 @@ private fun TabletFloatingTopBar(
                     }
                 } else {
                     Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 4.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 6.dp, vertical = 4.dp)
+                            // fork:shelf-home - the bar by keyboard (TopBarKeys): Left/Right walk the entries,
+                            // Down / Back / Escape hand the keyboard back to the screen that sent it up.
+                            .onFocusChanged { com.nuvio.app.features.navbar.TopBarKeys.focusChanged(it.hasFocus) }
+                            .onPreviewKeyEvent { event ->
+                                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                                when (event.navigationKey()) {
+                                    Key.DirectionDown, Key.Escape, Key.Back ->
+                                        com.nuvio.app.features.navbar.TopBarKeys.leave()
+                                    else -> false
+                                }
+                            }
+                            .arrowKeyFocusNavigation(),
                         horizontalArrangement = Arrangement.spacedBy(2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -8269,11 +8288,12 @@ private fun RowScope.NavQuadrant(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
+    val focused by interaction.collectIsFocusedAsState() // fork:shelf-home
     val shape = androidx.compose.foundation.shape.CircleShape
     // State lives in the glyph rather than a highlight behind it: dim at rest, white on hover, and
     // the current page in the accent glass (which recolours whatever tint the icon is given).
     val iconTint by animateColorAsState(
-        targetValue = if (hovered || selected) Color.White else Color.White.copy(alpha = 0.55f),
+        targetValue = if (hovered || focused || selected) Color.White else Color.White.copy(alpha = 0.55f),
         animationSpec = tween(durationMillis = 140),
     )
     val iconModifier = Modifier
@@ -8284,6 +8304,10 @@ private fun RowScope.NavQuadrant(
             .weight(1f)
             .height(NavBarItemHeight)
             .clip(shape)
+            // fork:shelf-home - the selected entry is where the keyboard lands (TopBarKeys); a focused entry gets a
+            // soft disc, since the glyph alone does not show which one OK would open.
+            .then(if (selected) Modifier.focusRequester(com.nuvio.app.features.navbar.TopBarKeys.entry) else Modifier)
+            .then(if (focused) Modifier.background(Color.White.copy(alpha = 0.16f), shape) else Modifier)
             .then(if (onSecondaryClick != null) Modifier.secondaryClick(onSecondaryClick) else Modifier)
             .hoverable(interaction)
             .clickable(

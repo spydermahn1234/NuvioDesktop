@@ -160,6 +160,8 @@ internal fun ShelfShelvesOverlay(
     onNewShelf: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Up from the tab line: on to the app's top bar (Nick, Nov 27). Null where there is none to go to. */
+    onUpToTopBar: (() -> Unit)? = null,
 ) {
     KeyRouteLayer("ShelfShelves")
     val palette = LocalShelfPalette.current
@@ -261,6 +263,7 @@ internal fun ShelfShelvesOverlay(
                     onTabLine = false
                     tabFocus = model.tabs.indexOfFirst { it.id == shownTabId }.coerceAtLeast(0)
                 }
+                Key.DirectionUp -> onUpToTopBar?.invoke()
                 else -> Unit
             }
             return

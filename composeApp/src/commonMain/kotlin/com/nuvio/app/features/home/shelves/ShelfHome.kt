@@ -299,7 +299,9 @@ internal fun ShelfHome(
     // The shelf builder: open with null for a new shelf, or the mix being edited.
     var editorOpen by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<ShelfMix?>(null) }
-    val browsing = mode == ShelfScreenMode.Browse && pickerFor == null && !editorOpen
+    // Up past Shelves' tab line hands the keyboard to the app's top bar (TopBarKeys); the home lets go meanwhile.
+    var inTopBar by remember { mutableStateOf(false) }
+    val browsing = mode == ShelfScreenMode.Browse && pickerFor == null && !editorOpen && !inTopBar
 
     var idle by remember { mutableStateOf(false) }
     var inputSerial by remember { mutableIntStateOf(0) }
@@ -484,7 +486,8 @@ internal fun ShelfHome(
         } else if (wasCovered) {
             wasCovered = false
             delay(32)
-            rootFocus.requestFocusLogged()
+            // Not when another screen is over the home (a tab opened from the top bar): the router settles that one.
+            if (!covered) rootFocus.requestFocusLogged()
         }
     }
 
@@ -823,6 +826,23 @@ internal fun ShelfHome(
                     },
                     onDismiss = { mode = ShelfScreenMode.Browse },
                     modifier = Modifier.fillMaxSize(),
+                    onUpToTopBar = {
+                        // Down, Back or Escape on the bar comes back to Shelves; leaving it any other way (OK on
+                        // another tab, a click) lands back on the row.
+                        inTopBar = true
+                        mode = ShelfScreenMode.Browse
+                        val moved = com.nuvio.app.features.navbar.TopBarKeys.enter(
+                            onDown = {
+                                inTopBar = false
+                                mode = ShelfScreenMode.Shelves
+                            },
+                            onLost = { inTopBar = false },
+                        )
+                        if (!moved) {
+                            inTopBar = false
+                            mode = ShelfScreenMode.Shelves
+                        }
+                    },
                 )
             }
 
