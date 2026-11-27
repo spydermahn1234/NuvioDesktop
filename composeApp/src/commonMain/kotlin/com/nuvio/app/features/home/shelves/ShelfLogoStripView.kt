@@ -94,6 +94,18 @@ internal object ShelfLogoStripRules {
     const val TITLE_MAX_W = 900f
     const val TITLE_H = 170f
     const val TITLE_NAME_SP = 150f
+
+    /** A name with no logo shrinks to fit: down to this size, on at most this many lines. */
+    const val TITLE_NAME_MIN_SP = 40f
+    const val TITLE_NAME_LINES = 2
+
+    /** The next size to try for a name that does not fit (about 8% smaller each step). */
+    fun shrink(sp: Float): Float = (sp * 0.92f).coerceAtLeast(TITLE_NAME_MIN_SP)
+
+    /** True when a line ending at [end] in [text] splits a word (no space either side of the break). */
+    fun breaksMidWord(text: String, end: Int): Boolean =
+        end in 1 until text.length && !text[end - 1].isWhitespace() && !text[end].isWhitespace() &&
+            text[end - 1] != '-'
     const val TITLE_FADE_MS = 600
 
     /** Width over height of a logo before its picture has loaded (fanart.tv clearlogos are 800 x 310). */
@@ -374,15 +386,40 @@ private fun TitleLogoContent(card: ShelfCard) {
             modifier = Modifier.fillMaxSize(),
         )
     } else {
-        Text(
-            rules.nameLabel(card),
-            fontSize = rules.TITLE_NAME_SP.sp,
-            lineHeight = (rules.TITLE_NAME_SP * 0.9f).sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = 3.sp,
-            color = LocalShelfPalette.current.ink,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        TitleName(rules.nameLabel(card))
     }
+}
+
+/**
+ * The title block's name when there is no logo: as big as [ShelfLogoStripRules.TITLE_NAME_SP] when it
+ * fits, otherwise shrunk step by step until it fits the box whole, on at most two lines broken only
+ * between words. Never cut short with "...". Hidden until it fits, so no oversized frame flashes.
+ */
+@Composable
+private fun TitleName(label: String) {
+    val rules = ShelfLogoStripRules
+    var size by remember(label) { mutableStateOf(rules.TITLE_NAME_SP) }
+    var fits by remember(label) { mutableStateOf(false) }
+    Text(
+        label,
+        fontSize = size.sp,
+        lineHeight = (size * 0.9f).sp,
+        fontWeight = FontWeight.Black,
+        letterSpacing = (3f * size / rules.TITLE_NAME_SP).sp,
+        color = LocalShelfPalette.current.ink,
+        maxLines = rules.TITLE_NAME_LINES,
+        overflow = TextOverflow.Clip,
+        onTextLayout = { layout ->
+            val midWord = (0 until layout.lineCount - 1).any { line ->
+                rules.breaksMidWord(label, layout.getLineEnd(line))
+            }
+            val tooBig = layout.hasVisualOverflow || midWord
+            if (tooBig && size > rules.TITLE_NAME_MIN_SP) {
+                size = rules.shrink(size)
+            } else {
+                fits = true
+            }
+        },
+        modifier = Modifier.alpha(if (fits) 1f else 0f),
+    )
 }

@@ -146,4 +146,15 @@ class ShelfLogoStripRulesTest {
         assertTrue(left < 0.5f)
         assertEquals(0.3f, r.easeStep(0.3f, 16f), 0.0001f)
     }
+
+    @Test
+    fun aNameWithNoLogoShrinksAndBreaksOnlyBetweenWords() {
+        assertTrue(r.shrink(150f) < 150f)
+        assertEquals(r.TITLE_NAME_MIN_SP, r.shrink(r.TITLE_NAME_MIN_SP))
+        val name = "THE CLASS OF '92"
+        assertFalse(r.breaksMidWord(name, 4))   // "THE |CLASS"
+        assertTrue(r.breaksMidWord(name, 6))    // "THE CL|ASS"
+        assertFalse(r.breaksMidWord("TWENTY-FIRST", 7)) // after the hyphen
+        assertFalse(r.breaksMidWord(name, name.length))
+    }
 }

@@ -1181,6 +1181,7 @@ From the review of the Logos screenshot (Nathan For You, Continue watching).
 - [ ] At rest on the Shelf home the app's top bar is fully gone, not faint; it shows only when the mouse is at the top or the keyboard goes up to it
 - [ ] (must) Logos: no logo is ever cut off at the left or right edge of the row; one that would not fit whole is not shown at all, and fades in as the row slides it fully into view
 - [ ] (must) Logos: moving Left/Right, the row glides so the focused logo settles on the left edge without overshooting past it and springing back
+- [ ] (must) Logos, a title with no logo (The Class of '92): its name in the big title spot is shown whole, smaller and on two lines if it needs to, never cut to "THE CLAS..." and never split inside a word
 
 # Archived (not testing)
 
