@@ -169,7 +169,10 @@ class ShelfInfoRulesTest {
     @Test
     fun buttonsNeedAnActionAndTrailerAndListNeedATitle() {
         val all = ShelfInfoRules.buttons(ShelfCard.Meta(ironGiant), play = true, trailer = true, moreLikeThis = true, addToList = true)
-        assertEquals(ShelfInfoButton.entries.toList(), all)
+        assertEquals(
+            listOf(ShelfInfoButton.Play, ShelfInfoButton.Trailer, ShelfInfoButton.MoreLikeThis, ShelfInfoButton.AddToList),
+            all,
+        )
         assertEquals(
             listOf(ShelfInfoButton.Play, ShelfInfoButton.AddToList),
             ShelfInfoRules.buttons(ShelfCard.Meta(ironGiant), play = true, trailer = false, moreLikeThis = false, addToList = true),
@@ -178,6 +181,34 @@ class ShelfInfoRulesTest {
         assertEquals(listOf(ShelfInfoButton.Play), ShelfInfoRules.buttons(folder, true, true, true, true))
         val channel = ShelfCard.Meta(ironGiant.copy(type = "live_tv_channel"))
         assertEquals(listOf(ShelfInfoButton.Play), ShelfInfoRules.buttons(channel, true, true, true, true))
+    }
+
+    @Test
+    fun sourceShortcutSitsBesidePlayOnContinueWatchingOnly() {
+        assertEquals(
+            listOf(ShelfInfoButton.Play, ShelfInfoButton.SourceShortcut, ShelfInfoButton.Trailer),
+            ShelfInfoRules.buttons(progress(), play = true, trailer = true, moreLikeThis = false, addToList = false, sourceShortcut = true),
+        )
+        // A plain title never offers it, even when asked.
+        assertTrue(
+            ShelfInfoButton.SourceShortcut !in
+                ShelfInfoRules.buttons(ShelfCard.Meta(ironGiant), true, true, true, true, sourceShortcut = true),
+        )
+        assertTrue(ShelfInfoButton.SourceShortcut !in ShelfInfoRules.buttons(progress(), true, true, true, true))
+    }
+
+    @Test
+    fun sourceShortcutIsNamedForWhatItDoes() {
+        assertEquals(
+            "Choose a source",
+            ShelfInfoRules.sourceShortcutLabel(com.nuvio.app.features.home.components.ContinueWatchingSourceShortcutKind.OpenSourcePicker),
+        )
+        assertEquals(
+            "Play last source",
+            ShelfInfoRules.sourceShortcutLabel(com.nuvio.app.features.home.components.ContinueWatchingSourceShortcutKind.ReuseLastLink),
+        )
+        assertNull(ShelfInfoRules.sourceShortcutLabel(null))
+        assertEquals("Play last source", ShelfInfoRules.buttonLabel(ShelfInfoButton.SourceShortcut, false, "Play last source"))
     }
 
     @Test

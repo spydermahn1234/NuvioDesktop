@@ -95,9 +95,16 @@ internal class ShelfInfoActions(
     val moreLikeThis: ((ShelfCard) -> Unit)? = null,
     val addToList: ((ShelfCard) -> Unit)? = null,
     val inList: (ShelfCard) -> Boolean = { false },
+    /**
+     * Continue watching's source shortcut (Nick, Nov 27: a pill in Info): the opposite of what Play does with streams.
+     * [sourceShortcutLabel] is null for a card that offers none (not a Continue watching card, the shortcut set to Off
+     * in Settings, a cloud file, or nothing played yet when the shortcut would replay the last link).
+     */
+    val sourceShortcut: ((ShelfCard) -> Unit)? = null,
+    val sourceShortcutLabel: (ShelfCard) -> String? = { null },
 )
 
-internal enum class ShelfInfoButton { Play, Trailer, MoreLikeThis, AddToList }
+internal enum class ShelfInfoButton { Play, SourceShortcut, Trailer, MoreLikeThis, AddToList }
 
 internal data class ShelfInfoScore(val label: String, val value: String)
 
@@ -131,18 +138,36 @@ internal object ShelfInfoRules {
     }
 
     /** The buttons shown, in order. Trailer, More like this and Add to list need a title with a details record. */
-    fun buttons(card: ShelfCard, play: Boolean, trailer: Boolean, moreLikeThis: Boolean, addToList: Boolean): List<ShelfInfoButton> {
+    fun buttons(
+        card: ShelfCard,
+        play: Boolean,
+        trailer: Boolean,
+        moreLikeThis: Boolean,
+        addToList: Boolean,
+        sourceShortcut: Boolean = false,
+    ): List<ShelfInfoButton> {
         val titled = detailsKey(card) != null
         return buildList {
             if (play) add(ShelfInfoButton.Play)
+            // Beside Play, since it is the other way of playing (only Continue watching cards offer it).
+            if (sourceShortcut && card is ShelfCard.Progress) add(ShelfInfoButton.SourceShortcut)
             if (trailer && titled) add(ShelfInfoButton.Trailer)
             if (moreLikeThis && titled) add(ShelfInfoButton.MoreLikeThis)
             if (addToList && titled) add(ShelfInfoButton.AddToList)
         }
     }
 
-    fun buttonLabel(button: ShelfInfoButton, inList: Boolean): String = when (button) {
+    /** The pill's words: what it does instead of Play. */
+    fun sourceShortcutLabel(kind: com.nuvio.app.features.home.components.ContinueWatchingSourceShortcutKind?): String? =
+        when (kind) {
+            com.nuvio.app.features.home.components.ContinueWatchingSourceShortcutKind.OpenSourcePicker -> "Choose a source"
+            com.nuvio.app.features.home.components.ContinueWatchingSourceShortcutKind.ReuseLastLink -> "Play last source"
+            null -> null
+        }
+
+    fun buttonLabel(button: ShelfInfoButton, inList: Boolean, sourceShortcutLabel: String? = null): String = when (button) {
         ShelfInfoButton.Play -> "Play"
+        ShelfInfoButton.SourceShortcut -> sourceShortcutLabel ?: "Choose a source"
         ShelfInfoButton.Trailer -> "Trailer"
         ShelfInfoButton.MoreLikeThis -> "More like this"
         ShelfInfoButton.AddToList -> if (inList) "In your list" else "Add to list"
@@ -312,6 +337,7 @@ internal fun ShelfInfoOverlay(
         trailer = actions.trailer != null,
         moreLikeThis = actions.moreLikeThis != null,
         addToList = actions.addToList != null,
+        sourceShortcut = actions.sourceShortcut != null && actions.sourceShortcutLabel(card) != null,
     )
     var focusedButton by remember { mutableIntStateOf(0) }
     val focused = focusedButton.coerceIn(0, (buttons.size - 1).coerceAtLeast(0))
@@ -320,6 +346,7 @@ internal fun ShelfInfoOverlay(
         val a = currentActions
         when (button) {
             ShelfInfoButton.Play -> a.play?.invoke(card)
+            ShelfInfoButton.SourceShortcut -> a.sourceShortcut?.invoke(card)
             ShelfInfoButton.Trailer -> a.trailer?.invoke(card)
             ShelfInfoButton.MoreLikeThis -> a.moreLikeThis?.invoke(card)
             ShelfInfoButton.AddToList -> a.addToList?.invoke(card)
@@ -508,7 +535,11 @@ internal fun ShelfInfoOverlay(
         ) {
             buttons.forEachIndexed { index, button ->
                 InfoPill(
-                    label = ShelfInfoRules.buttonLabel(button, button == ShelfInfoButton.AddToList && actions.inList(card)),
+                    label = ShelfInfoRules.buttonLabel(
+                        button,
+                        button == ShelfInfoButton.AddToList && actions.inList(card),
+                        actions.sourceShortcutLabel(card),
+                    ),
                     play = button == ShelfInfoButton.Play,
                     focused = index == focused,
                     ink = ink,
@@ -589,8 +620,14 @@ internal fun rememberShelfInfoActions(
     onContinueWatchingClick: ((ContinueWatchingItem) -> Unit)?,
     onContinueWatchingPlay: ((ContinueWatchingItem) -> Unit)?,
     onFolderClick: ((collectionId: String, folderId: String) -> Unit)?,
+    onContinueWatchingSourceShortcut: ((ContinueWatchingItem) -> Unit)? = null,
 ): ShelfInfoActions {
     val library by LibraryRepository.uiState.collectAsStateWithLifecycle()
+    // The same rule as the classic Continue watching card's hover button (continueWatchingSourceShortcutKind).
+    val cwPreferences by com.nuvio.app.features.watchprogress.ContinueWatchingPreferencesRepository.uiState
+        .collectAsStateWithLifecycle()
+    val playerSettings by com.nuvio.app.features.player.PlayerSettingsRepository.uiState.collectAsStateWithLifecycle()
+    val sourceShortcutClick by rememberUpdatedState(onContinueWatchingSourceShortcut)
     val scope = rememberCoroutineScope()
     val posterClick by rememberUpdatedState(onPosterClick)
     val cwClick by rememberUpdatedState(onContinueWatchingPlay ?: onContinueWatchingClick)
@@ -612,6 +649,20 @@ internal fun rememberShelfInfoActions(
     }
 
     return ShelfInfoActions(
+        sourceShortcut = onContinueWatchingSourceShortcut?.let {
+            { card -> (card as? ShelfCard.Progress)?.let { sourceShortcutClick?.invoke(it.item) } }
+        },
+        sourceShortcutLabel = { card ->
+            (card as? ShelfCard.Progress)?.let {
+                ShelfInfoRules.sourceShortcutLabel(
+                    com.nuvio.app.features.home.components.continueWatchingSourceShortcutKind(
+                        item = it.item,
+                        mode = cwPreferences.sourceShortcut,
+                        reuseLastLinkEnabled = playerSettings.streamReuseLastLinkEnabled,
+                    ),
+                )
+            }
+        },
         play = { card ->
             when (card) {
                 is ShelfCard.Meta -> {

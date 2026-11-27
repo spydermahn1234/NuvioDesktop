@@ -2225,6 +2225,7 @@ fun HomeScreen(
                 onContinueWatchingClick = onContinueWatchingClick,
                 onContinueWatchingPlay = onContinueWatchingPlay,
                 onFolderClick = onFolderClick,
+                onContinueWatchingSourceShortcut = onContinueWatchingSourceShortcut,
             ),
         )
         return

@@ -1124,6 +1124,12 @@ The shelf home rebuilt to the v2 mockups (canvas "Nuvio home — Kodi-style mock
 - [ ] With the sidebar layout instead of the top bar, Up from Shelves' tab line does nothing (and nothing breaks)
 - [ ] Paper look: the fan-art screens are readable on paper (no backdrop, as before)
 
+## Shelf home, Continue watching source shortcut (Nov 27)
+
+- [ ] (must) Info (I or hold OK) on a Continue watching card has a second pill beside Play: "Choose a source" when Play replays the last link, or "Play last source" when Play opens the source list; it does that
+- [ ] With Settings' Continue watching source shortcut set to Off, the pill is not there; a title that is not Continue watching never has it
+- [ ] An Up next card that has not been started (with Play opening the source list) has no pill
+
 ## Shelf home, look fixes (Nov 27)
 
 From the review of the Logos screenshot (Nathan For You, Continue watching).

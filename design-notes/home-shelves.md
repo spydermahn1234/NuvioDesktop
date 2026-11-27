@@ -73,7 +73,7 @@ those rows are drawn and moved between. So:
    folder's titles through the same resolvers as the folder page but in its own per-folder session cache (the folder
    page's repository holds one folder at a time, so it is not reused), merging sources round-robin with a short hold so
    cards never move; Continue Watching's long press is passed through. Every view implements the `ShelfViewState`
-   contract in `ShelfCards.kt`; the Strip is `ShelfStripView` in ShelfHome.kt. The source shortcut is still to do.)
+   contract in `ShelfCards.kt`; the Strip is `ShelfStripView` in ShelfHome.kt. The source shortcut is done since Nov 27: a pill in Info beside Play, Nick's choice.)
 4. **Ledger view** - text rows, time left, end time; numbered style for ranked rows.
 5. **Per-shelf view choice** - "View as…", automatic defaults, the fork-only presentation store.
 6. **Spotlight view**. 7. **Wall view**. 8. **Logo strip view**.
