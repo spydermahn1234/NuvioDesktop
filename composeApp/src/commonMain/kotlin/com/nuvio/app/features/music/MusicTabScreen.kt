@@ -154,10 +154,10 @@ internal object MusicTabState {
     /** fork:music-home - true while the music home is the Music tab's first screen: it has its own search line. */
     fun homeOwnsSearch(): Boolean = MusicLibraryRepository.state.value.settings.musicHome
 
-    /** Puts [text] in the box and searches it now. */
+    /** Searches [text] now and clears the box for follow-up searches (history keeps what was run). */
     fun search(text: String) {
-        typed = text
         submitted = text.trim()
+        typed = ""
     }
 
     /**

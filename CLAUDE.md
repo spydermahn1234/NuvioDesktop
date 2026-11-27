@@ -2,10 +2,10 @@
 
 ## On `windows-tv-adaptive` (UmbraProjects' branch)
 
-The sections below came in with the merge of Spyder's branch and are written from Nick's side ("this branch" there
-means `Spyder`). On `windows-tv-adaptive` the user is not Nick and there is no linked PC: work in this checkout. Test
-checks for work on this branch go in `TESTING-UMBRA.md`, not `TESTING.md` (Nick's checklist). The fork-UI merge
-warning below still applies to anything sent to Spyder's branch.
+The sections below are written from Nick's side ("this branch" there means `Spyder`). Upstream keeps its own short
+CLAUDE.md, with this fork's UI list moved to `SPYDER-FORK-UI.md` (Nov 23): a merge from upstream conflicts on this
+file, so keep Nick's version here. On `windows-tv-adaptive` the user is not Nick and there is no linked PC; there,
+`TESTING.md` is left to Nick. The fork-UI merge warning below still applies to anything sent to Spyder's branch.
 
 ## Where to work: Nick's PC (D:\NuvioBuild\NuvioDesktop), then push
 
