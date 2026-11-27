@@ -223,6 +223,10 @@ private fun RemoteTab(state: UiState, viewModel: RemoteViewModel) {
     var padOverLiveTv by rememberSaveable { mutableStateOf(false) }
     val liveTvOpen = state.liveTv != null
     LaunchedEffect(liveTvOpen) { if (!liveTvOpen) padOverLiveTv = false }
+    // The shelf home (v3 phase 9) opens as its mirror too, behind Tonight and Live TV.
+    var padOverHome by rememberSaveable { mutableStateOf(false) }
+    val homeOpen = state.home != null
+    LaunchedEffect(homeOpen) { if (!homeOpen) padOverHome = false }
 
     Column(Modifier.fillMaxSize().imePadding().padding(horizontal = 20.dp)) {
         RemoteHeader(
@@ -231,6 +235,7 @@ private fun RemoteTab(state: UiState, viewModel: RemoteViewModel) {
                 state.sources != null -> "Choosing a source"
                 state.tonight != null -> "Choosing tonight"
                 state.liveTv != null && showing == Showing.Browsing -> "Live TV"
+                state.home != null && showing == Showing.Browsing -> "On the home"
                 showing == Showing.Browsing -> "Connected · browsing"
                 showing == Showing.Film -> "Playing a film"
                 else -> "Playing music"
@@ -256,6 +261,12 @@ private fun RemoteTab(state: UiState, viewModel: RemoteViewModel) {
                         if (padOverLiveTv) "Live TV" else state.padMode.label,
                         icon = if (padOverLiveTv) Icons.Rounded.Movie else Icons.Rounded.CropSquare,
                         onClick = { padOverLiveTv = !padOverLiveTv },
+                    )
+                } else if (state.home != null && showing == Showing.Browsing) {
+                    GlassTag(
+                        if (padOverHome) "Home" else state.padMode.label,
+                        icon = if (padOverHome) Icons.Rounded.Home else Icons.Rounded.CropSquare,
+                        onClick = { padOverHome = !padOverHome },
                     )
                 } else if (showing != Showing.Browsing) {
                     GlassTag(
@@ -287,6 +298,7 @@ private fun RemoteTab(state: UiState, viewModel: RemoteViewModel) {
             // Only while nothing plays: once a card starts a film, the film screen takes over.
             tonight != null && showing == Showing.Browsing && !padOverTonight -> TonightBody(tonight, viewModel)
             state.liveTv != null && showing == Showing.Browsing && !padOverLiveTv -> LiveTvBody(state.liveTv, viewModel)
+            state.home != null && showing == Showing.Browsing && !padOverHome -> ShelfHomeBody(state.home, state.shelves, viewModel)
             showing == Showing.Film && playing != null && !padOverPlaying -> FilmBody(
                 playing,
                 state.cover,
@@ -1387,7 +1399,8 @@ private fun MoreSheet(state: UiState, viewModel: RemoteViewModel, onType: () -> 
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     GlassKey(Icons.Rounded.PowerSettingsNew, "Sleep") { DemoTv.sleep(); onDismiss() }
-                    Spacer(Modifier.size(60.dp))
+                    // The TV's shelf home on or off (v3 phase 9), to try its mirror.
+                    GlassKey(Icons.Rounded.Home, "Shelves") { DemoTv.toggleShelfHome(); onDismiss() }
                     Spacer(Modifier.size(60.dp))
                     Spacer(Modifier.size(60.dp))
                 }

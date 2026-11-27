@@ -30,7 +30,7 @@ queue, and can "sleep" to try Wake. A strip shows what it was sent. This is for 
   and More. The tag in the pad's corner switches between them, and the choice is remembered.
 - **Pointer**: the phone as the PC's mouse, like a Magic Remote, made to be used without looking down. The whole
   Remote tab becomes one touch zone (over What to watch and the Back, Home, Search and More keys), and it never
-  swaps itself for the source list, the What to watch or Live TV mirrors, or the film and music screens: the TV's own
+  swaps itself for the source list, the What to watch, Live TV or shelf home mirrors, or the film and music screens: the TV's own
   screens are driven with the cursor. Point the phone at the TV and turn or tilt it; the real Windows cursor follows,
   over Nuvio, the player and any other window, and holds still while a finger is on the zone. **Tap** = click.
   **Drag up or down** = scroll, **left or right** = scroll sideways (a poster row); the first movement picks the
@@ -96,6 +96,15 @@ queue, and can "sleep" to try Wake. A strip shows what it was sent. This is for 
   the header swaps to the pad. On the TV's front door (Home) the phone has its own layout: the pick as one big card
   with **Watch** and **Something else**, then Favourites now (Carry on first), the scores of the teams you follow (tap
   one on a channel to watch it) and Next up, with **Hide scores** at the bottom.
+- **Shelf home:** while the TV shows the shelf home (Settings > Home > Shelf home), the Remote tab mirrors it: the TV's
+  backdrop at the top with the focused title and its line ("2007 · DRAMA · ENDS 23:42"), the row's name and place
+  ("3 OF 50") with arrows for the rows above and below, and the row's posters: swipe along them, tap one to show it on
+  the TV (tap the one already shown to open it). Under them, **Play**, **Info**, **Shelves** and **View** (the row's
+  Posters or Logos). Shelves is a list on the phone of every row, grouped as on the TV (Yours, For you, Charts,
+  Catalogs, the catalogs folded by letter), with a search box: type "horror" and only those rows stay; "ON TV" marks the
+  row on screen, a tap jumps the TV there, and **Show on the TV** opens the TV's own Shelves. The tag in the header
+  swaps to the pad. In the demo TV, More > **Shelves** turns a pretend shelf home on and off. Needs a Nuvio from
+  Nov 27, 2026 or later.
 - **Checks (dev only, not for end users; never merged upstream):** the fourth tab asks TESTING.md's open checks one at a time (Works, Broken, Works but…, Not tried, with
   a typed or spoken note). Answers wait on the phone; with a GitHub token (under **GitHub** on the tab; fine-grained,
   Contents read and write on this repo) **Save** writes them into TESTING.md on Spyder as one commit, and without one
@@ -122,6 +131,7 @@ source lines are built in `PhoneRemoteLibraryLines.kt` and answered in `PhoneRem
 | Sources | `PICK_SOURCE` | `SOURCES` |
 | Tonight | `TONIGHT_DO` | `TONIGHT` (after `SUBSCRIBE`, whenever it changes) |
 | Live TV | `LIVETV_DO` | `LIVETV` (after `SUBSCRIBE`, whenever it changes) |
+| Shelf home | `HOME_DO move <delta>` / `pick <index>` / `row <delta>` / `play` / `info` / `shelves` / `view` / `shelf <tabId> <shelfKey>` | `HOME`, `SHELVES` (after `SUBSCRIBE`, whenever they change) |
 | Live scores | (none) | `SCORE <sport> <kind> <title> <text>` (after `SUBSCRIBE`, a favourite team's event; shown as a notification) |
 | Long-press menus | `MENU`, `DO` | `MENU`, `DONE`, `PLAYLISTS`, `RECAP` |
 | Links | `OPEN` | `OPENING`, `CANT_OPEN` |

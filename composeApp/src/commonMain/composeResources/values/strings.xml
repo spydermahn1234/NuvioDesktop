@@ -1534,6 +1534,16 @@
     <string name="settings_lights_govee_devices_empty">None selected</string>
     <string name="settings_lights_govee_devices_count">%1$d lights</string>
     <string name="settings_lights_section_webhooks">Webhooks</string>
+    <string name="settings_art_lights_section">Follow the home's art</string>
+    <string name="settings_art_lights_enable">Follow the home's art</string>
+    <string name="settings_art_lights_enable_description">While you browse the Shelf home (and in its gallery) the lights picked below take the colour of the art on screen: a slow 2 s fade, only once the art has settled. Playing something hands the room to Lights out; leaving Home puts it back as it was</string>
+    <string name="settings_art_lights_bulbs">Lights that follow</string>
+    <string name="settings_art_lights_bulbs_description">From the lights already set up on this page: the WiZ bulb and Govee lights under Beat lights (instant, faded smoothly) and your Govee account's lights (slower, one change at a time)</string>
+    <string name="settings_art_lights_bulbs_none">None picked</string>
+    <string name="settings_art_lights_bulbs_count">%1$d lights</string>
+    <string name="settings_art_lights_no_bulbs">No lights to pick yet. Add a WiZ bulb or find Govee lights under Beat lights below, or load your Govee account's lights above</string>
+    <string name="settings_art_lights_cap">Brightness cap</string>
+    <string name="settings_art_lights_cap_description">So the room glows rather than lights up. Halved from bedtime (What to watch's bedtime) until 6:00</string>
     <string name="settings_beat_lights_section">Beat lights (music)</string>
     <string name="settings_beat_lights_enable">Flash a light on the beat</string>
     <string name="settings_beat_lights_enable_description">While music plays, a WiZ bulb and Govee lights flash on the kick drum, worked out from the track before you hear it</string>
@@ -3859,6 +3869,10 @@
     <string name="settings_home_shelf_evening_description">In the evening a "Fits before bed" row leads the shelf home: titles from your rows that end before your bedtime (set in What to watch).</string>
     <string name="settings_home_shelf_evening_start">Evening starts at</string>
     <string name="settings_home_shelf_evening_start_description">When "Fits before bed" starts leading the shelf home.</string>
+    <string name="settings_home_shelf_trailers">Trailers beside the art</string>
+    <string name="settings_home_shelf_trailers_description">On the shelf home, staying on a title for 4 seconds plays its trailer, muted, in the open part of the picture. Any key stops it.</string>
+    <string name="settings_home_shelf_theme_tunes">Theme tunes</string>
+    <string name="settings_home_shelf_theme_tunes_description">On the shelf home, a show's theme plays quietly while it is focused (at the theme song volume), and fades when you move on.</string>
     <string name="settings_home_catalog_provider_tag">Show catalog provider</string>
     <string name="settings_home_catalog_provider_tag_description">Tags each catalog row with the addon that supplies it.</string>
     <string name="settings_home_release_status_unavailable_only">Only show unavailable release status</string>

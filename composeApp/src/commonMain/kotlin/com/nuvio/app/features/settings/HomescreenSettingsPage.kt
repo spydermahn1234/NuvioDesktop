@@ -475,6 +475,24 @@ internal fun LazyListScope.homescreenSettingsContent(
                             modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("home-shelf-evening")),
                             onCheckedChange = { on -> com.nuvio.app.features.home.shelves.ShelfExtrasRepository.update { it.copy(eveningHome = on) } },
                         )
+                        SettingsGroupDivider(isTablet = isTablet)
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_home_shelf_trailers),
+                            description = stringResource(Res.string.settings_home_shelf_trailers_description),
+                            checked = shelfExtras.trailers,
+                            isTablet = isTablet,
+                            modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("home-shelf-trailers")),
+                            onCheckedChange = { on -> com.nuvio.app.features.home.shelves.ShelfExtrasRepository.update { it.copy(trailers = on) } },
+                        )
+                        SettingsGroupDivider(isTablet = isTablet)
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_home_shelf_theme_tunes),
+                            description = stringResource(Res.string.settings_home_shelf_theme_tunes_description),
+                            checked = shelfExtras.themeTunes,
+                            isTablet = isTablet,
+                            modifier = Modifier.settingsScrollAnchor(SettingsScrollAnchor.searchKey("home-shelf-theme-tunes")),
+                            onCheckedChange = { on -> com.nuvio.app.features.home.shelves.ShelfExtrasRepository.update { it.copy(themeTunes = on) } },
+                        )
                         if (shelfExtras.eveningHome) {
                             SettingsGroupDivider(isTablet = isTablet)
                             SettingsChoiceRow(

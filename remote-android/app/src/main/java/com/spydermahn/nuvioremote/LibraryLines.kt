@@ -85,6 +85,33 @@ data class LiveTvScreenInfo(
     val empty: String?,
 )
 
+/** A poster of the shelf home's row (`HOME` line); [index] is its place in the whole row, what `HOME_DO pick` sends. */
+data class ShelfCardInfo(val index: Int, val title: String, val poster: String?)
+
+/** The TV's shelf home as the phone mirrors it (`HOME` line, v3 phase 9). [row] and [index] are from 0. */
+data class ShelfHomeInfo(
+    /** "browse", "shelves" or "info": what the TV shows over the home. */
+    val mode: String,
+    val tabId: String,
+    val tabTitle: String,
+    val shelfKey: String?,
+    val rowTitle: String,
+    val row: Int,
+    val rows: Int,
+    val index: Int,
+    val count: Int,
+    val cards: List<ShelfCardInfo>,
+    val title: String,
+    /** "2007 · DRAMA · ENDS 23:42". */
+    val facts: String,
+    val art: String?,
+    /** "Posters" or "Logos". */
+    val view: String,
+)
+
+/** A row in the shelf home's Shelves list (`SHELVES` line); [bucket] is a catalog's letter range ("A – C"), or null. */
+data class ShelfRowInfo(val tabId: String, val tabTitle: String, val group: String, val bucket: String?, val key: String, val title: String)
+
 /** One of the three cards on the TV's Tonight picker (`TONIGHT` line). [number] is what `TONIGHT_DO play` sends back. */
 data class TonightCardInfo(
     val number: Int,
@@ -644,6 +671,57 @@ object LibraryLines {
                 empty = field(parts[8]),
             ),
         )
+    }
+
+    /**
+     * `HOME 0`, or `HOME 1 <mode> <tabId> <tabTitle> <shelfKey> <rowTitle> <row> <rows> <index> <count> <from> <title>
+     * <facts> <art> <view> <cards>`, cards `title,poster`; mirrors `homeLine` in the PC's PhoneRemoteLibraryLines.kt.
+     */
+    fun parseHome(line: String): ServerLine? {
+        val parts = line.trim().split(' ')
+        if (parts.size < 2 || parts[0] != "HOME") return null
+        if (parts[1] != "1") return ServerLine.Home(null)
+        if (parts.size < 17) return null
+        val from = parts[11].toIntOrNull() ?: 0
+        val cards = records(parts[16]).mapIndexedNotNull { i, r ->
+            ShelfCardInfo(from + i, r.getOrNull(0) ?: return@mapIndexedNotNull null, r.getOrNull(1))
+        }
+        return ServerLine.Home(
+            ShelfHomeInfo(
+                mode = field(parts[2]) ?: "browse",
+                tabId = field(parts[3]) ?: return null,
+                tabTitle = field(parts[4]).orEmpty(),
+                shelfKey = field(parts[5]),
+                rowTitle = field(parts[6]).orEmpty(),
+                row = parts[7].toIntOrNull() ?: 0,
+                rows = parts[8].toIntOrNull() ?: 0,
+                index = parts[9].toIntOrNull() ?: 0,
+                count = parts[10].toIntOrNull() ?: 0,
+                cards = cards,
+                title = field(parts[12]).orEmpty(),
+                facts = field(parts[13]).orEmpty(),
+                art = field(parts[14]),
+                view = field(parts[15]) ?: "Posters",
+            ),
+        )
+    }
+
+    /** `SHELVES 0`, or `SHELVES 1 <rows>`, rows `tabId,tabTitle,group,bucket,key,title`; mirrors `shelvesLine`. */
+    fun parseShelves(line: String): ServerLine? {
+        val parts = line.trim().split(' ')
+        if (parts.size < 2 || parts[0] != "SHELVES") return null
+        if (parts[1] != "1") return ServerLine.Shelves(emptyList())
+        val rows = records(parts.getOrNull(2)).mapNotNull { r ->
+            ShelfRowInfo(
+                tabId = r.getOrNull(0) ?: return@mapNotNull null,
+                tabTitle = r.getOrNull(1).orEmpty(),
+                group = r.getOrNull(2).orEmpty(),
+                bucket = r.getOrNull(3),
+                key = r.getOrNull(4) ?: return@mapNotNull null,
+                title = r.getOrNull(5) ?: return@mapNotNull null,
+            )
+        }
+        return ServerLine.Shelves(rows)
     }
 
     /** Each record's fields, decoded; `-` becomes null. */

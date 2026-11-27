@@ -79,6 +79,7 @@ internal object PhoneRemote {
     private var sourcesWatch: Job? = null
     private var tonightWatch: Job? = null // fork:phone-remote tonight
     private var liveTvWatch: Job? = null // fork:phone-remote live-tv
+    private var homeWatch: Job? = null // fork:phone-remote shelf-home
     private var scoreWatch: Job? = null // fork:live-scores
 
     @Synchronized
@@ -156,6 +157,7 @@ internal object PhoneRemote {
         watchSources(created)
         watchTonight(created)
         watchLiveTv(created)
+        watchShelfHome(created)
         watchScores(created)
         _state.update { it.copy(listening = created.port != null, port = created.port, addresses = localAddresses()) }
     }
@@ -171,6 +173,8 @@ internal object PhoneRemote {
         tonightWatch = null
         liveTvWatch?.cancel()
         liveTvWatch = null
+        homeWatch?.cancel()
+        homeWatch = null
         scoreWatch?.cancel()
         scoreWatch = null
         server?.stop()
@@ -286,6 +290,9 @@ internal object PhoneRemote {
         override fun onPlayTrack(browseId: String, index: Int): String? = PhoneRemoteMusic.playTrack(browseId, index)
         override fun onLiveTv(action: com.nuvio.app.features.remote.RemoteLiveTvDo) {
             mainScope.launch { com.nuvio.app.features.remote.RemoteLiveTv.act(action) }
+        }
+        override fun onShelfHome(action: com.nuvio.app.features.remote.RemoteShelfHomeAction) {
+            mainScope.launch { com.nuvio.app.features.remote.RemoteShelfHome.act(action) }
         }
         override fun onTonight(action: RemoteTonightAction, number: Int) {
             mainScope.launch {
@@ -436,6 +443,23 @@ internal object PhoneRemote {
                 .map(PhoneRemoteLibraryLines::liveTvLine)
                 .distinctUntilChanged()
                 .collect(target::publishLiveTv)
+        }
+    }
+
+    /** fork:phone-remote shelf-home: the shelf home and its rows as the phone mirrors them, whenever they change. */
+    private fun watchShelfHome(target: PhoneRemoteServer) {
+        homeWatch?.cancel()
+        homeWatch = CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+            val current = com.nuvio.app.features.remote.RemoteShelfHome.current
+            // The rows first, so a phone that opens Shelves has them; they change far less often than the row.
+            launch {
+                current.map(PhoneRemoteLibraryLines::shelvesLine)
+                    .distinctUntilChanged()
+                    .collect(target::publishShelves)
+            }
+            current.map(PhoneRemoteLibraryLines::homeLine)
+                .distinctUntilChanged()
+                .collect(target::publishHome)
         }
     }
 

@@ -221,6 +221,130 @@ object DemoTv {
         _log.update { (it + text).takeLast(LOG_SIZE) }
     }
 
+    // ------------------------------------------------------------------------------------------ The shelf home
+
+    /** A row of the pretend shelf home: its group as the TV's Shelves overlay sorts it, and how many titles it has. */
+    private data class DemoShelf(val key: String, val title: String, val group: String, val bucket: String?, val size: Int)
+
+    private val demoShelves: List<DemoShelf> = run {
+        val yours = listOf(
+            DemoShelf("continueWatching", "Continue watching", "YOURS", null, DEMO_CONTINUE.size),
+            DemoShelf("upNext", "Up next", "YOURS", null, 6),
+            DemoShelf("mix-hang", "The Hang", "YOURS", null, 24),
+        )
+        val forYou = listOf(
+            DemoShelf("ai-movies", "AI for you — Movies", "FOR YOU", null, 50),
+            DemoShelf("ai-series", "AI for you — Series", "FOR YOU", null, 40),
+            DemoShelf("because-lowtide", "Because: Low Tide", "FOR YOU", null, 20),
+        )
+        val charts = listOf(
+            DemoShelf("top-movies", "Top 100 Today — Movies", "CHARTS", null, 100),
+            DemoShelf("trending-series", "Trending — Series", "CHARTS", null, 60),
+        )
+        // More than eight catalogs, so they fold into the TV's letter ranges.
+        val buckets = listOf("A – C" to 'a'..'c', "D – F" to 'd'..'f', "G – K" to 'g'..'k', "L – N" to 'l'..'n', "O – R" to 'o'..'r', "S – T" to 's'..'t', "U – Z" to 'u'..'z')
+        val catalogs = listOf(
+            "Action", "Animation", "Comedy", "Documentary", "Drama", "Fantasy", "Horror", "Horror Classics",
+            "Mystery", "Romance", "Science Fiction", "Thriller", "Westerns",
+        ).map { name ->
+            val bucket = buckets.first { name.lowercase().first() in it.second }.first
+            DemoShelf("cat-" + slug(name), name, "CATALOGS", bucket, 30)
+        }
+        yours + forYou + charts + catalogs
+    }
+
+    private const val HOME_TAB = "home"
+    private const val HOME_WINDOW = 20
+    private val ADJECTIVES = listOf("Quiet", "Silver", "Northern", "Paper", "Hollow", "Burning", "Last", "Distant", "Velvet", "Winter")
+    private val NOUNS = listOf("Harbour", "Orchard", "Signal", "Lanterns", "Engine", "Tide", "Meridian", "Archive", "Frontier", "Garden")
+    private val GENRES = listOf("Drama", "Thriller", "Comedy", "Mystery", "Western", "Sci-Fi", "Horror")
+
+    @Volatile
+    private var homeOn = false
+    private var homeRow = 3
+    private val homeCards = HashMap<String, Int>()
+    private val logoRows = HashSet<String>()
+
+    /** An invented title for card [i] of row [row], the same every time. */
+    private fun demoCardName(row: DemoShelf, i: Int): String {
+        if (row.key == "continueWatching") return DEMO_CONTINUE[i].title
+        val r = row.key.hashCode().let { if (it < 0) -it else it }
+        return "The ${ADJECTIVES[(i + r) % 10]} ${NOUNS[(i * 3 + r / 10) % 10]}"
+    }
+
+    @Synchronized
+    private fun homeLine(): String {
+        fun f(value: String?) = value?.takeIf { it.isNotBlank() }?.let(RemoteProtocol::encode) ?: "-"
+        if (!homeOn || mode != Mode.Browsing) return "HOME 0"
+        val row = demoShelves[homeRow]
+        val index = (homeCards[row.key] ?: 0).coerceIn(0, row.size - 1)
+        val from = (index - HOME_WINDOW / 2).coerceAtMost(row.size - HOME_WINDOW).coerceAtLeast(0)
+        val name = demoCardName(row, index)
+        val minutes = 88 + (index * 13) % 70
+        val clock = java.util.Calendar.getInstance().apply { add(java.util.Calendar.MINUTE, minutes) }
+        val facts = "${1990 + (index * 7 + homeRow) % 35} · ${GENRES[(index + homeRow) % GENRES.size]} · ends %02d:%02d"
+            .format(clock.get(java.util.Calendar.HOUR_OF_DAY), clock.get(java.util.Calendar.MINUTE)).uppercase()
+        val cards = (from until minOf(row.size, from + HOME_WINDOW)).joinToString(";") { i ->
+            val title = demoCardName(row, i)
+            "${f(title)},${f(poster(title))}"
+        }
+        return listOf(
+            "HOME", "1", "browse", HOME_TAB, f("Home"), f(row.key), f(row.title),
+            homeRow.toString(), demoShelves.size.toString(), index.toString(), row.size.toString(), from.toString(),
+            f(name), f(facts), f(still(name)), if (row.key in logoRows) "Logos" else "Posters", cards.ifEmpty { "-" },
+        ).joinToString(" ")
+    }
+
+    private fun shelvesLine(): String {
+        fun f(value: String?) = value?.takeIf { it.isNotBlank() }?.let(RemoteProtocol::encode) ?: "-"
+        if (!homeOn) return "SHELVES 0"
+        return "SHELVES 1 " + demoShelves.joinToString(";") { r ->
+            listOf(HOME_TAB, f("Home"), f(r.group), f(r.bucket), f(r.key), f(r.title)).joinToString(",")
+        }
+    }
+
+    private fun broadcastHome() = broadcast(homeLine())
+
+    /** Shows or hides the pretend shelf home, as if Settings > Home > Shelf home had been switched. */
+    fun toggleShelfHome() {
+        homeOn = !homeOn
+        note(if (homeOn) "Shelf home on" else "Shelf home off")
+        broadcast(shelvesLine())
+        broadcastHome()
+    }
+
+    /** `HOME_DO <words>`, as the TV's shelf home takes a phone's tap. */
+    private fun homeDo(parts: List<String>) {
+        if (!homeOn) return
+        val words = parts.drop(1).map(RemoteProtocol::decode)
+        synchronized(this) {
+            val row = demoShelves[homeRow]
+            val index = homeCards[row.key] ?: 0
+            when (words.getOrNull(0)) {
+                "move" -> homeCards[row.key] = (index + (words.getOrNull(1)?.toIntOrNull() ?: 0)).coerceIn(0, row.size - 1)
+                "pick" -> homeCards[row.key] = (words.getOrNull(1)?.toIntOrNull() ?: index).coerceIn(0, row.size - 1)
+                "row" -> homeRow = (homeRow + (words.getOrNull(1)?.toIntOrNull() ?: 0)).coerceIn(0, demoShelves.lastIndex)
+                "view" -> if (!logoRows.add(row.key)) logoRows.remove(row.key)
+                "shelf" -> demoShelves.indexOfFirst { it.key == words.getOrNull(2) }.takeIf { it >= 0 }?.let { homeRow = it }
+                else -> Unit
+            }
+        }
+        val row = synchronized(this) { demoShelves[homeRow] }
+        val name = demoCardName(row, synchronized(this) { homeCards[row.key] ?: 0 })
+        when (words.getOrNull(0)) {
+            "play" -> {
+                note("Home: opened $name; its sources fill in over 2 s")
+                showSources(name, row.title)
+            }
+            "info" -> note("Home: Info for $name on the TV")
+            "shelves" -> note("Home: Shelves open on the TV")
+            "view" -> note("Home: ${row.title} as ${if (row.key in logoRows) "Logos" else "Posters"}")
+            "row", "shelf" -> note("Home: row ${row.title}")
+            else -> note("Home: $name")
+        }
+        broadcastHome()
+    }
+
     // ------------------------------------------------------------------------------------------ Controls for testing
 
     /** Starts a pretend film, as if it had been picked on the TV. */
@@ -238,6 +362,7 @@ object DemoTv {
         }
         note("Playing the film $title")
         broadcastState()
+        broadcastHome()
     }
 
     /** Starts a pretend album. */
@@ -252,6 +377,7 @@ object DemoTv {
         }
         note("Playing ${album.title}${if (shuffle) " (shuffled)" else ""}")
         broadcastState()
+        broadcastHome()
     }
 
     /** Back to browsing, as if the player had been closed. */
@@ -262,6 +388,7 @@ object DemoTv {
         }
         note("Player closed")
         broadcastState()
+        broadcastHome()
     }
 
     @Volatile
@@ -345,6 +472,7 @@ object DemoTv {
         }
         if (key in STATE_KEYS) broadcastState()
         if (key == RemoteKey.Back || key == RemoteKey.Sources) broadcast(sourcesLine(complete = true))
+        if (key == RemoteKey.Back) broadcastHome()
     }
 
     private fun libraryLine(kind: String): String {
@@ -698,6 +826,8 @@ object DemoTv {
                     send(stateLine())
                     send(themeLine())
                     send(sourcesLine(complete = true))
+                    send(shelvesLine())
+                    send(homeLine())
                     send("WAKE $DEMO_MAC $HOST")
                 }
                 "KEY" -> onKey(parts.getOrElse(1) { "" })
@@ -902,6 +1032,7 @@ object DemoTv {
                         showSources(show.name, "S${bits[1]} E${bits[2]} · Chapter ${bits[1].toInt() * 10 + bits[2].toInt()}")
                     }
                 }
+                "HOME_DO" -> homeDo(parts)
                 "MENU" -> send(menuLine(parts))
                 "DO" -> menuAction(parts, ::send)
                 "QUEUE" -> send(queueLine())

@@ -44,6 +44,10 @@ data class UiState(
     val tonight: TonightScreenInfo? = null,
     /** The TV's Live TV stage while it is on screen; the remote mirrors it. */
     val liveTv: LiveTvScreenInfo? = null,
+    /** The TV's shelf home while it is on screen; the remote mirrors it. */
+    val home: ShelfHomeInfo? = null,
+    /** The shelf home's rows, for the phone's Shelves list. */
+    val shelves: List<ShelfRowInfo> = emptyList(),
     /** The source list while the TV shows one; the remote shows it to pick from. */
     val sources: SourceList? = null,
     /** Nuvio's catalog search for the Watch tab's query; null until asked. */
@@ -538,6 +542,8 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
                     is ServerLine.Sources -> _state.update { it.copy(sources = line.list) }
                     is ServerLine.Tonight -> _state.update { it.copy(tonight = line.screen) }
                     is ServerLine.LiveTv -> _state.update { it.copy(liveTv = line.screen) }
+                    is ServerLine.Home -> _state.update { it.copy(home = line.screen) }
+                    is ServerLine.Shelves -> _state.update { it.copy(shelves = line.rows) }
                     is ServerLine.Audio -> _state.update { it.copy(audio = line) }
                     is ServerLine.Subtitles -> _state.update { it.copy(subtitles = line) }
                     is ServerLine.Queue -> _state.update { it.copy(queue = line) }
@@ -631,7 +637,7 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
     private fun closeSession() {
         session?.close()
         session = null
-        _state.update { it.copy(nowPlaying = null, cover = null, sources = null, tonight = null, liveTv = null) }
+        _state.update { it.copy(nowPlaying = null, cover = null, sources = null, tonight = null, liveTv = null, home = null, shelves = emptyList()) }
     }
 
     /** A ping every few seconds, so a PC that went to sleep shows as offline before the next press. */
@@ -856,6 +862,13 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
     fun liveTvStage(name: String) = sendOrReconnect { it.liveTvStage(name) }
     fun liveTvItem(group: String, index: Int) = sendOrReconnect { it.liveTvItem(group, index) }
     fun liveTvAll() = sendOrReconnect { it.liveTvAll() }
+
+    /** Taps on the shelf home mirror (v3 phase 9). */
+    fun homeMove(delta: Int) = sendOrReconnect { it.homeMove(delta) }
+    fun homePick(index: Int) = sendOrReconnect { it.homePick(index) }
+    fun homeRow(delta: Int) = sendOrReconnect { it.homeRow(delta) }
+    fun home(action: String) = sendOrReconnect { it.home(action) }
+    fun homeShelf(tabId: String, shelfKey: String) = sendOrReconnect { it.homeShelf(tabId, shelfKey) }
 
     /** A tap on the Tonight mirror; see RemoteSession.tonight. */
     fun tonight(action: String, number: Int = 0) = sendOrReconnect { it.tonight(action, number) }

@@ -111,6 +111,10 @@ sealed interface ServerLine {
     data class Tonight(val screen: TonightScreenInfo?) : ServerLine
     /** The TV's Live TV stage as mirrored on the phone; null while none is on screen. */
     data class LiveTv(val screen: LiveTvScreenInfo?) : ServerLine
+    /** The TV's shelf home as mirrored on the phone; null while it is not on screen. */
+    data class Home(val screen: ShelfHomeInfo?) : ServerLine
+    /** The shelf home's rows, grouped as its Shelves overlay groups them; empty while it is not on screen. */
+    data class Shelves(val rows: List<ShelfRowInfo>) : ServerLine
     /** The source list on the TV; null once it closes. */
     data class Sources(val list: SourceList?) : ServerLine
     /** The film player's audio tracks (the same row type as subtitles; no Off, no groups). */
@@ -174,6 +178,8 @@ sealed interface ServerLine {
                 "SOURCES" -> LibraryLines.parseSources(line) ?: Other
                 "TONIGHT" -> LibraryLines.parseTonight(line) ?: Other
                 "LIVETV" -> LibraryLines.parseLiveTv(line) ?: Other
+                "HOME" -> LibraryLines.parseHome(line) ?: Other
+                "SHELVES" -> LibraryLines.parseShelves(line) ?: Other
                 "SEARCH_RESULTS" -> LibraryLines.parseSearch(line) ?: Other
                 "MUSIC_RESULTS" -> LibraryLines.parseMusicResults(line) ?: Other
                 "QUEUE" -> LibraryLines.parseQueue(line) ?: Other
@@ -376,6 +382,15 @@ class RemoteSession private constructor(private val socket: Socket) : AutoClosea
     fun liveTvStage(name: String) = send("LIVETV_DO stage ${RemoteProtocol.encode(name)}")
     fun liveTvItem(group: String, index: Int) = send("LIVETV_DO item ${RemoteProtocol.encode(group)} $index")
     fun liveTvAll() = send("LIVETV_DO all")
+
+    /** The shelf home (v3 phase 9): along the row, a card of it (from 0), another row, and its four buttons. */
+    fun homeMove(delta: Int) = send("HOME_DO move $delta")
+    fun homePick(index: Int) = send("HOME_DO pick $index")
+    fun homeRow(delta: Int) = send("HOME_DO row $delta")
+
+    /** [action] is `play`, `info`, `shelves` or `view`. */
+    fun home(action: String) = send("HOME_DO $action")
+    fun homeShelf(tabId: String, shelfKey: String) = send("HOME_DO shelf ${RemoteProtocol.encode(tabId)} ${RemoteProtocol.encode(shelfKey)}")
 
     /** Plays the source at [number] (from 1) in the list on the TV. The PC answers OPENING or CANT_OPEN. */
     fun pickSource(number: Int) = send("PICK_SOURCE $number")

@@ -49,7 +49,7 @@ The lead merges hooks so two helpers never edit the same lines.
    rising to 12% in the last hour). Built like a mix (`ShelfMixRules`), so paging and watched-filtering are reused.
    Setting: **Evening home** (on) with its start time.
 
-### Batch 2 (motion, sound, light, more Info)
+### Batch 2 (motion, sound, light, more Info) — built Nov 27; the trailer plays in a 16:9 window beside the words (a native video window cannot be faded or drawn over)
 
 5. **Trailer as backdrop (board 1).** `ShelfTrailer.kt`: after 4 s still on a title in Browse, the art fades into
    the hero trailer, always muted, with a 4 dp progress line along the top in the accent and "● TRAILER · MUTED" under
@@ -68,7 +68,7 @@ The lead merges hooks so two helpers never edit the same lines.
    `ThemeSongPlayer` (the theme-song volume setting), fading in over 1 s and out when you move on; never with a
    trailer's sound or during playback. "♪ THEME · QUIET" under the clock. Setting: **Theme tunes on the home** (off).
 
-### Batch 3 (the phone)
+### Batch 3 (the phone) — built Nov 27
 
 9. **Phone mirror (board 7).** HOME / HOME_DO lines in `PhoneRemoteProtocol.kt` (current row, its posters, the
    focused title and backdrop; move, pick, play, info, shelves, view) and SHELVES (the grouped rows); the app gets a

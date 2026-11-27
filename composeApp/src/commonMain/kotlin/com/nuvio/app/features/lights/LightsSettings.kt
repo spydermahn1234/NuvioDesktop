@@ -117,6 +117,10 @@ data class LightsSettings(
     val filmScene: LightsContentScene = LightsContentScene.Dark,
     val tvScene: LightsContentScene = LightsContentScene.Half,
     val musicBeatLights: Boolean = true,
+    // fork:shelf-home v3 - the shelf home's art lights (the switch itself is ShelfExtrasSettings.artLights): which
+    // lights follow (ids from ShelfArtLightsRules.bulbs) and how bright they may go.
+    val artBulbs: Set<String> = emptySet(),
+    val artCapPercent: Int = DEFAULT_ART_CAP_PERCENT,
 ) {
     /**
      * fork:lights-per-content - the scene for [kind]: the usual start action when "Per content" is off or the kind is
@@ -167,6 +171,9 @@ const val DEFAULT_SCHEDULE_FROM_MINUTES: Int = 20 * 60
 const val DEFAULT_SCHEDULE_UNTIL_MINUTES: Int = 8 * 60
 const val MINUTES_PER_DAY: Int = 24 * 60
 
+/** fork:shelf-home v3 - the art lights' brightness cap: the room glows rather than lights up. */
+const val DEFAULT_ART_CAP_PERCENT: Int = 40
+
 /**
  * A daily window that may cross midnight: 20:00–08:00 contains 23:00 and 03:00 but not 12:00.
  * Equal ends mean the whole day — the only sensible reading of a window with no width.
@@ -204,6 +211,8 @@ internal data class LightsStoredSettings(
     val filmScene: LightsContentScene = LightsContentScene.Dark,
     val tvScene: LightsContentScene = LightsContentScene.Half,
     val musicBeatLights: Boolean = true,
+    val artBulbs: List<String> = emptyList(),
+    val artCapPercent: Int = DEFAULT_ART_CAP_PERCENT,
 )
 
 private val lightsJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
@@ -275,6 +284,12 @@ object LightsSettingsRepository {
     fun setFilmScene(value: LightsContentScene) = update { copy(filmScene = value) }
     fun setTvScene(value: LightsContentScene) = update { copy(tvScene = value) }
     fun setMusicBeatLights(value: Boolean) = update { copy(musicBeatLights = value) }
+
+    // fork:shelf-home v3 - the art lights.
+    fun toggleArtBulb(id: String) = update {
+        copy(artBulbs = if (id in artBulbs) artBulbs - id else artBulbs + id)
+    }
+    fun setArtCapPercent(value: Int) = update { copy(artCapPercent = value.coerceIn(10, 100)) }
 
     fun setGoveeApiKey(value: String) {
         val trimmed = value.trim()
@@ -352,6 +367,8 @@ object LightsSettingsRepository {
             filmScene = stored.filmScene,
             tvScene = stored.tvScene,
             musicBeatLights = stored.musicBeatLights,
+            artBulbs = stored.artBulbs.toSet(),
+            artCapPercent = stored.artCapPercent.coerceIn(10, 100),
         )
     }
 }

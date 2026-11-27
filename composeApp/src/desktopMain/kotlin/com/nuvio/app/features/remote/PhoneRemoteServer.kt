@@ -80,6 +80,8 @@ internal interface PhoneRemoteListener {
     fun onTonight(action: com.nuvio.app.features.remote.RemoteTonightAction, number: Int) = Unit
     /** fork:phone-remote live-tv: a tap on the phone's mirror of a Live TV stage. */
     fun onLiveTv(action: com.nuvio.app.features.remote.RemoteLiveTvDo) = Unit
+    /** fork:phone-remote shelf-home: a tap on the phone's mirror of the shelf home. */
+    fun onShelfHome(action: com.nuvio.app.features.remote.RemoteShelfHomeAction) = Unit
     /** A long press on the phone: answer with a MENU line (PhoneRemoteActions). */
     fun onMenu(target: RemoteMenuTarget, reply: (String) -> Unit) = Unit
     /** A row of that menu: answer with DONE, PLAYLISTS or RECAP lines. */
@@ -186,6 +188,24 @@ internal class PhoneRemoteServer(
 
     @Volatile
     private var lastLiveTv: String? = null
+
+    @Volatile
+    private var lastHome: String? = null
+
+    @Volatile
+    private var lastShelves: String? = null
+
+    /** fork:phone-remote shelf-home: the shelf home as the phone mirrors it (PhoneRemoteLibraryLines.homeLine). */
+    fun publishHome(line: String) {
+        lastHome = line
+        clients.forEach { session -> if (session.subscribed) session.trySend(line) }
+    }
+
+    /** fork:phone-remote shelf-home: its rows, grouped (PhoneRemoteLibraryLines.shelvesLine). */
+    fun publishShelves(line: String) {
+        lastShelves = line
+        clients.forEach { session -> if (session.subscribed) session.trySend(line) }
+    }
 
     /** fork:phone-remote live-tv: the Live TV stage as the phone mirrors it (PhoneRemoteLibraryLines.liveTvLine). */
     fun publishLiveTv(line: String) {
@@ -342,6 +362,8 @@ internal class PhoneRemoteServer(
                                 lastSources?.let(::send)
                                 lastTonight?.let(::send)
                                 lastLiveTv?.let(::send)
+                                lastShelves?.let(::send)
+                                lastHome?.let(::send)
                                 wakeLine?.let(::send)
                             }
                             is RemoteMessage.Seek -> listener.onSeek(message.positionMs)
@@ -371,6 +393,7 @@ internal class PhoneRemoteServer(
                             is RemoteMessage.PlayTrack -> sendOpening(listener.onPlayTrack(message.browseId, message.index))
                             is RemoteMessage.TonightDo -> listener.onTonight(message.action, message.number)
                             is RemoteMessage.LiveTvDo -> listener.onLiveTv(message.action)
+                            is RemoteMessage.HomeDo -> listener.onShelfHome(message.action)
                             is RemoteMessage.Menu -> listener.onMenu(message.target, ::trySend)
                             is RemoteMessage.Do -> listener.onMenuAction(message.target, message.code, message.args, ::trySend)
                             is RemoteMessage.Point -> listener.onPoint(message.dx, message.dy)

@@ -1124,6 +1124,24 @@ The shelf home rebuilt to the v2 mockups (canvas "Nuvio home — Kodi-style mock
 - [ ] With the sidebar layout instead of the top bar, Up from Shelves' tab line does nothing (and nothing breaks)
 - [ ] Paper look: the fan-art screens are readable on paper (no backdrop, as before)
 
+## Shelf home v3, batches 2 and 3: trailers, cast, lights, theme tunes, phone (Nov 27)
+
+Plan in design-notes/home-shelves-v3.md. Trailers, theme tunes and lights are off until switched on. Guesses are marked GUESS.
+
+- [ ] (must) Trailers (Settings > Home screen > Trailers beside the art): staying 4 s on a title plays its trailer, muted, in a 16:9 window in the open part of the picture on the right (not full-screen: the video is a native window the words cannot sit on), with a thin line along the top and "● TRAILER · MUTED" under the clock
+- [ ] Trailers: any key or mouse move stops it at once; moving to another title starts the 4 s again; nothing plays in Shelves, Info, the gallery or while a player is up
+- [ ] (must) Info on a film: the cast as photo circles (initials until the photo loads); Up from the buttons reaches them, Left/Right move along, and the focused one shows "MORE WITH <NAME>" and their titles; OK opens their person page
+- [ ] Info on a film in a series (The Lord of the Rings): "PART 2 OF 3 · THE LORD OF THE RINGS" with the parts (watched ones ticked) and a line like "Watched part 1 · 3h 21m for part 3"; OK on a part opens its Info, Back returns to the film
+- [ ] Nothing on the Info page jumps when the cast or the parts arrive; Info on a show is unchanged (episodes, no cast)
+- [ ] (must) Lights (Settings > Lights > Follow the home's art, pick the bulbs): while browsing the shelf home the chosen bulbs fade to the art's colour (slowly, never while scrolling fast), "● LIGHTS · DESERT GOLD" (or similar) under the clock
+- [ ] Lights: the brightness stays under the cap (40% by default); starting a film puts the room back and Lights out takes over as before; leaving Home puts the room back too
+- [ ] Lights: bulbs that were off are switched on for the art and off again afterwards; at night (after bedtime) the cap is halved (GUESS)
+- [ ] (must) Theme tunes (Settings > Home screen > Theme tunes): on a show for 1.5 s its theme plays quietly and fades out when you move on; "♪ THEME · QUIET" under the clock; never on films, never over music or a player
+- [ ] (must) Phone: with the TV on the shelf home, Nuvio Remote shows the home: the backdrop, the title and "ENDS" time, the row and its posters following the TV; tapping a poster moves the TV to it, tapping it again plays it
+- [ ] Phone: Play / Info / View: Posters do the same on the TV; the arrows beside the row name change row
+- [ ] Phone: Shelves opens a list of every row grouped as on the TV, with "ON TV" on the current one; typing in its search box leaves only matching rows; tapping one moves the TV to that row
+- [ ] Phone: in the shelf builder, the view picker or the top bar, the phone goes back to its pad; the demo TV (More > Shelves) shows a pretend shelf home
+
 ## Shelf home v3, batch 1: art, colour, seasons, evening (Nov 27)
 
 Plan in design-notes/home-shelves-v3.md; boards on the canvas page "v3 · What's next". Guesses are marked GUESS.

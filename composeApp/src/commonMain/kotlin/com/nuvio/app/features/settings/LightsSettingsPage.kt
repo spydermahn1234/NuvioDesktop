@@ -12,6 +12,22 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import com.nuvio.app.features.home.shelves.ShelfArtLightsRules
+import com.nuvio.app.features.home.shelves.ShelfExtrasRepository
+import com.nuvio.app.features.music.beatlights.BeatLightsSettingsRepository
+import nuvio.composeapp.generated.resources.settings_art_lights_bulbs
+import nuvio.composeapp.generated.resources.settings_art_lights_bulbs_count
+import nuvio.composeapp.generated.resources.settings_art_lights_bulbs_description
+import nuvio.composeapp.generated.resources.settings_art_lights_bulbs_none
+import nuvio.composeapp.generated.resources.settings_art_lights_cap
+import nuvio.composeapp.generated.resources.settings_art_lights_cap_description
+import nuvio.composeapp.generated.resources.settings_art_lights_enable
+import nuvio.composeapp.generated.resources.settings_art_lights_enable_description
+import nuvio.composeapp.generated.resources.settings_art_lights_no_bulbs
+import nuvio.composeapp.generated.resources.settings_art_lights_section
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -351,8 +367,67 @@ internal fun LazyListScope.lightsSettingsContent(
         }
     }
 
+    // fork:shelf-home v3 - the shelf home's lights follow its art (ShelfArtLights.kt).
+    item { ShelfArtLightsSettingsSection(isTablet = isTablet, settings = settings) }
+
     // fork:beat-lights - flashes a WiZ bulb on the music's kicks (BeatLightsSettingsSection.kt).
     item { BeatLightsSettingsSection(isTablet = isTablet) }
+}
+
+/**
+ * fork:shelf-home v3 - Settings > Lights > Follow the home's art. The switch is the shelf home's own
+ * (ShelfExtrasSettings.artLights, one source of truth); the lights and the cap belong to the room (LightsSettings).
+ */
+@Composable
+private fun ShelfArtLightsSettingsSection(isTablet: Boolean, settings: LightsSettings) {
+    remember { ShelfExtrasRepository.ensureLoaded() }
+    val extras by ShelfExtrasRepository.state.collectAsState()
+    val beat by BeatLightsSettingsRepository.state.collectAsState()
+    val bulbs = ShelfArtLightsRules.bulbs(beat, settings)
+    SettingsSection(
+        title = stringResource(Res.string.settings_art_lights_section),
+        isTablet = isTablet,
+    ) {
+        SettingsGroup(
+            isTablet = isTablet,
+            modifier = Modifier.settingsSearchAnchors("art-lights", "art-lights-bulbs", "art-lights-cap"),
+        ) {
+            SettingsSwitchRow(
+                title = stringResource(Res.string.settings_art_lights_enable),
+                description = stringResource(Res.string.settings_art_lights_enable_description),
+                checked = extras.artLights,
+                isTablet = isTablet,
+                onCheckedChange = { on -> ShelfExtrasRepository.update { it.copy(artLights = on) } },
+            )
+            SettingsGroupDivider(isTablet = isTablet)
+            if (bulbs.isEmpty()) {
+                LightsInfoRow(isTablet = isTablet, text = stringResource(Res.string.settings_art_lights_no_bulbs))
+            } else {
+                SettingsMultiSelectRow(
+                    title = stringResource(Res.string.settings_art_lights_bulbs),
+                    description = stringResource(Res.string.settings_art_lights_bulbs_description),
+                    options = bulbs.map { SettingsChoiceOption(it.id, it.label) },
+                    selectedValues = settings.artBulbs,
+                    emptyLabel = stringResource(Res.string.settings_art_lights_bulbs_none),
+                    isTablet = isTablet,
+                    summaryForCount = { stringResource(Res.string.settings_art_lights_bulbs_count, it) },
+                    onToggle = LightsSettingsRepository::toggleArtBulb,
+                )
+            }
+            SettingsGroupDivider(isTablet = isTablet)
+            SettingsSliderRow(
+                title = stringResource(Res.string.settings_art_lights_cap),
+                description = stringResource(Res.string.settings_art_lights_cap_description),
+                value = settings.artCapPercent,
+                valueText = "${settings.artCapPercent}%",
+                valueTextForValue = { "$it%" },
+                valueRange = 10..100,
+                step = 5,
+                isTablet = isTablet,
+                onValueChange = LightsSettingsRepository::setArtCapPercent,
+            )
+        }
+    }
 }
 
 /** Every half hour of the day, labelled the way a clock face reads: 12:00 AM … 11:30 PM. */

@@ -359,6 +359,39 @@ internal object PhoneRemoteLibraryLines {
         ).joinToString(" ")
     }
 
+    /**
+     * fork:phone-remote shelf-home: `HOME 0` while the shelf home is not on screen, else
+     * `HOME 1 <mode> <tabId> <tabTitle> <shelfKey> <rowTitle> <row> <rows> <index> <count> <from> <title> <facts> <art>
+     * <view> <cards>`: row and index from 0; cards (at most 20, the first at `from` in the row) are `title,poster`.
+     * The phone answers with `HOME_DO ...` (RemoteShelfHomeAction). Mirrored by `parseHome` in the app's LibraryLines.kt.
+     */
+    fun homeLine(screen: com.nuvio.app.features.remote.RemoteShelfHomeScreen?): String {
+        if (screen == null) return "HOME 0"
+        return listOf(
+            "HOME", "1",
+            text(screen.mode), key(screen.tabId), text(screen.tabTitle), key(screen.shelfKey), text(screen.rowTitle),
+            screen.row.toString(), screen.rows.toString(), screen.index.toString(), screen.count.toString(), screen.from.toString(),
+            text(screen.title), text(screen.facts), url(screen.art), text(screen.view),
+            records(screen.cards.take(com.nuvio.app.features.remote.RemoteShelfHomeRules.WINDOW)) { c -> listOf(text(c.title), url(c.poster)) },
+        ).joinToString(" ")
+    }
+
+    /**
+     * fork:phone-remote shelf-home: `SHELVES 0`, or `SHELVES 1 <rows>`: every row of every tab in the Shelves overlay's
+     * groups, as `tabId,tabTitle,group,bucket,key,title` (bucket `-` outside a letter range). Sent only when it changes.
+     */
+    fun shelvesLine(screen: com.nuvio.app.features.remote.RemoteShelfHomeScreen?): String {
+        if (screen == null) return "SHELVES 0"
+        return "SHELVES 1 " + records(screen.shelves.take(MAX_SHELVES)) { r ->
+            listOf(key(r.tabId), text(r.tabTitle), text(r.group), text(r.bucket), key(r.key), text(r.title))
+        }
+    }
+
+    private const val MAX_SHELVES = 1000
+
+    /** A shelf key goes back to the PC as it was, so it is never shortened like a display text. */
+    private fun key(value: String?): String = value?.takeIf { it.isNotEmpty() && it.length <= 400 }?.let(PhoneRemoteProtocol::encode) ?: "-"
+
     // --- fork:phone-remote menus: the long-press sheet (see PhoneRemoteActions). ---
 
     /** What the phone should reload after a menu action changed something. */

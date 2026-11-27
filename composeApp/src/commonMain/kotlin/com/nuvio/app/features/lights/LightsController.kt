@@ -9,6 +9,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /** Who is playing: the in-app player, or a process Nuvio handed the stream to. */
@@ -46,6 +49,14 @@ object LightsController {
             val lightsOff: Boolean = false,
         ) : Command
         data object Test : Command
+
+        /**
+         * fork:shelf-home v3 - other room work (the shelf home's art lights) run in the same queue, so it never overlaps a
+         * playback scene: a restore queued before a Start has finished before the Start captures the room.
+         */
+        class Room(val label: String, val block: suspend () -> Unit) : Command {
+            override fun toString(): String = "Room($label)"
+        }
     }
 
     private val commands = Channel<Command>(Channel.UNLIMITED)
@@ -58,6 +69,37 @@ object LightsController {
     private var sessionScene: LightsSceneTarget? = null
 
     private const val TEST_HOLD_MS = 4_000L
+
+    // fork:shelf-home v3 - who is playing right now, as the callers report it (not the worker's session, which only
+    // exists when Lights out is on): the art lights never touch the room while anything plays.
+    private val playingSources = mutableSetOf<LightsPlaybackSource>()
+    private val _playbackUp = MutableStateFlow(false)
+    val playbackUp: StateFlow<Boolean> = _playbackUp.asStateFlow()
+    private val playbackListeners = mutableListOf<() -> Unit>()
+
+    /**
+     * fork:shelf-home v3 - [listener] runs on the caller's thread each time playback reports Playing, before the Start
+     * is queued, so anything it queues with [room] runs first (the art lights hand the room back this way).
+     */
+    internal fun onPlaybackStarting(listener: () -> Unit) {
+        synchronized(playbackListeners) { playbackListeners += listener }
+    }
+
+    /** fork:shelf-home v3 - queues [block] behind every room change already asked for. */
+    internal fun room(label: String, block: suspend () -> Unit) {
+        commands.trySend(Command.Room(label, block))
+    }
+
+    private fun markPlaying(source: LightsPlaybackSource, up: Boolean) {
+        val listeners = synchronized(playingSources) {
+            if (up) playingSources += source else playingSources -= source
+            _playbackUp.value = playingSources.isNotEmpty()
+            if (up) synchronized(playbackListeners) { playbackListeners.toList() } else emptyList()
+        }
+        listeners.forEach { listener ->
+            runCatching { listener() }.onFailure { log.w(it) { "Playback listener failed" } }
+        }
+    }
 
     init {
         scope.launch { drain() }
@@ -74,6 +116,7 @@ object LightsController {
 
     /** Playback is actually running: the first report is the Start, later ones (after a pause) a Resume. */
     fun playing(source: LightsPlaybackSource, kind: LightsContentKind? = null) {
+        markPlaying(source, up = true)
         commands.trySend(Command.Playback(LightsEvent.Start, source, kind))
     }
 
@@ -83,6 +126,7 @@ object LightsController {
 
     /** Playback finished or the player was left; the room goes back to how it was. */
     fun ended(source: LightsPlaybackSource) {
+        markPlaying(source, up = false)
         commands.trySend(Command.Playback(LightsEvent.End, source))
     }
 
@@ -92,6 +136,7 @@ object LightsController {
      * dark afterwards.
      */
     fun bedtime(source: LightsPlaybackSource) {
+        markPlaying(source, up = false)
         commands.trySend(Command.Playback(LightsEvent.End, source, lightsOff = true))
     }
 
@@ -159,8 +204,9 @@ object LightsController {
                 LightsEvent.End -> {
                     val opener = pendingStart.takeIf { it >= 0 }?.let { out[it] as Command.Playback }
                     if (opener != null && opener.source == playback.source && !playback.lightsOff) {
-                        // Start (and anything after it), End — the room was never touched.
-                        while (out.size > pendingStart) out.removeAt(out.lastIndex)
+                        // Start (and anything after it), End — the room was never touched. Room work queued in
+                        // between (fork:shelf-home v3) is not playback and still runs.
+                        for (i in out.lastIndex downTo pendingStart) if (out[i] is Command.Playback) out.removeAt(i)
                     } else {
                         out += command
                     }
@@ -177,6 +223,7 @@ object LightsController {
         when (command) {
             is Command.Playback -> executePlayback(command)
             Command.Test -> executeTest()
+            is Command.Room -> command.block()
         }
     }
 

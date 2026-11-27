@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -564,6 +565,76 @@ internal fun ShelfHome(
         enabled = extras.artAccent && shelfTheme == ShelfThemeMode.Dark,
         fallback = MaterialTheme.nuvio.colors.accent,
     )
+    // fork:shelf-home v3 - the chosen lights take the art's colour while browsing and in the gallery (ShelfArtLights.kt).
+    val artLightsOn = extras.artLights && !covered
+    LaunchedEffect(artLightsOn, browsing || idle, artAccent) {
+        when {
+            !artLightsOn -> ShelfArtLights.release()
+            browsing || idle -> ShelfArtLights.show(artAccent)
+            else -> ShelfArtLights.show(null) // Info / Shelves: keep what is lit
+        }
+    }
+    DisposableEffect(Unit) { onDispose { ShelfArtLights.release() } }
+    val artLit by ShelfArtLights.lit.collectAsStateWithLifecycle()
+    // fork:phone-remote shelf-home - the phone's mirror (v3 phase 9): what the home shows, and the phone's taps.
+    val artUrlForPhone = art.backdrop ?: artCard?.posterUrl()
+    val remoteScreen = remember(mode, contentTabs, tab, rowIndex, cards, cardIndex, viewMode, artUrlForPhone, nowMinute, covered, inTopBar, editorOpen) {
+        if (covered || inTopBar || editorOpen) {
+            null
+        } else {
+            com.nuvio.app.features.remote.RemoteShelfHomeRules.screen(
+                mode = when (mode) {
+                    ShelfScreenMode.Browse -> com.nuvio.app.features.remote.RemoteShelfHomeScreen.BROWSE
+                    ShelfScreenMode.Shelves -> com.nuvio.app.features.remote.RemoteShelfHomeScreen.SHELVES
+                    ShelfScreenMode.Info -> com.nuvio.app.features.remote.RemoteShelfHomeScreen.INFO
+                },
+                tabs = contentTabs,
+                tab = tab,
+                rowIndex = rowIndex,
+                cards = cards,
+                cardIndex = cardIndex,
+                viewMode = viewMode,
+                artUrl = artUrlForPhone,
+                nowMinute = nowMinute,
+            )
+        }
+    }
+    LaunchedEffect(remoteScreen) { com.nuvio.app.features.remote.RemoteShelfHome.publish(remoteScreen) }
+    DisposableEffect(Unit) { onDispose { com.nuvio.app.features.remote.RemoteShelfHome.publish(null) } }
+    fun onPhone(action: com.nuvio.app.features.remote.RemoteShelfHomeAction) {
+        if (editorOpen || pickerFor != null || inTopBar) return
+        if (idle) wake() else noteInput()
+        when (action) {
+            is com.nuvio.app.features.remote.RemoteShelfHomeAction.Move -> {
+                mode = ShelfScreenMode.Browse
+                move(action.delta)
+            }
+            is com.nuvio.app.features.remote.RemoteShelfHomeAction.Pick -> {
+                mode = ShelfScreenMode.Browse
+                if (action.index in cards.indices) setIndex(action.index)
+            }
+            is com.nuvio.app.features.remote.RemoteShelfHomeAction.Row -> {
+                mode = ShelfScreenMode.Browse
+                if (shelves.isNotEmpty()) changeRow((rowIndex + action.delta).coerceIn(0, shelves.lastIndex))
+            }
+            com.nuvio.app.features.remote.RemoteShelfHomeAction.Play -> {
+                mode = ShelfScreenMode.Browse
+                focusedCard?.let(::openCard)
+            }
+            com.nuvio.app.features.remote.RemoteShelfHomeAction.Info -> openInfo()
+            com.nuvio.app.features.remote.RemoteShelfHomeAction.Shelves -> openShelves()
+            com.nuvio.app.features.remote.RemoteShelfHomeAction.View -> {
+                mode = ShelfScreenMode.Browse
+                toggleView()
+            }
+            is com.nuvio.app.features.remote.RemoteShelfHomeAction.PickShelf -> {
+                go(action.tabId, action.shelfKey)
+                mode = ShelfScreenMode.Browse
+            }
+        }
+    }
+    val phoneAction by rememberUpdatedState<(com.nuvio.app.features.remote.RemoteShelfHomeAction) -> Unit>(::onPhone)
+    LaunchedEffect(Unit) { com.nuvio.app.features.remote.RemoteShelfHome.actions.collect { phoneAction(it) } }
     // The gallery's slow drift: 30 s one way and back, eased off when the screen wakes.
     val drift = remember { Animatable(0f) }
     LaunchedEffect(idle) {
@@ -908,6 +979,18 @@ internal fun ShelfHome(
                         color = ink.copy(alpha = 0.7f),
                         maxLines = 1,
                     )
+                }
+                artLit?.let { lit ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.size(10.dp).background(lit.color, androidx.compose.foundation.shape.CircleShape))
+                        Text(
+                            "LIGHTS · ${lit.name.uppercase()}",
+                            fontSize = 14.sp,
+                            letterSpacing = 3.64.sp,
+                            color = ink.copy(alpha = 0.7f),
+                            maxLines = 1,
+                        )
+                    }
                 }
                 if (trailer.showing) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {

@@ -22,6 +22,10 @@ internal data class GoveeDeviceState(
     val powerOn: Boolean,
     /** 1..100, or null when the device reports no brightness capability. */
     val brightness: Int?,
+    /** fork:shelf-home v3 - 0xRRGGBB when the light reports a colour, for the art lights' restore. */
+    val colorRgb: Int? = null,
+    /** fork:shelf-home v3 - the white temperature when the light reports one (0 or null: in colour). */
+    val kelvin: Int? = null,
 )
 
 internal sealed interface GoveeResult<out T> {
@@ -48,6 +52,9 @@ internal object GoveeClient {
     private const val CAP_ONLINE = "devices.capabilities.online"
     private const val INSTANCE_POWER = "powerSwitch"
     private const val INSTANCE_BRIGHTNESS = "brightness"
+    private const val CAP_COLOR = "devices.capabilities.color_setting"
+    private const val INSTANCE_COLOR_RGB = "colorRgb"
+    private const val INSTANCE_COLOR_KELVIN = "colorTemperatureK"
 
     private val log = Logger.withTag("Govee")
     private val json = Json { ignoreUnknownKeys = true }
@@ -91,6 +98,8 @@ internal object GoveeClient {
             var online = true
             var powerOn = false
             var brightness: Int? = null
+            var colorRgb: Int? = null
+            var kelvin: Int? = null
             capabilities.forEach { entry ->
                 val cap = entry as? JsonObject ?: return@forEach
                 val value = (cap["state"] as? JsonObject)?.get("value") as? JsonPrimitive
@@ -102,9 +111,13 @@ internal object GoveeClient {
                     CAP_RANGE -> if (cap.string("instance") == INSTANCE_BRIGHTNESS) {
                         brightness = value?.intOrNull?.coerceIn(1, 100)
                     }
+                    CAP_COLOR -> when (cap.string("instance")) {
+                        INSTANCE_COLOR_RGB -> colorRgb = value?.intOrNull?.takeIf { it in 0..0xFFFFFF }
+                        INSTANCE_COLOR_KELVIN -> kelvin = value?.intOrNull?.takeIf { it > 0 }
+                    }
                 }
             }
-            GoveeDeviceState(online = online, powerOn = powerOn, brightness = brightness)
+            GoveeDeviceState(online = online, powerOn = powerOn, brightness = brightness, colorRgb = colorRgb, kelvin = kelvin)
         }
     }
 
@@ -113,6 +126,14 @@ internal object GoveeClient {
 
     suspend fun setBrightness(apiKey: String, device: GoveeDevice, percent: Int): GoveeResult<Unit> =
         control(apiKey, device, CAP_RANGE, INSTANCE_BRIGHTNESS, JsonPrimitive(percent.coerceIn(1, 100)))
+
+    /** fork:shelf-home v3 - a colour, 0xRRGGBB, for the art lights. */
+    suspend fun setColorRgb(apiKey: String, device: GoveeDevice, rgb: Int): GoveeResult<Unit> =
+        control(apiKey, device, CAP_COLOR, INSTANCE_COLOR_RGB, JsonPrimitive(rgb and 0xFFFFFF))
+
+    /** fork:shelf-home v3 - white at a temperature (Govee takes about 2000..9000 K). */
+    suspend fun setColorTemperature(apiKey: String, device: GoveeDevice, kelvin: Int): GoveeResult<Unit> =
+        control(apiKey, device, CAP_COLOR, INSTANCE_COLOR_KELVIN, JsonPrimitive(kelvin.coerceIn(2000, 9000)))
 
     private suspend fun control(
         apiKey: String,

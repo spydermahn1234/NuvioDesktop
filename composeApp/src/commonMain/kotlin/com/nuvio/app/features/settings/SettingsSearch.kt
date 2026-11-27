@@ -2378,6 +2378,8 @@ private fun settingsSearchEntries(
         PlaybackSearchRow("home-shelf-art-accent", resolve(Res.string.settings_home_shelf_art_accent), resolve(Res.string.settings_home_shelf_art_accent_description)), // fork:shelf-home
         PlaybackSearchRow("home-shelf-evening", resolve(Res.string.settings_home_shelf_evening), resolve(Res.string.settings_home_shelf_evening_description)), // fork:shelf-home
         PlaybackSearchRow("home-shelf-evening-start", resolve(Res.string.settings_home_shelf_evening_start), resolve(Res.string.settings_home_shelf_evening_start_description)), // fork:shelf-home
+        PlaybackSearchRow("home-shelf-trailers", resolve(Res.string.settings_home_shelf_trailers), resolve(Res.string.settings_home_shelf_trailers_description)), // fork:shelf-home
+        PlaybackSearchRow("home-shelf-theme-tunes", resolve(Res.string.settings_home_shelf_theme_tunes), resolve(Res.string.settings_home_shelf_theme_tunes_description)), // fork:shelf-home
         PlaybackSearchRow("home-collection-gifs-on-focus", resolve(Res.string.settings_search_animate_collection_gifs_on_focus_only), resolve(Res.string.settings_search_collection_gifs_play_only_on_the)),
         PlaybackSearchRow("home-catalog-provider-tag", resolve(Res.string.settings_home_catalog_provider_tag), resolve(Res.string.settings_search_tag_each_catalog_row_with_the)),
         PlaybackSearchRow("hero-backdrop-crossfade", resolve(Res.string.settings_hero_backdrop_crossfade), resolve(Res.string.settings_search_how_long_the_hero_backdrop_takes)),
@@ -2996,6 +2998,10 @@ private fun settingsSearchEntries(
             PlaybackSearchRow("lights-govee-devices", resolve(Res.string.settings_lights_govee_devices), resolve(Res.string.settings_lights_govee_devices_description), goveeSection),
             PlaybackSearchRow("lights-webhook-method", resolve(Res.string.settings_lights_webhook_method), resolve(Res.string.settings_lights_webhook_method_description), webhooksSection),
             PlaybackSearchRow("lights-webhook-urls", webhooksSection, resolve(Res.string.settings_lights_webhooks_description), webhooksSection),
+            // fork:shelf-home v3
+            PlaybackSearchRow("art-lights", resolve(Res.string.settings_art_lights_enable), resolve(Res.string.settings_art_lights_enable_description), resolve(Res.string.settings_art_lights_section)),
+            PlaybackSearchRow("art-lights-bulbs", resolve(Res.string.settings_art_lights_bulbs), resolve(Res.string.settings_art_lights_bulbs_description), resolve(Res.string.settings_art_lights_section)),
+            PlaybackSearchRow("art-lights-cap", resolve(Res.string.settings_art_lights_cap), resolve(Res.string.settings_art_lights_cap_description), resolve(Res.string.settings_art_lights_section)),
             // fork:beat-lights
             PlaybackSearchRow("beat-lights", resolve(Res.string.settings_beat_lights_enable), resolve(Res.string.settings_beat_lights_enable_description), resolve(Res.string.settings_beat_lights_section)),
         ).forEach { row ->
