@@ -18,7 +18,7 @@ class ShelfLogoStripRulesTest {
         MetaPreview(id = "m", type = "series", name = name, logo = logo),
     )
 
-    private fun progress(logo: String? = null) =
+    private fun progress(logo: String? = null, position: Long = 0L, duration: Long = 0L, fraction: Float = 0f) =
         ShelfCard.Progress(
             ContinueWatchingItem(
                 parentMetaId = "p",
@@ -28,9 +28,9 @@ class ShelfLogoStripRulesTest {
                 subtitle = "",
                 imageUrl = null,
                 logo = logo,
-                resumePositionMs = 0L,
-                durationMs = 0L,
-                progressFraction = 0f,
+                resumePositionMs = position,
+                durationMs = duration,
+                progressFraction = fraction,
             ),
         )
 
@@ -42,7 +42,7 @@ class ShelfLogoStripRulesTest {
         assertEquals(110f, r.ROW_H, tol)
         assertEquals(64f, r.GAP, tol)
         assertEquals(3f, r.BAR_H, tol)
-        assertEquals(0.55f, r.DIM_ALPHA, tol)
+        assertEquals(0.6f, r.DIM_ALPHA, tol)
         assertEquals(170f, r.TITLE_H, tol)
         assertEquals(900f, r.TITLE_MAX_W, tol)
         // The focused logo with its bar fits inside the row.
@@ -98,5 +98,31 @@ class ShelfLogoStripRulesTest {
     fun nameIsCapitals() {
         assertEquals("THE BEAR", r.nameLabel(meta(name = " The Bear ")))
         assertEquals("MARVEL", r.nameLabel(folder()))
+    }
+
+    @Test
+    fun logosAreSizedByArea() {
+        // The default shape keeps the base height; unknown shape too.
+        assertEquals(48f, r.logoHeight(48f, r.DEFAULT_ASPECT), tol)
+        assertEquals(48f, r.logoHeight(48f, null), tol)
+        // A wide wordmark gets shorter, a squarer badge taller: same area either way.
+        val wide = r.logoHeight(48f, 4f)
+        val square = r.logoHeight(48f, 1.5f)
+        assertTrue(wide < 48f)
+        assertTrue(square > 48f)
+        assertEquals(48f * 48f * r.DEFAULT_ASPECT, wide * wide * 4f, 1f)
+        // Never outside 60%..135% of the base.
+        assertTrue(r.logoHeight(48f, r.MAX_ASPECT) >= 48f * r.MIN_H_SCALE - tol)
+        assertEquals(48f * r.MAX_H_SCALE, r.logoHeight(48f, r.MIN_ASPECT), tol)
+    }
+
+    @Test
+    fun progressBarOnlyForContinueWatching() {
+        assertEquals(0.25f, r.progress(progress(position = 25L, duration = 100L))!!, tol)
+        assertEquals(0f, r.progress(progress())!!, tol)
+        assertEquals(0.4f, r.progress(progress(fraction = 0.4f))!!, tol)
+        assertEquals(1f, r.progress(progress(position = 150L, duration = 100L))!!, tol)
+        assertNull(r.progress(meta()))
+        assertNull(r.progress(folder()))
     }
 }

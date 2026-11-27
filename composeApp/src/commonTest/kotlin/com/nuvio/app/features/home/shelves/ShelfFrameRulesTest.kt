@@ -50,9 +50,16 @@ class ShelfFrameRulesTest {
 
     @Test
     fun factsForContinueWatching() {
-        assertEquals("S4 E1 · USS CALLISTER · 1H 16M LEFT", ShelfFrameRules.facts(progress(10 * 60_000L)))
+        // The episode's name is its own line (episodeTitle), not part of the capitals.
+        assertEquals("S4 E1 · 1H 16M LEFT", ShelfFrameRules.facts(progress(10 * 60_000L)))
         // Not started (Up next): the length, not "left".
-        assertEquals("S4 E1 · USS CALLISTER · 1H 16M", ShelfFrameRules.facts(progress(0L)))
+        assertEquals("S4 E1 · 1H 16M", ShelfFrameRules.facts(progress(0L)))
+    }
+
+    @Test
+    fun episodeTitleLine() {
+        assertEquals("USS Callister", ShelfFrameRules.episodeTitle(progress(10 * 60_000L)))
+        assertNull(ShelfFrameRules.episodeTitle(ironGiant))
     }
 
     @Test
@@ -103,5 +110,15 @@ class ShelfFrameRulesTest {
         assertEquals("2019", ShelfFrameRules.year("2019-2023"))
         assertEquals("2019", ShelfFrameRules.year("2019-05-01"))
         assertNull(ShelfFrameRules.year("soon"))
+    }
+
+    @Test
+    fun bandIsClearAtTheTopAndDarkFromTheRow() {
+        val stops = ShelfBand.stops(0.4f)
+        assertEquals(0f to 0f, stops.first())
+        assertEquals(ShelfBand.DARK, stops.first { it.first >= 0.4f - 0.001f }.second, 0.001f)
+        assertEquals(1f to ShelfBand.DARK, stops.last())
+        // Only ever gets darker going down.
+        assertTrue(stops.zipWithNext().all { (a, b) -> b.first >= a.first && b.second >= a.second })
     }
 }

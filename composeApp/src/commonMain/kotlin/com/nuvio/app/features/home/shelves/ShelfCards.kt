@@ -115,7 +115,7 @@ internal object ShelfFrameRules {
     /**
      * The tracked line under the title, in capitals:
      *  - a film or show: "1999 · ANIMATION / FAMILY · 1H 26M · IMDB 8.1" (year, up to two genres, length, rating; any may be missing);
-     *  - a Continue Watching card: "S4 E1 · USS CALLISTER · 1H 16M LEFT";
+     *  - a Continue Watching card: "S4 E1 · 1H 16M LEFT" (the episode's name is its own line, [episodeTitle]);
      *  - a folder: nothing.
      */
     fun facts(card: ShelfCard): String = when (card) {
@@ -132,13 +132,23 @@ internal object ShelfFrameRules {
             val item = card.item
             val episode = episodeOf(item)
             val left = leftOf(item)?.let { ShelfTime.length(it) + if (item.resumePositionMs > 0L) " left" else "" }
-            listOfNotNull(
-                episode,
-                item.episodeTitle?.trim()?.takeIf { it.isNotEmpty() } ?: item.subtitle.trim().takeIf { episode == null && it.isNotEmpty() },
-                left,
-            ).joinToString(" · ").uppercase()
+            listOfNotNull(episode, left).joinToString(" · ").uppercase()
         }
         is ShelfCard.Folder -> ""
+    }
+
+    /**
+     * The line under [facts] for a Continue Watching card, as written (not capitals): the episode's
+     * name ("USS Callister"), or the card's subtitle when it is not an episode; null otherwise.
+     */
+    fun episodeTitle(card: ShelfCard): String? = when (card) {
+        is ShelfCard.Progress -> {
+            val item = card.item
+            val isEpisode = item.seasonNumber != null && item.episodeNumber != null
+            item.episodeTitle?.trim()?.takeIf { it.isNotEmpty() }
+                ?: item.subtitle.trim().takeIf { !isEpisode && it.isNotEmpty() }
+        }
+        else -> null
     }
 
     /**

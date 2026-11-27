@@ -32,6 +32,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -40,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nuvio.app.core.ui.NuvioAsyncImage
 import kotlin.math.abs
+import kotlin.math.sqrt
 
 /*
  * The Logos view of the fan-art home (mockup V2Logos): the focused row drawn as a line of clearlogos
@@ -63,8 +66,22 @@ internal object ShelfLogoStripRules {
     const val BAR_H = 3f
     const val BAR_GAP = 12f
 
-    /** Logos other than the focused one. */
-    const val DIM_ALPHA = 0.55f
+    /** Logos other than the focused one: greyed out and at 60%; the focused one in full colour. */
+    const val DIM_ALPHA = 0.6f
+    const val DIM_SATURATION = 0f
+
+    /**
+     * Logos are sized by area, not by height: a wide wordmark gets shorter and a square badge taller,
+     * so every logo carries about the same weight. A logo of [DEFAULT_ASPECT] keeps the base height;
+     * the height never goes outside [MIN_H_SCALE]..[MAX_H_SCALE] of it.
+     */
+    const val MIN_H_SCALE = 0.6f
+    const val MAX_H_SCALE = 1.35f
+
+    /** The bar under each logo: its track and its filled part, focused and not. */
+    const val TRACK_ALPHA = 0.22f
+    const val FOCUSED_TRACK_ALPHA = 0.3f
+    const val FILL_ALPHA = 0.55f
 
     /** The name drawn when a title has no logo: focused and the others. */
     const val FOCUSED_NAME_SP = 58f
@@ -95,6 +112,31 @@ internal object ShelfLogoStripRules {
     fun logoWidth(heightDp: Float, aspect: Float?): Float =
         heightDp * (aspect ?: DEFAULT_ASPECT).coerceIn(MIN_ASPECT, MAX_ASPECT)
 
+    /**
+     * A logo's height for a base height of [baseDp] (the row's [LOGO_H] or [FOCUSED_LOGO_H]), so that
+     * its area matches a [DEFAULT_ASPECT] logo's at that height; null (not loaded yet) keeps the base.
+     */
+    fun logoHeight(baseDp: Float, aspect: Float?): Float {
+        if (aspect == null) return baseDp
+        val a = aspect.coerceIn(MIN_ASPECT, MAX_ASPECT)
+        return (baseDp * sqrt(DEFAULT_ASPECT / a)).coerceIn(baseDp * MIN_H_SCALE, baseDp * MAX_H_SCALE)
+    }
+
+    /**
+     * How far through a Continue Watching card is (0..1), for the bar under its logo; null for a card
+     * with no progress to show (a film or show from a catalog, a folder). A card not started is 0.
+     */
+    fun progress(card: ShelfCard): Float? = when (card) {
+        is ShelfCard.Progress -> {
+            val item = card.item
+            when {
+                item.durationMs > 0L -> (item.resumePositionMs.toFloat() / item.durationMs.toFloat()).coerceIn(0f, 1f)
+                else -> item.progressFraction.coerceIn(0f, 1f)
+            }
+        }
+        else -> null
+    }
+
     /** True when moving the row from [from] to [to] should jump rather than scroll smoothly. */
     fun jumps(from: Int, to: Int): Boolean = abs(to - from) > JUMP_AFTER
 
@@ -110,8 +152,11 @@ internal object ShelfLogoStripRules {
 }
 
 /**
- * The logo row (V2Logos, top 880): every card's clearlogo in a line, 64 apart, the focused one full
- * white with a 3 dp bar under it as wide as the logo, the others at 55%. The row keeps the focused
+ * The logo row (V2Logos, top 880): every card's clearlogo in a line, 64 apart, sized by area. The
+ * focused one is in full colour, the others greyed out at 60%. Under each logo, as wide as it, a 3 dp
+ * bar: on a Continue Watching card a track filled as far as you got (brighter when focused); on any
+ * other card only the focused one has it, filled. Every logo keeps the bar's room, so none moves
+ * when the focus does. The row keeps the focused
  * logo's left edge at its start when it can (the last logos stop at the end) and is always
  * [ShelfLogoStripRules.ROW_H] high.
  */
@@ -169,10 +214,16 @@ private fun RowLogo(
     val rules = ShelfLogoStripRules
     val ink = LocalShelfPalette.current.ink
     val alpha by animateFloatAsState(if (focused) 1f else rules.DIM_ALPHA, tween(200))
-    val logoH by animateDpAsState((if (focused) rules.FOCUSED_LOGO_H else rules.LOGO_H).dp, tween(200))
+    val saturation by animateFloatAsState(if (focused) 1f else rules.DIM_SATURATION, tween(200))
     val url = rules.logoUrl(card)
+    val base = if (focused) rules.FOCUSED_LOGO_H else rules.LOGO_H
+    val logoH by animateDpAsState(rules.logoHeight(base, url?.let { aspects[it] }).dp, tween(200))
+    val progress = rules.progress(card)
     // A logo that fails to load falls back to the name, so the row never shows a hole.
     var failed by remember(url) { mutableStateOf(false) }
+    val greyed = remember(saturation) {
+        if (saturation >= 1f) null else ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(saturation) })
+    }
 
     Column(
         modifier.width(IntrinsicSize.Max).alpha(alpha),
@@ -185,6 +236,7 @@ private fun RowLogo(
                 contentDescription = card.title(),
                 contentScale = ContentScale.Fit,
                 alignment = Alignment.CenterStart,
+                colorFilter = greyed,
                 onSuccess = { state ->
                     aspects[url] = rules.aspect(state.result.image.width, state.result.image.height)
                 },
@@ -203,9 +255,21 @@ private fun RowLogo(
                 softWrap = false,
             )
         }
-        if (focused) {
-            Spacer(Modifier.height(rules.BAR_GAP.dp))
-            Box(Modifier.fillMaxWidth().height(rules.BAR_H.dp).background(ink))
+        Spacer(Modifier.height(rules.BAR_GAP.dp))
+        Box(Modifier.fillMaxWidth().height(rules.BAR_H.dp)) {
+            when {
+                progress != null -> {
+                    // The row's alpha already dims an unfocused logo; these are on top of it.
+                    Box(Modifier.fillMaxSize().background(ink.copy(alpha = if (focused) rules.FOCUSED_TRACK_ALPHA else rules.TRACK_ALPHA)))
+                    if (progress > 0f) {
+                        Box(
+                            Modifier.fillMaxWidth(progress).height(rules.BAR_H.dp)
+                                .background(ink.copy(alpha = if (focused) 1f else rules.FILL_ALPHA)),
+                        )
+                    }
+                }
+                focused -> Box(Modifier.fillMaxSize().background(ink))
+            }
         }
     }
 }

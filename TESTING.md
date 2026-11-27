@@ -1124,6 +1124,20 @@ The shelf home rebuilt to the v2 mockups (canvas "Nuvio home — Kodi-style mock
 - [ ] With the sidebar layout instead of the top bar, Up from Shelves' tab line does nothing (and nothing breaks)
 - [ ] Paper look: the fan-art screens are readable on paper (no backdrop, as before)
 
+## Shelf home, look fixes (Nov 27)
+
+From the review of the Logos screenshot (Nathan For You, Continue watching).
+
+- [ ] (must) Logos and Posters: the bottom of the screen is a dark band from just above the row header down, so the backdrop (a hand, a suit) never shows through the logos; it fades in with no visible line where it starts
+- [ ] (must) Logos: wide wordmarks (Black Mirror, Line of Duty) are shorter and square badges (Peep Show, Only Fools) taller than before, so no logo shouts or looks tiny next to the others
+- [ ] Logos: the logos not in focus are grey at about 60%; the focused one is in full colour and a little bigger, and the change fades in about a fifth of a second
+- [ ] (must) Logos on Continue watching: every logo has a thin track under it filled as far as you got (an Up next card not started: just the track); the focused one's is bright, the others dim; on other rows only the focused logo has a (full) bar
+- [ ] No logo moves up or down as the focus moves along the row
+- [ ] The clock top right reads "07:03" with a dim colon (and in the gallery, bottom right); with Tonight's 12-hour clock "7:03 PM"
+- [ ] (must) Continue watching: the spaced capitals line is only "S1 E3 · 6M LEFT"; the episode's name ("Clothing Store / Restaurant") is its own line under it in normal type, then "Finish by 07:09"
+- [ ] A film (no episode name): the empty line leaves the same gap every time, so nothing moves between cards; nothing overlaps the row header in Posters or Logos
+- [ ] At rest on the Shelf home the app's top bar is fully gone, not faint; it shows only when the mouse is at the top or the keyboard goes up to it
+
 # Archived (not testing)
 
 Set aside on 2026-11-22 (Nick): upstream merge checks for upstream's own features, and the old Live TV views that Stage replaced. Kept for the record; the phone's Checks tab asks nothing below this heading. To test one again, move it back up.

@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -604,7 +605,9 @@ internal fun ShelfHome(
                 ) { card -> ShelfArt(card) }
             }
 
-            // The scrims: from the left, where the words are, and along the bottom, where the row is.
+            // The scrims: from the left, where the words are, and along the bottom, where the row is: a band that
+            // is clear down to 200 above the row's header and 92% dark from 20 above it to the bottom, eased
+            // (smoothstep) so its start never shows as a line. Under it the art can never fight the row.
             Box(
                 Modifier.fillMaxSize().alpha(browseAlpha).background(
                     Brush.horizontalGradient(
@@ -614,17 +617,23 @@ internal fun ShelfHome(
                     ),
                 ),
             )
+            val bandHeader by animateDpAsState(
+                y(if (viewMode == ShelfViewMode.Logos) 840 else 790),
+                tween(ShelfMotion.WORDS_FADE_MS),
+                label = "shelfBand",
+            )
+            val bandStart = (bandHeader - ShelfBand.FADE_DP.dp).coerceAtLeast(0.dp)
+            val bandHeight = (maxHeight - bandStart).coerceAtLeast(1.dp)
+            val bandFull = ((ShelfBand.FADE_DP - ShelfBand.FULL_ABOVE_DP).dp / bandHeight).coerceIn(0.05f, 1f)
             Box(
                 Modifier
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
-                    .height(520.dp)
+                    .height(bandHeight)
                     .alpha(browseAlpha)
                     .background(
                         Brush.verticalGradient(
-                            0f to scrimOf(palette, 0f),
-                            0.55f to scrimOf(palette, 0.55f),
-                            1f to scrimOf(palette, 0.9f),
+                            *ShelfBand.stops(bandFull).map { (at, a) -> at to scrimOf(palette, a) }.toTypedArray(),
                         ),
                     ),
             )
@@ -674,7 +683,7 @@ internal fun ShelfHome(
                     Crossfade(
                         targetState = ShelfTitleView(focusedCard, viewMode),
                         animationSpec = tween(ShelfMotion.WORDS_FADE_MS),
-                        modifier = Modifier.padding(start = 96.dp, top = if (viewMode == ShelfViewMode.Logos) y(470) else y(520)),
+                        modifier = Modifier.padding(start = 96.dp, top = if (viewMode == ShelfViewMode.Logos) y(450) else y(484)),
                         label = "shelfTitle",
                     ) { view ->
                         TitleBlock(view, nowMinute)
@@ -931,6 +940,25 @@ internal fun ShelfHome(
     }
 }
 
+/** The dark band under the row (fix 1 of the Nov 27 review). */
+internal object ShelfBand {
+    /** The band starts this far above the row's header... */
+    const val FADE_DP = 200
+    /** ...and is fully dark from this far above it. */
+    const val FULL_ABOVE_DP = 20
+    const val DARK = 0.92f
+
+    /** Gradient stops (position 0..1 in the band, alpha): smoothstep up to [full], then [DARK] to the end. */
+    fun stops(full: Float): List<Pair<Float, Float>> {
+        val f = full.coerceIn(0.05f, 1f)
+        val eased = (0..8).map { i ->
+            val t = i / 8f
+            (t * f) to DARK * t * t * (3f - 2f * t)
+        }
+        return if (f < 1f) eased + (1f to DARK) else eased
+    }
+}
+
 /** The keys Browse uses, so their releases are taken too. */
 private val BrowseKeys = setOf(
     Key.DirectionLeft, Key.DirectionRight, Key.DirectionUp, Key.DirectionDown,
@@ -983,14 +1011,16 @@ private fun ShelfArt(card: ShelfCard?) {
     }
 }
 
-/** The mockups' clock: the hour SemiBold, the minutes Light (Tonight's 12-hour setting respected). */
+/** The mockups' clock: the hour SemiBold, a dim colon, the minutes Light (Tonight's 12-hour setting respected). */
 @Composable
 private fun ShelfClock(nowMinute: Int, hourSize: Int, minuteSize: Int, color: Color, modifier: Modifier = Modifier) {
     val label = clockLabel(nowMinute)
     val hour = label.substringBefore(':')
     val rest = label.substringAfter(':', "")
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(hour, fontSize = hourSize.sp, lineHeight = hourSize.sp, fontWeight = FontWeight.SemiBold, color = color, maxLines = 1, modifier = Modifier.alignByBaseline())
+        // A dim colon, so "07 03" never reads as a date and matches the "Finish by 07:09" line.
+        Text(":", fontSize = minuteSize.sp, lineHeight = minuteSize.sp, fontWeight = FontWeight.Light, color = color.copy(alpha = color.alpha * 0.5f), maxLines = 1, modifier = Modifier.alignByBaseline())
         Text(rest, fontSize = minuteSize.sp, lineHeight = minuteSize.sp, fontWeight = FontWeight.Light, color = color, maxLines = 1, modifier = Modifier.alignByBaseline())
     }
 }
@@ -1004,6 +1034,7 @@ private fun TitleBlock(view: ShelfTitleView, nowMinute: Int) {
     val ink = LocalShelfPalette.current.ink
     val card = view.card
     val facts = card?.let(ShelfFrameRules::facts).orEmpty()
+    val episodeTitle = card?.let(ShelfFrameRules::episodeTitle).orEmpty()
     val ends = card?.let { ShelfFrameRules.ends(it, nowMinute) { m -> clockLabel(m) } }
     Column(Modifier.width(if (view.mode == ShelfViewMode.Logos) 900.dp else 1000.dp)) {
         if (view.mode == ShelfViewMode.Logos) {
@@ -1032,7 +1063,19 @@ private fun TitleBlock(view: ShelfTitleView, nowMinute: Int) {
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.height(28.dp),
         )
-        Spacer(Modifier.height(12.dp))
+        // The episode's name on its own line, as written: kept out of the capitals above so it is easy
+        // to read and its own "/" is never taken for the breadcrumb's. Always 36 high (empty for a film).
+        Spacer(Modifier.height(8.dp))
+        Text(
+            episodeTitle,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Normal,
+            color = ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.height(36.dp),
+        )
+        Spacer(Modifier.height(4.dp))
         Text(
             buildAnnotatedString {
                 if (ends != null) {
