@@ -133,4 +133,17 @@ class ShelfLogoStripRulesTest {
         assertFalse(r.fullyInside(offset = 900, size = 200, viewportStart = 0, viewportEnd = 1000))
         assertFalse(r.fullyInside(offset = -50, size = 200, viewportStart = 0, viewportEnd = 1000))
     }
+
+    @Test
+    fun scrollEasesWithoutOvershooting() {
+        var left = 300f
+        repeat(60) {
+            val step = r.easeStep(left, 16f)
+            assertTrue(kotlin.math.abs(step) <= kotlin.math.abs(left))
+            left -= step
+            assertTrue(left >= 0f)
+        }
+        assertTrue(left < 0.5f)
+        assertEquals(0.3f, r.easeStep(0.3f, 16f), 0.0001f)
+    }
 }

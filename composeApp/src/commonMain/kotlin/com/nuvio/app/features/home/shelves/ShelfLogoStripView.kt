@@ -30,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nuvio.app.core.ui.NuvioAsyncImage
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.sqrt
 
 /*
@@ -148,6 +150,21 @@ internal object ShelfLogoStripRules {
         is ShelfCard.Folder -> card.folder.titleLogoUrl
     }?.takeIf { it.isNotBlank() }
 
+    /**
+     * The row's scroll eases toward the focused logo: each frame it covers the share of the remaining
+     * distance a [SCROLL_TAU_MS] time constant gives (about 95% in three of them), so it slows into
+     * place and never overshoots. It stops after [SETTLE_FRAMES] frames with nothing to do, which
+     * outlasts the 200 ms size change.
+     */
+    const val SCROLL_TAU_MS = 70f
+    const val SETTLE_FRAMES = 15
+
+    /** This frame's scroll toward a logo [deltaPx] away, [dtMs] after the last frame. */
+    fun easeStep(deltaPx: Float, dtMs: Float): Float {
+        if (abs(deltaPx) < 0.5f) return deltaPx
+        return deltaPx * (1f - exp(-dtMs / SCROLL_TAU_MS))
+    }
+
     /** How fast a logo at the row's edge fades out when it no longer fits, or back in when it does. */
     const val EDGE_FADE_MS = 150
 
@@ -200,8 +217,31 @@ internal fun ShelfLogoRow(
         if (count == 0) return@LaunchedEffect
         if (rules.jumps(listState.firstVisibleItemIndex, focused)) {
             listState.scrollToItem(focused)
-        } else {
-            listState.animateScrollToItem(focused)
+            return@LaunchedEffect
+        }
+        // Ease toward where the focused logo is now, every frame. animateScrollToItem measured the
+        // distance once while the logos were still changing size, overshot and snapped back (a bounce
+        // into the left edge); chasing the live position can't overshoot.
+        listState.scroll {
+            var last = 0L
+            var still = 0
+            while (still < rules.SETTLE_FRAMES) {
+                val now = withFrameNanos { it }
+                val dtMs = if (last == 0L) 16f else ((now - last) / 1_000_000f).coerceIn(1f, 50f)
+                last = now
+                val info = listState.layoutInfo
+                val item = info.visibleItemsInfo.firstOrNull { it.index == focused }
+                val delta = when {
+                    item != null -> (item.offset - info.viewportStartOffset).toFloat()
+                    focused > (info.visibleItemsInfo.lastOrNull()?.index ?: focused) ->
+                        (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+                    else -> -(info.viewportEndOffset - info.viewportStartOffset).toFloat()
+                }
+                val step = rules.easeStep(delta, dtMs)
+                val used = if (step == 0f) 0f else scrollBy(step)
+                // Settled once there is nothing left to do, or the row can't go further (its end).
+                still = if (abs(delta) < 0.5f || abs(used) < 0.5f) still + 1 else 0
+            }
         }
     }
 
