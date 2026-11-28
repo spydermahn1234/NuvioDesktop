@@ -2910,6 +2910,8 @@ private fun settingsSearchEntries(
             PlaybackSearchRow("preshow-keep-audio", resolve(Res.string.settings_preshow_keep_audio_alive), resolve(Res.string.settings_preshow_keep_audio_alive_description), PRESHOW_SECTION_RUNNING_ORDER),
             PlaybackSearchRow("ai-trivia-enabled", resolve(Res.string.settings_ai_trivia_enabled), resolve(Res.string.settings_ai_trivia_enabled_description), PRESHOW_SECTION_RUNNING_ORDER),
             PlaybackSearchRow("preshow-lineup", "Pre-show running order", "Cinema intro, sound system trailer (bumper), trailers, trivia, rating card and feature presentation: switch each on or off and choose the order.", PRESHOW_SECTION_RUNNING_ORDER),
+            // fork:auditorium
+            PlaybackSearchRow("auditorium", "The Auditorium", "Pressing Play on a film opens a cinema hall: the lights dim, the curtains part and the camera glides into the screen.", "The Auditorium"),
         ).forEach { row ->
             addRow(
                 page = SettingsPage.Preshow,

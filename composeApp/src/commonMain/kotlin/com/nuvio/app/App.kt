@@ -1743,6 +1743,8 @@ private fun MainAppContent(
         }
         LaunchedEffect(navController, selectedTab, rootTabBackStack, searchOverlayActive) {
             DesktopNavigationGestureBridge.backRequests.collect { source ->
+                // fork:auditorium - Back during a film's closing hall finishes it (back to Details, as its end does).
+                if (com.nuvio.app.features.auditorium.AuditoriumClosingController.finishFromBack()) return@collect
                 // Back leaves game mode rather than navigating the app hidden behind it. Read
                 // straight off the flow: this collector is not re-keyed on the toggle.
                 if (GameModeController.active.value) {
@@ -4134,6 +4136,12 @@ private fun MainAppContent(
                     if (!reattachingHostedPlayer && !openInBox && !com.nuvio.app.features.preroll.prerollGateCleared(route.launchId.toString(), launch)) {
                         return@composable
                     }
+                    // fork:auditorium - a film that ended by itself: its hall closes here instead of the player, which is
+                    // taken off PlayerHostLayer (a native window would cover the hall); see onPlaybackCompleted.
+                    if (com.nuvio.app.features.auditorium.auditoriumClosingShown(route.launchId)) {
+                        SideEffect { if (hosted != null && hostedPlayer === hosted) hostedPlayer = null }
+                        return@composable
+                    }
                     // fork:pip-browse - drawn here, or handed to PlayerHostLayer (see `hosted` above).
                     val playerContent: @Composable (Modifier) -> Unit = { playerModifier ->
                     PlayerScreen(
@@ -4267,6 +4275,22 @@ private fun MainAppContent(
                                     PlaylistPlaybackSession.clear()
                                     NuvioToastController.show(localizedString(Res.string.playlist_finished))
                                 }
+                                return@completed
+                            }
+                            // fork:auditorium - a film that ended by itself: its hall closes first (the route draws it in
+                            // place of the player), then the same pop as below. Off, startFor is false and nothing changes.
+                            val auditoriumCloses = com.nuvio.app.features.auditorium.AuditoriumClosingController.startFor(
+                                launchId = route.launchId,
+                                launch = launch,
+                                onFinished = {
+                                    if (navController.currentBackStackEntry?.id == backStackEntry.id) {
+                                        val returnedToDetails = navController.popBackStack<DetailRoute>(inclusive = false)
+                                        if (!returnedToDetails) navController.popBackStack()
+                                    }
+                                },
+                            )
+                            if (auditoriumCloses) {
+                                if (hosted != null && hostedPlayer === hosted) hostedPlayer = null
                                 return@completed
                             }
                             val returnedToDetails = navController.popBackStack<DetailRoute>(inclusive = false)

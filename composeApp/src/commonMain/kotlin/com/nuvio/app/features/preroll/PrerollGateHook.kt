@@ -32,8 +32,28 @@ fun prerollGateCleared(launchKey: String, launch: PlayerLaunch): Boolean {
         !launch.disableProgressTracking &&
         launch.autoPlayMode != PlayerAutoPlayMode.Playlist &&
         preshowHasAnythingToShow()
+    // fork:auditorium - the cinema hall comes first (AuditoriumGate.kt). With "pre-show in the hall" on, this same
+    // pre-show plays on the hall's screen there, and is not played again below.
+    val hall = com.nuvio.app.features.auditorium.auditoriumGate(
+        launchKey = launchKey,
+        launch = launch,
+        preshowEligible = eligible,
+    ) { onDone ->
+        PrerollGate(
+            launchKey = launchKey,
+            metaType = launch.parentMetaType,
+            metaId = launch.parentMetaId,
+            eligible = true,
+            title = launch.title,
+        ) {
+            SideEffect { onDone() }
+        }
+    }
     var cleared by remember(launchKey) { mutableStateOf(!eligible) }
-    if (!cleared) {
+    if (hall == com.nuvio.app.features.auditorium.AuditoriumGateResult.Holding) return false
+    // fork:auditorium - played (or skipped) on the hall's screen already counts as this pre-show done.
+    val preshowDone = cleared || hall == com.nuvio.app.features.auditorium.AuditoriumGateResult.ClearedPreshowPlayed
+    if (!preshowDone) {
         PrerollGate(
             launchKey = launchKey,
             metaType = launch.parentMetaType,
@@ -46,7 +66,7 @@ fun prerollGateCleared(launchKey: String, launch: PlayerLaunch): Boolean {
         }
     }
     // The "previously on" cards come after the pre-show, so the viewer sees trailers and then the recap.
-    return cleared && previouslyOnGateCleared(launchKey, launch)
+    return preshowDone && previouslyOnGateCleared(launchKey, launch) // fork:auditorium (was `cleared`)
 }
 
 /** Trailers, a clip slot or trivia is on. Theme songs only play behind trivia, so they do not count. */
