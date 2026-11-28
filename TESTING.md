@@ -1215,7 +1215,8 @@ From the review of the Logos screenshot (Nathan For You, Continue watching).
 
 Settings > Pre-show > Watch-along on; Nuvio Remote needs the new build for the Along tab.
 
-- [ ] (must) A film with Watch-along on and an AI provider set: within a minute or so a card top right says "N notes, spoiler-free", and notes then turn up at their scenes in quiet moments (not over someone talking)
+- [ ] **BROKEN** A film with Watch-along on and an AI provider set: within a minute or so a card top right says "N notes, spoiler-free", and notes then turn up at their scenes in quiet moments (not over someone talking) (2026-11-28): nothing showed on the TV, but the notes did show on the phone
+  - [ ] (must) Re-check after the fix (cards now go through the player's own HUD, like its volume pill): starting or resuming any film, a "N notes, spoiler-free" card shows top right within a few seconds, then notes at their scenes; if not, nuvio.log has a "WatchAlong: card sent ..." line saying where it went
 - [ ] (must) Nothing shown gives away anything ahead: no note, pause panel or phone entry mentions a scene the film has not reached yet
 - [ ] Pause the film: beside the pause screen on the right, "Around now" shows the people in the scene (photo, character, actor) and "So far" the last few notes; play again and it goes
 - [ ] Seek far ahead or back: no burst of old cards; the next note pops up when the film reaches it

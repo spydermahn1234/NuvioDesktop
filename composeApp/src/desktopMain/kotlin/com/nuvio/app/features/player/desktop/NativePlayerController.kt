@@ -1006,6 +1006,13 @@ internal class NativePlayerController(
         showPresetPill(title, value)
     }
 
+    /** fork:watch-along - the same route as the preset pill: this player's live handle. */
+    override fun runHudScript(script: String): Boolean {
+        val current = handle.takeIf { it != 0L } ?: return false
+        NativePlayerBridge.runJavaScript(current, script)
+        return true
+    }
+
     override fun reconnectAfterRateLimit(message: String): Boolean =
         rateLimitFailoverFallback?.invoke(message) ?: false
 

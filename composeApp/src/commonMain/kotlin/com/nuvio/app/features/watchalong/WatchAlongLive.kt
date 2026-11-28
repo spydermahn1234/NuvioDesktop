@@ -36,6 +36,16 @@ object WatchAlongLive {
     @kotlin.concurrent.Volatile
     var hud: ((String) -> Unit)? = null
 
+    /**
+     * The playing film's own HUD, set by the player while it is up (BindWatchAlongEffect): the route the player's own
+     * pills take. Tried first; [hud] (every live player) is the fallback. Returns false when it could not send.
+     */
+    @kotlin.concurrent.Volatile
+    var playerHud: ((String) -> Boolean)? = null
+
+    private val log = co.touchlab.kermit.Logger.withTag("WatchAlong")
+    private var sentLogged = 0
+
     private val _remote = MutableStateFlow<RemoteWatchAlong?>(null)
     val remote: StateFlow<RemoteWatchAlong?> = _remote.asStateFlow()
 
@@ -59,6 +69,7 @@ object WatchAlongLive {
         shown.clear()
         greeted = false
         panelKey = ""
+        sentLogged = 0
         publish(0L)
     }
 
@@ -77,7 +88,8 @@ object WatchAlongLive {
             val next = when {
                 current == null -> null
                 !playing -> pausePanel(current, positionMs, settings)
-                !greeted && positionMs < GREET_BEFORE_MS && settings.tvCards -> {
+                // Greets once per film wherever it starts: also the sign on the TV that the cards can reach it.
+                !greeted && settings.tvCards -> {
                     greeted = true
                     card(
                         kind = "Watch-along",
@@ -104,14 +116,24 @@ object WatchAlongLive {
             publish(positionMs)
             next
         }
-        script?.let { s -> runCatching { hud?.invoke(s) } }
+        script?.let(::send)
+    }
+
+    /** Sends [script] to the TV; the first few cards of a film are logged with the route they took. */
+    private fun send(script: String) {
+        val viaPlayer = runCatching { playerHud?.invoke(script) == true }.getOrDefault(false)
+        val viaAll = if (viaPlayer) false else runCatching { hud?.let { it(script); true } ?: false }.getOrDefault(false)
+        if (sentLogged < LOGGED_SENDS && script.startsWith("window.nuvioShowAlongCard")) {
+            sentLogged++
+            log.i { "card sent " + when { viaPlayer -> "to the player"; viaAll -> "to every live player"; else -> "NOWHERE (no player HUD)" } }
+        }
     }
 
     fun end() = synchronized(lock) {
         track = null
         status = AlongStatus.None
         _remote.value = null
-        runCatching { hud?.invoke("window.nuvioShowAlongCard&&window.nuvioShowAlongCard(null);window.nuvioSetAlongPanel&&window.nuvioSetAlongPanel(null)") }
+        send("window.nuvioSetAlongPanel&&window.nuvioSetAlongPanel(null);window.nuvioShowAlongCard&&window.nuvioShowAlongCard(null)")
     }
 
     private fun publish(positionMs: Long) {
@@ -182,7 +204,7 @@ object WatchAlongLive {
         return "window.nuvioShowAlongCard&&window.nuvioShowAlongCard($card)"
     }
 
-    private const val GREET_BEFORE_MS = 10 * 60_000L
+    private const val LOGGED_SENDS = 3
     private const val PHONE_MOMENTS = 40
     private const val PHONE_PEOPLE = 20
 }

@@ -60,7 +60,11 @@ internal fun PlayerScreenRuntime.BindWatchAlongEffect() {
             .collect { (position, playing) -> WatchAlongLive.tick(position, playing) }
     }
     DisposableEffect(key) {
-        onDispose { WatchAlongLive.end() }
+        WatchAlongLive.playerHud = { script -> runtime.playerController?.runHudScript(script) == true }
+        onDispose {
+            WatchAlongLive.end()
+            WatchAlongLive.playerHud = null
+        }
     }
 }
 

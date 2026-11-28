@@ -74,6 +74,9 @@ interface PlayerEngineController {
     /** Shows a short, non-blocking notification over the player when the platform supports it. */
     fun showTransientMessage(title: String, value: String) {}
 
+    /** fork:watch-along - runs a script on this player's own HUD (desktop's controls.js); false where there is none. */
+    fun runHudScript(script: String): Boolean = false
+
     /** The selected tracks as the engine decodes them, for the stream info panel. Null if unknown. */
     fun playingMediaFacts(): PlayingMediaFacts? = null
 
