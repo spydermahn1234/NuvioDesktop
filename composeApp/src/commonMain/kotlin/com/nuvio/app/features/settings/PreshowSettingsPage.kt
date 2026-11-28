@@ -281,6 +281,13 @@ internal fun LazyListScope.preshowSettingsContent(isTablet: Boolean) {
         }
     }
 
+    // fork:auditorium - a rendered cinema hall around Play: lights, curtains, the glide into the screen (AuditoriumSettings).
+    item {
+        SettingsSection(title = "The Auditorium", isTablet = isTablet) {
+            AuditoriumSettingsGroup(isTablet)
+        }
+    }
+
     item {
         SettingsSection(
             title = stringResource(Res.string.settings_theme_song_section),

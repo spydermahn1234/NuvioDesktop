@@ -1228,6 +1228,22 @@ Settings > Pre-show > Watch-along on; Nuvio Remote needs the new build for the A
 - [ ] Switching back to Dark, every logo is in its own colours again
 - [ ] In Paper, on the Live TV row, a channel showing a film has the film's picture in a thin frame in the open part of the page; moving to another channel changes it
 
+## The Auditorium (Nov 28)
+
+Settings > Pre-show > The Auditorium on (off until switched on).
+
+- [ ] (must) Play a film from the start: the hall fades in, the house lights dim, the beam comes on, the curtains part on the film's picture, then the camera glides into the screen and the film starts with no flash or jump
+- [ ] (must) With the pre-show on and "Pre-show on the hall's screen" on: the trailers, clips and trivia play on the hall's screen (curtains open, hall around them), then the glide, then the film; the pre-show is not played a second time
+- [ ] "Pre-show on the hall's screen" off: the hall opens and glides in first, then the pre-show plays full screen as before, then the film
+- [ ] OK / Enter during the opening jumps ahead a stage; Back / Escape skips the hall straight to what comes next (the pre-show or the film)
+- [ ] Hall: Picture palace (red velvet, gold arch, sconces), Modern big screen (dark panels, LED lines) and Drive-in (night sky, car roofs, the screen lighting up) each look right; "A different hall per film" gives the same film the same hall every time
+- [ ] A film that plays right to the end (or past the credits): the picture comes back on the screen, the camera pulls back, the curtains close, the lights come up, then back on the film's page
+- [ ] Back during that closing goes straight to the film's page; leaving a film part way with Back gets no closing
+- [ ] Resuming a film part way, a series episode (with "Series episodes too" off), a playlist and a trailer get no hall at all
+- [ ] Length Short makes both sequences about half as long
+- [ ] The hall runs smoothly (no stutter in the dust and haze) at 4K on the TV
+- [ ] The Auditorium off: pressing Play is exactly as before
+
 # Archived (not testing)
 
 Set aside on 2026-11-22 (Nick): upstream merge checks for upstream's own features, and the old Live TV views that Stage replaced. Kept for the record; the phone's Checks tab asks nothing below this heading. To test one again, move it back up.
