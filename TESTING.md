@@ -1246,6 +1246,7 @@ Settings > Pre-show > The Auditorium on (off until switched on).
 - [ ] Length Short makes both sequences about half as long
 - [ ] The hall runs smoothly (no stutter in the dust and haze) at 4K on the TV
 - [ ] The Auditorium off: pressing Play is exactly as before
+- [ ] (must) A film with a long title (Pirates of the Caribbean: The Curse of the Black Pearl): the BBFC card's title wraps onto clean, separate lines above the orange rule, not printed over itself
 
 # Archived (not testing)
 

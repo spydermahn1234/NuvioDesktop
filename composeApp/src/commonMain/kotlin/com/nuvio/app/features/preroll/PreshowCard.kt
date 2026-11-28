@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -109,17 +110,21 @@ private fun BbfcRatingCard(model: PreshowCardModel.Rating) {
                     model.title.uppercase(),
                     color = Color.White,
                     fontSize = 44.sp,
+                    // Its own line height: the inherited one is about half this size, so a wrapped title overprinted itself.
+                    lineHeight = 52.sp,
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.height(20.dp))
                 Box(Modifier.fillMaxWidth().height(4.dp).background(accent))
                 Spacer(Modifier.height(24.dp))
                 model.advisory?.let {
-                    Text(it, color = accent, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Text(it, color = accent, fontSize = 26.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
                 }
-                Text(bbfcGuidance(model.certificate), color = Color.White, fontSize = 26.sp)
+                Text(bbfcGuidance(model.certificate), color = Color.White, fontSize = 26.sp, lineHeight = 34.sp)
             }
         }
     }
@@ -159,6 +164,7 @@ private fun MpaRatingCard(model: PreshowCardModel.Rating) {
                 model.title.uppercase(),
                 color = Color.White.copy(alpha = 0.8f),
                 fontSize = 24.sp,
+                lineHeight = 32.sp,
                 letterSpacing = 2.sp,
                 textAlign = TextAlign.Center,
             )
@@ -192,7 +198,7 @@ private fun MpaRatingCard(model: PreshowCardModel.Rating) {
                         modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 24.dp, vertical = 16.dp),
                         contentAlignment = Alignment.CenterStart,
                     ) {
-                        model.advisory?.let { Text(it, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.SemiBold) }
+                        model.advisory?.let { Text(it, color = Color.White, fontSize = 28.sp, lineHeight = 36.sp, fontWeight = FontWeight.SemiBold) }
                     }
                 }
                 if (smallPrint.isNotEmpty()) {
@@ -244,6 +250,7 @@ fun PreshowCard(model: PreshowCardModel, onFinished: () -> Unit, modifier: Modif
                         model.title.uppercase(),
                         color = Color.White,
                         fontSize = 34.sp,
+                        lineHeight = 42.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
                     )
@@ -270,6 +277,7 @@ fun PreshowCard(model: PreshowCardModel, onFinished: () -> Unit, modifier: Modif
                         model.title,
                         color = Color.White,
                         fontSize = 44.sp,
+                        lineHeight = 52.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
                     )
