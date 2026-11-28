@@ -194,7 +194,7 @@ Needs this Nuvio and the new NuvioRemote app together.
 - [ ] Coin Toss: the phone shows the picked title and "Plays by itself in 7 s" counting down; Not this tosses again on the TV, Play now plays, Hold stops the clock (and Start the clock restarts it), Its page opens the page; the last three noes and the lean show under the buttons
 - [ ] Knockout: the phone shows "Round 1 of 3" and the two titles; tapping one keeps it on the TV; Undo undoes the last pick (and on the first match goes back to the launcher); "A 20 second taste of each" plays the tastes on the TV and the phone says which; the winner shows with its countdown and Play now
   - [ ] **BROKEN** (2026-11-11): after a pick the names changed but the posters stayed the old ones
-  - [ ] (must) Re-check: after each pick both posters on the phone change with the names (and the same for Three Cards' reshuffle and Coin Toss' next title)
+  - [x] (must) Re-check: after each pick both posters on the phone change with the names (and the same for Three Cards' reshuffle and Coin Toss' next title) (2026-11-28)
 - [ ] Channel Flick: the phone shows the channel playing, "CH 3 of 40", and the next three; Never show me this, Play it, Save for later and Next channel do what Left, OK, Up and Right do on the TV; the note ("… saved for later") shows on the phone too
 - [ ] Ends By: the phone shows "Bed at 23:30" with −15 and +15 (they move bedtime on the TV too) and the list, the ones past bed faded; tapping a title plays it
 - [ ] The Pile: tapping a title plays it; Let go asks "Let go for good?" and a second tap takes it off the pile on the TV
@@ -271,7 +271,7 @@ Needs the new Nuvio Remote build (it updates itself); nothing changes on the PC.
 - [ ] GitHub opens the token sheet; "Make a token on GitHub" opens the fine-grained token page; a token with Contents read and write on NuvioDesktop is saved, and the tag turns to Save N
 - [ ] Save N commits to Spyder ("TESTING: N results from the phone"): the lines are ticked as the header says (Broken with the time), the answers leave the phone, and the list refreshes with fewer open
 - [ ] A wrong or expired token says so in plain words, and the answers stay on the phone
-- [ ] (must) Must test (Nov 22): the Checks tab lists "Must test" first, with the (must) checks from every area; each card names its area above the check, and "(must)" is not shown in the text
+- [x] (must) Must test (Nov 22): the Checks tab lists "Must test" first, with the (must) checks from every area; each card names its area above the check, and "(must)" is not shown in the text (2026-11-28)
 - [ ] Answering a check under Must test ticks it in its own area too, and Save writes it to its own line in TESTING.md, tag kept
 - [ ] Nothing from the "Archived (not testing)" part at the bottom of TESTING.md is asked, and the open count at the top no longer counts it
 
@@ -338,7 +338,7 @@ Needs the new Nuvio Remote build (it updates itself); nothing changes on the PC.
 - [x] Albums with two editions (Ren, Vincent's Tale) stay on one (2026-11-08)
 - [ ] **BROKEN** Song by song > Other versions finds the clean or explicit edition (2026-11-08): not all of the time,
   needs work
-  - [ ] (must) Re-check after the fix (Nov 20): on an explicit album with a clean edition (2001, or one whose clean titles are starred out like "F**k"), Song by song > Other versions lists "Clean edition" for every song, the starred ones included, and playing it plays the clean copy
+  - [x] (must) Re-check after the fix (Nov 20): on an explicit album with a clean edition (2001, or one whose clean titles are starred out like "F**k"), Song by song > Other versions lists "Clean edition" for every song, the starred ones included, and playing it plays the clean copy (2026-11-28)
   - [ ] On an album with deluxe or remastered editions as well, the Clean (or Explicit) edition is listed first, above the others
 - [x] Edit pills: small card, intro, trivia and the song story edit on the album page and the Stage, and stick (2026-11-08)
 
@@ -346,7 +346,7 @@ Needs the new Nuvio Remote build (it updates itself); nothing changes on the PC.
 
 - [ ] **BROKEN** The facts filler fills in the background within the AI key's limits (2026-11-08): on Groq's free tier
   it hits the limits within seconds
-  - [ ] (must) Re-check after the fix (rolling-minute limit, 1773853, Nov 8): with a free Groq key and the filler on for half an hour, Settings > Music shows it filling and now and then "Keeping under the AI key's minute limit; next lookup in N s", never "Several lookups failed in a row", and a song story you open yourself meanwhile still loads
+  - [x] (must) Re-check after the fix (rolling-minute limit, 1773853, Nov 8): with a free Groq key and the filler on for half an hour, Settings > Music shows it filling and now and then "Keeping under the AI key's minute limit; next lookup in N s", never "Several lookups failed in a row", and a song story you open yourself meanwhile still loads (2026-11-28)
 - [x] Share music facts as JSON; Fill album facts in the background (Settings > Music) (2026-11-08)
 
 ## Now Playing stage
@@ -363,16 +363,16 @@ Settings > Lights out > Beat lights (music). Needs the WiZ bulb's IP address (yo
 - [ ] (must) **BROKEN** With the bulb's address in and Flash a light on the beat on, a four-to-the-floor track from the Music tab flashes the bulb on every kick drum, and not on the bass line or hi-hats (2026-11-22): the Beat Grid shows a kick on every beat (120 BPM), but the bulb pulses softly and misses runs of kicks for seconds at a time
   - [ ] (must) **BROKEN** Re-check with Flash style Strobe (the new default): the bulb goes hard on and off on every kick of a four-to-the-floor track; if not, copy the nuvio.log lines starting "BeatLights" (one every 10 s) into a chat (2026-11-22): not a hard on/off. The log shows every flash sent and every command answered by the bulb, no playhead jumps: the WiZ firmware fades every change, so WiZ cannot strobe hard
   - [ ] **BROKEN** Flash style Swap: the light flips on or off on every kick, never skipping a run of kicks (2026-11-22): soft, as Strobe (the bulb's own fade)
-  - [ ] (must) Govee: Find Govee lights lists the Govee lights with LAN Control on (model and address)
-  - [ ] (must) Govee: a picked light strobes hard on and off on every beat of a four-to-the-floor track (Flash on Every beat, Flash style Strobe)
+  - [x] (must) Govee: Find Govee lights lists the Govee lights with LAN Control on (model and address) (2026-11-28)
+  - [x] (must) Govee: a picked light strobes hard on and off on every beat of a four-to-the-floor track (Flash on Every beat, Flash style Strobe) (2026-11-28)
   - [ ] Govee: Add a Govee light by address (its IP from the router) adds it ticked, and it flashes, when Find can't reach it from the PC's 5 GHz network
-  - [ ] (must) Govee floor lamp: between flashes it stays dark (Strobe), instead of going back to warm white (2026-11-22 video: hard white flash, then warm white)
-  - [ ] (must) Switchboard's Beat lights switch, with Movie DreamView running: within a few seconds the Govee lights strobe to Nuvio's music, without pressing All off first (2026-11-22: DreamView stayed in charge until All off)
+  - [x] (must) Govee floor lamp: between flashes it stays dark (Strobe), instead of going back to warm white (2026-11-22 video: hard white flash, then warm white) (2026-11-28)
+  - [x] (must) Switchboard's Beat lights switch, with Movie DreamView running: within a few seconds the Govee lights strobe to Nuvio's music, without pressing All off first (2026-11-22: DreamView stayed in charge until All off) (2026-11-28)
   - [ ] Switchboard's Movie while beat lights run: beat lights switch off and Movie DreamView takes over
   - [ ] Govee: pausing the music (or turning beat lights off) hands the light back to what it was doing before
   - [ ] Govee: a light left unticked (the Sync Box's for Movie) is not touched
   - [ ] Flash style Dim: still drops to the resting brightness between kicks (as before)
-- [ ] (must) Flash early by: after setting it once by eye, the flashes land on the kick, not after it (note the value that works)
+- [x] (must) Flash early by: after setting it once by eye, the flashes land on the kick, not after it (note the value that works) (2026-11-28)
 - [ ] The bulb stops flashing when the music is paused, and starts again on play
 - [ ] Seeking ahead or back in a song: no burst of flashes, and it carries on in time from the new place
 - [ ] Flash on Beat one: one flash per bar, on beat one (try a song where the Stage's Beat Grid has the bar line right)
@@ -493,7 +493,7 @@ Settings > Live TV > On Now (off by default). Best tried in the evening with a m
 
 ## Settings sidebar groups (Nov 24)
 
-- [ ] (must) Open Settings on the PC: the sidebar is split under Sources, Home and look, Playback, Home theatre, More to watch, Account and System, and every page is still there
+- [x] (must) Open Settings on the PC: the sidebar is split under Sources, Home and look, Playback, Home theatre, More to watch, Account and System, and every page is still there (2026-11-28)
 - [ ] With a controller, move down the sidebar from top to bottom: focus skips the headings and lands on every entry in turn
 - [ ] Hide a whole group's entries (Categories > untick them): its heading goes too and no gap is left
 - [ ] Long-press and drag one entry into another group: the headings disappear; drag it back and they return
@@ -512,7 +512,7 @@ Settings > Live TV > On Now (off by default). Best tried in the evening with a m
 Turn it on in Settings > Random Play > Tonight picker > "Open on Tonight".
 
 - [ ] **BROKEN** Back from Three Cards (2026-11-10): Esc on the keyboard did nothing (the Android remote's Back works); fixed the same evening (Back now acts on the key coming up)
-  - [ ] (must) Re-check: the remote's Back (and a pad's B, the phone remote's Back, the mouse's back button) leaves every Tonight mode: cards and questions step back, the modes return to the launcher; on the launcher Back does what it did before
+  - [x] (must) Re-check: the remote's Back (and a pad's B, the phone remote's Back, the mouse's back button) leaves every Tonight mode: cards and questions step back, the modes return to the launcher; on the launcher Back does what it did before (2026-11-28)
 - [ ] Typing "Tonight" or "bedtime" in the Settings search finds the Tonight picker rows and opens Random Play at that section (also listed first in the Random Play page's sidebar)
 - [ ] With the switch on, Nuvio opens on "How shall we choose tonight?" instead of the Home rows; with it off, Home is as before
 - [ ] The launcher's eight tiles keep their size; the six unbuilt ones are dimmed with "COMING SOON", and OK on one says it is coming later
