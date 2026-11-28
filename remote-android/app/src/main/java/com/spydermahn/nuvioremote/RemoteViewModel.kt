@@ -44,6 +44,8 @@ data class UiState(
     val tonight: TonightScreenInfo? = null,
     /** The TV's Live TV stage while it is on screen; the remote mirrors it. */
     val liveTv: LiveTvScreenInfo? = null,
+    /** fork:watch-along - the film companion so far, for the Along tab; null when none is running. */
+    val along: AlongInfo? = null,
     /** The TV's shelf home while it is on screen; the remote mirrors it. */
     val home: ShelfHomeInfo? = null,
     /** The shelf home's rows, for the phone's Shelves list. */
@@ -542,6 +544,7 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
                     is ServerLine.Sources -> _state.update { it.copy(sources = line.list) }
                     is ServerLine.Tonight -> _state.update { it.copy(tonight = line.screen) }
                     is ServerLine.LiveTv -> _state.update { it.copy(liveTv = line.screen) }
+                    is ServerLine.Along -> _state.update { it.copy(along = line.info) }
                     is ServerLine.Home -> _state.update { it.copy(home = line.screen) }
                     is ServerLine.Shelves -> _state.update { it.copy(shelves = line.rows) }
                     is ServerLine.Audio -> _state.update { it.copy(audio = line) }
@@ -637,7 +640,7 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
     private fun closeSession() {
         session?.close()
         session = null
-        _state.update { it.copy(nowPlaying = null, cover = null, sources = null, tonight = null, liveTv = null, home = null, shelves = emptyList()) }
+        _state.update { it.copy(nowPlaying = null, cover = null, sources = null, tonight = null, liveTv = null, along = null, home = null, shelves = emptyList()) }
     }
 
     /** A ping every few seconds, so a PC that went to sleep shows as offline before the next press. */

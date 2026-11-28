@@ -130,7 +130,7 @@ import java.util.Date
 
 // Checks (Nov 16): TESTING.md answered on the phone (ChecksScreen.kt). DEV ONLY, not for end users: leave Checks out of
 // any merge or cherry-pick into UmbraProjects/NuvioDesktop (see CLAUDE.md).
-private enum class Tab(val label: String) { Remote("Remote"), Watch("Watch"), Music("Music"), Checks("Checks") }
+private enum class Tab(val label: String) { Remote("Remote"), Watch("Watch"), Music("Music"), Along("Along"), Checks("Checks") }
 
 /**
  * Once connected: the remote, and the PC's library to browse, under Nuvio's pill tab bar. Choosing a title or playing an
@@ -148,6 +148,7 @@ fun ConnectedScreen(state: UiState, viewModel: RemoteViewModel) {
                 Tab.Remote -> RemoteTab(state, viewModel)
                 Tab.Watch -> VideoLibraryScreen(state, viewModel, onOpened = { tab = Tab.Remote })
                 Tab.Music -> MusicLibraryScreen(state, viewModel, onPlayed = { tab = Tab.Remote })
+                Tab.Along -> AlongScreen(state) // fork:watch-along
                 Tab.Checks -> ChecksScreen()
             }
             state.notice?.let { notice ->
@@ -174,6 +175,7 @@ fun ConnectedScreen(state: UiState, viewModel: RemoteViewModel) {
                     Tab.Remote -> Icons.Rounded.SettingsRemote
                     Tab.Watch -> Icons.Rounded.Movie
                     Tab.Music -> Icons.Rounded.LibraryMusic
+                    Tab.Along -> Icons.Rounded.AutoAwesome
                     Tab.Checks -> Icons.Rounded.TaskAlt
                 }
             },

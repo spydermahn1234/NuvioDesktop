@@ -518,6 +518,7 @@ internal fun PlayerScreenRuntime.BindPlayerRuntimeEffects() {
     BindPartyEffects()
     BindDiscordRichPresenceEffect()
     BindPhoneRemoteNowPlayingEffect() // fork:phone-remote
+    BindWatchAlongEffect() // fork:watch-along
     BindLightsEffect()
     BindYouTubeWatchTimeEffect() // fork:youtube-mode
     BindYouTubeRelatedEffect() // fork:youtube-mode

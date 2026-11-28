@@ -105,7 +105,12 @@ queue, and can "sleep" to try Wake. A strip shows what it was sent. This is for 
   row on screen, a tap jumps the TV there, and **Show on the TV** opens the TV's own Shelves. The tag in the header
   swaps to the pad. In the demo TV, More > **Shelves** turns a pretend shelf home on and off. Needs a Nuvio from
   Nov 27, 2026 or later.
-- **Checks (dev only, not for end users; never merged upstream):** the fourth tab asks TESTING.md's open checks one at a time (Works, Broken, Works but…, Not tried, with
+- **Along (watch-along):** with Settings > Pre-show > Watch-along on in Nuvio, this tab follows the film on the TV:
+  the title and how many notes so far, the people the film has reached (those around now ringed first; tap one for
+  their note and when they were first seen) and every note so far, newest at the top, each with its time. The PC only
+  sends what the film has already reached, so nothing here can spoil what's coming. Needs a Nuvio from Nov 28, 2026 or
+  later.
+- **Checks (dev only, not for end users; never merged upstream):** the fifth tab asks TESTING.md's open checks one at a time (Works, Broken, Works but…, Not tried, with
   a typed or spoken note). Answers wait on the phone; with a GitHub token (under **GitHub** on the tab; fine-grained,
   Contents read and write on this repo) **Save** writes them into TESTING.md on Spyder as one commit, and without one
   **Share** sends them as text to paste to Claude. It talks to GitHub, not the PC.
@@ -133,6 +138,7 @@ source lines are built in `PhoneRemoteLibraryLines.kt` and answered in `PhoneRem
 | Live TV | `LIVETV_DO` | `LIVETV` (after `SUBSCRIBE`, whenever it changes) |
 | Shelf home | `HOME_DO move <delta>` / `pick <index>` / `row <delta>` / `play` / `info` / `shelves` / `view` / `shelf <tabId> <shelfKey>` | `HOME`, `SHELVES` (after `SUBSCRIBE`, whenever they change) |
 | Live scores | (none) | `SCORE <sport> <kind> <title> <text>` (after `SUBSCRIBE`, a favourite team's event; shown as a notification) |
+| Watch-along | (none) | `ALONG 0` or `ALONG 1 <status> <title> <total> <fromAi> <moments> <people>` (after `SUBSCRIBE`, when a new note or person is reached; never anything ahead of the film) |
 | Long-press menus | `MENU`, `DO` | `MENU`, `DONE`, `PLAYLISTS`, `RECAP` |
 | Links | `OPEN` | `OPENING`, `CANT_OPEN` |
 | Pointer | `POINT <dx> <dy>` (ten-thousandths of the screen's width), `POINT_CENTRE`, `CLICK <left\|right\|middle>`, `PRESS` / `RELEASE <button>` (a drag; the PC lets go if the phone disconnects), `SCROLL <notches>`, `HSCROLL <notches>` (Shift + wheel) | (none) |

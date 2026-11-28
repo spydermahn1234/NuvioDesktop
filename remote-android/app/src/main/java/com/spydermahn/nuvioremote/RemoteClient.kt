@@ -162,6 +162,8 @@ sealed interface ServerLine {
 
     /** fork:live-scores - a favourite team's match event, shown as a notification (ScoreNotifications). */
     data class Score(val sport: String, val kind: String, val title: String, val text: String) : ServerLine
+    /** fork:watch-along - the film companion so far (only what the film has reached); null when none is running. */
+    data class Along(val info: AlongInfo?) : ServerLine
     data object Other : ServerLine
 
     companion object {
@@ -192,6 +194,7 @@ sealed interface ServerLine {
                 "DONE" -> LibraryLines.parseDone(line) ?: Other
                 "PLAYLISTS" -> LibraryLines.parsePlaylists(line) ?: Other
                 "RECAP" -> LibraryLines.parseRecap(line) ?: Other
+                "ALONG" -> LibraryLines.parseAlong(line) ?: Other
                 "WAKE" -> Wake(
                     macs = parts.getOrNull(1)?.takeUnless { it == "-" }?.split(',')?.filter { WakeOnLan.macBytes(it) != null }.orEmpty(),
                     broadcasts = parts.getOrNull(2)?.takeUnless { it == "-" }?.split(',')?.filter { it.isNotBlank() }.orEmpty(),

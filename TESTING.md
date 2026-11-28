@@ -18,17 +18,7 @@ What has been tried on the TV, and what is left. Nick tests; Claude keeps this f
 - **Must test** (Nov 22): `- [ ] (must) check` marks the few checks that matter most (re-checks of BROKEN lines,
   the core of each new feature, a sanity check after a merge). The phone asks them first, in a Must test section, and
   sessions offer them first. Tag one or two per new feature, not every line; keep the tag when recording a result.
-- `## Shelf home, Live TV hero (Nov 28)
-
-- [ ] (must) On the shelf home's Live TV row, a channel showing a film (a Sky Cinema channel) has the film's backdrop behind it, not the plain purple
-- [ ] Under the channel's logo: "ON NOW · FILM · 2014" (or similar), the film's name, then a progress bar and "Until 09:10 · Next: ..." that match the guide
-- [ ] A channel with no guide picture and no TMDB match shows a sky that suits the time of day (rose and blue in the morning, amber around 18:30, navy at night) with a glow in the channel's colour, and the slashes take that colour too (Sky Cinema red)
-- [ ] With Settings > Lights > Follow the home's art on, the bulbs take the channel's colour while you move along the Live TV row
-- [ ] (must) Settings > Home screen > **Live picture on Live TV favourites** on: after under a second on a channel it plays, muted, in the open part of the picture, with "LIVE · MUTED" at the top; moving on stops it and the next channel starts
-- [ ] The live picture never plays while a channel is already playing full screen, and OK on a channel still plays it full screen as before
-- [ ] Films and shows on the other rows still have their own art, trailers and colours (nothing changed there)
-
-# Archived (not testing)` at the bottom holds checks set aside by Nick. Nothing below it is asked; move a line back
+- `# Archived (not testing)` at the bottom holds checks set aside by Nick. Nothing below it is asked; move a line back
   up to test it again.
 - A fix for a broken or follow-up line adds a fresh `- [ ]` re-check under it rather than ticking it.
 
@@ -1199,6 +1189,32 @@ From the review of the Logos screenshot (Nathan For You, Continue watching).
 - [ ] From the build after that, the Nightly's release notes end with a line like "Screens: 2 changed, 0 new..." that opens the Screens release
 - [ ] After a build that changes how a screen looks, the reel shows that screen going from before to after with the change ringed in red, and its compare picture on the Screens page shows the two side by side
 - [ ] Screens that did not change are listed under "The same" and are not in the reel
+
+## Shelf home, Live TV hero (Nov 28)
+
+- [ ] (must) On the shelf home's Live TV row, a channel showing a film (a Sky Cinema channel) has the film's backdrop behind it, not the plain purple
+- [ ] Under the channel's logo: "ON NOW · FILM · 2014" (or similar), the film's name, then a progress bar and "Until 09:10 · Next: ..." that match the guide
+- [ ] A channel with no guide picture and no TMDB match shows a sky that suits the time of day (rose and blue in the morning, amber around 18:30, navy at night) with a glow in the channel's colour, and the slashes take that colour too (Sky Cinema red)
+- [ ] With Settings > Lights > Follow the home's art on, the bulbs take the channel's colour while you move along the Live TV row
+- [ ] (must) Settings > Home screen > **Live picture on Live TV favourites** on: after under a second on a channel it plays, muted, in the open part of the picture, with "LIVE · MUTED" at the top; moving on stops it and the next channel starts
+- [ ] The live picture never plays while a channel is already playing full screen, and OK on a channel still plays it full screen as before
+- [ ] Films and shows on the other rows still have their own art, trailers and colours (nothing changed there)
+
+## Watch-along (Nov 28)
+
+Settings > Pre-show > Watch-along on; Nuvio Remote needs the new build for the Along tab.
+
+- [ ] (must) A film with Watch-along on and an AI provider set: within a minute or so a card top right says "N notes, spoiler-free", and notes then turn up at their scenes in quiet moments (not over someone talking)
+- [ ] (must) Nothing shown gives away anything ahead: no note, pause panel or phone entry mentions a scene the film has not reached yet
+- [ ] Pause the film: beside the pause screen on the right, "Around now" shows the people in the scene (photo, character, actor) and "So far" the last few notes; play again and it goes
+- [ ] Seek far ahead or back: no burst of old cards; the next note pops up when the film reaches it
+- [ ] Settings > Watch-along > How many cards: A few / Some / Lots changes how often cards appear on the TV (the phone still has every note)
+- [ ] Cards on the TV off: no cards on the film, but the pause panel and the phone still work
+- [ ] Write it with AI off (or no AI provider): the cast are introduced as their names are first said ("Played by ..."), and the pre-show's facts, if it had some, are spread through the film
+- [ ] The same film a second time starts its notes straight away (the AI track is kept, not asked for again)
+- [ ] Nuvio Remote's Along tab: the title, "N of M so far", the people the film has reached (those around now ringed first; tap one for their note and when they were first seen) and every note so far, newest at the top, each with its time
+- [ ] Along tab with nothing playing (or Watch-along off) explains how to turn it on instead of an empty screen
+- [ ] An episode of a show gets its own notes; Live TV, trailers and YouTube videos get none
 
 # Archived (not testing)
 

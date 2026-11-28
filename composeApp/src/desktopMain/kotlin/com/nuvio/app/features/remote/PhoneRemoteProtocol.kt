@@ -55,6 +55,8 @@ import java.nio.charset.StandardCharsets
  * pc:    DONE <ok> <message> <refresh> | PLAYLISTS ... | RECAP <state> <heading> <text>
  * pc:    SCORE <sport> <kind> <title> <text>   a favourite team's live-score event, as a phone notification
  *              (fork:live-scores; scoreLine, only while Settings > Live TV > Live scores > Notify the phone is on)
+ * pc:    ALONG 0 | ALONG 1 <status> ...    the film companion so far (fork:watch-along; PhoneRemoteLibraryLines.alongLine),
+ *                                       when something new is revealed; never anything the film has not reached
  * phone: OPEN <url>                     a link from the phone's share menu
  * phone: POINT <dx> <dy>                the gyro pointer: move the PC's mouse cursor, in ten-thousandths of the
  *                                       screen's width (PhoneRemotePointer); POINT_CENTRE puts it mid-screen

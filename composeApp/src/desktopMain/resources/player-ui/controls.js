@@ -7933,6 +7933,131 @@ window.nuvioShowScoreCard = card => {
   }, hold);
 };
 
+// fork:watch-along - the film companion (WatchAlongLive). A card turns up at its scene, in a quiet gap between lines
+// of dialogue, top right where subtitles never are; one at a time, fixed width. null hides it. Never on a trailer.
+let alongCardEl = null;
+let alongCardTimer = null;
+const alongText = (tag, value, css) => {
+  const node = document.createElement(tag);
+  node.textContent = value == null ? "" : String(value);
+  node.style.cssText = css;
+  return node;
+};
+window.nuvioShowAlongCard = card => {
+  if (isHeroTrailerSurface) return;
+  window.clearTimeout(alongCardTimer);
+  if (alongCardEl) {
+    const old = alongCardEl;
+    alongCardEl = null;
+    old.style.opacity = "0";
+    window.setTimeout(() => old.remove(), 300);
+  }
+  if (!card || typeof card !== "object") return;
+  const el = document.createElement("div");
+  el.style.cssText = [
+    "position:fixed", "top:40px", "right:40px", "width:460px", "z-index:2147483000", "pointer-events:none",
+    "box-sizing:border-box", "padding:16px 20px 18px", "color:#fff", "border-radius:18px",
+    "background:rgba(12,12,18,0.74)", "border:1px solid rgba(255,255,255,0.14)", "border-left:4px solid #f5c84c",
+    "backdrop-filter:blur(18px)", "-webkit-backdrop-filter:blur(18px)",
+    "font-family:var(--nuvio-ui-font,system-ui,sans-serif)", "opacity:0", "transform:translateX(24px)",
+    "transition:opacity 320ms ease, transform 320ms ease",
+  ].join(";");
+  el.appendChild(alongText("div", card.kind, "font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#f5c84c"));
+  if (card.title) {
+    el.appendChild(alongText("div", card.title, "margin-top:6px;font-size:21px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"));
+  }
+  el.appendChild(alongText("div", card.text, "margin-top:6px;font-size:16px;line-height:1.38;color:#dcdce4;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden"));
+  document.body.appendChild(el);
+  alongCardEl = el;
+  window.requestAnimationFrame(() => {
+    el.style.opacity = "1";
+    el.style.transform = "translateX(0)";
+  });
+  const hold = Number.isFinite(card.durationMs) && card.durationMs > 0 ? card.durationMs : 9000;
+  alongCardTimer = window.setTimeout(() => window.nuvioShowAlongCard(null), hold);
+};
+
+// fork:watch-along - "around now" beside the pause screen: who is in the scene (only people the film has reached) and
+// the last few notes. Shown only while the pause overlay is (its class on the root), on the right, which it leaves
+// empty. The app sends new contents when they change; null clears them.
+let alongPanelEl = null;
+let alongPanelData = null;
+let alongPanelBuiltFor = null;
+const renderAlongPanel = () => {
+  const visible = Boolean(alongPanelData) && root.classList.contains("pause-overlay-visible") && !isHeroTrailerSurface;
+  if (!visible) {
+    if (alongPanelEl) {
+      alongPanelEl.style.opacity = "0";
+      alongPanelEl.style.transform = "translateX(24px)";
+    }
+    return;
+  }
+  if (!alongPanelEl) {
+    alongPanelEl = document.createElement("div");
+    alongPanelEl.style.cssText = [
+      "position:fixed", "right:56px", "top:50%", "width:420px", "transform:translateX(24px)", "margin-top:-260px",
+      "height:520px", "overflow:hidden", "z-index:7", "pointer-events:none", "color:#fff", "box-sizing:border-box",
+      "font-family:var(--nuvio-ui-font,system-ui,sans-serif)", "opacity:0", "transition:opacity 260ms ease, transform 260ms ease",
+    ].join(";");
+    document.body.appendChild(alongPanelEl);
+  }
+  const data = alongPanelData;
+  // The observer below fires on every class change of the root: rebuild only for new contents, so photos never flicker.
+  if (alongPanelBuiltFor === data) {
+    alongPanelEl.style.opacity = "1";
+    alongPanelEl.style.transform = "translateX(0)";
+    return;
+  }
+  alongPanelBuiltFor = data;
+  alongPanelEl.replaceChildren();
+  const people = Array.isArray(data.people) ? data.people : [];
+  if (people.length) {
+    alongPanelEl.appendChild(alongText("div", "Around now", "font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#f5c84c"));
+    people.slice(0, 4).forEach(person => {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;gap:14px;align-items:center;margin-top:12px;height:64px";
+      const photo = document.createElement("div");
+      photo.style.cssText = "flex:none;width:56px;height:56px;border-radius:50%;background:#2a2b36 center/cover no-repeat;" +
+        "display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#c8c8d0;border:1px solid rgba(255,255,255,.18)";
+      const url = String(person.photo || "").trim();
+      if (url) photo.style.backgroundImage = `url("${url.replace(/"/g, "%22")}")`;
+      else photo.textContent = String(person.character || "?").trim().slice(0, 1).toUpperCase();
+      row.appendChild(photo);
+      const text = document.createElement("div");
+      text.style.cssText = "flex:1;min-width:0";
+      text.appendChild(alongText("div", person.character, "font-size:18px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"));
+      text.appendChild(alongText("div", person.actor, "font-size:14px;color:#b9b9c4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"));
+      if (person.note && person.note !== `Played by ${person.actor}.`) {
+        text.appendChild(alongText("div", person.note, "font-size:13px;color:#8f8f9c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"));
+      }
+      row.appendChild(text);
+      alongPanelEl.appendChild(row);
+    });
+  }
+  const sofar = Array.isArray(data.sofar) ? data.sofar : [];
+  if (sofar.length) {
+    alongPanelEl.appendChild(alongText("div", "So far", `margin-top:${people.length ? 26 : 0}px;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#f5c84c`));
+    sofar.slice(0, 3).forEach(note => {
+      const row = document.createElement("div");
+      row.style.cssText = "margin-top:10px;padding:10px 14px;border-radius:12px;background:rgba(14,14,20,.62);border:1px solid rgba(255,255,255,.1)";
+      row.appendChild(alongText("div", `${note.at} · ${note.kind}`, "font-size:12px;color:#9a9aa6;font-weight:700"));
+      row.appendChild(alongText("div", note.title ? `${note.title}: ${note.text}` : note.text,
+        "margin-top:3px;font-size:14px;line-height:1.35;color:#e4e4ea;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"));
+      alongPanelEl.appendChild(row);
+    });
+  }
+  window.requestAnimationFrame(() => {
+    if (!alongPanelEl) return;
+    alongPanelEl.style.opacity = "1";
+    alongPanelEl.style.transform = "translateX(0)";
+  });
+};
+window.nuvioSetAlongPanel = data => {
+  alongPanelData = data && typeof data === "object" ? data : null;
+  renderAlongPanel();
+};
+new MutationObserver(() => renderAlongPanel()).observe(root, { attributes: true, attributeFilter: ["class"] });
+
 // fork:live-tv-brakes - a small glass choice card (zap budget, end card). Arrow keys and Enter pick,
 // Escape dismisses; the answer goes back as "iptvChoice" with the option's index, -1 for dismissed.
 let choiceCardEl = null;

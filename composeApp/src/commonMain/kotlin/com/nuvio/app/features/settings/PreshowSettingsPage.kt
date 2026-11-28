@@ -274,6 +274,13 @@ internal fun LazyListScope.preshowSettingsContent(isTablet: Boolean) {
         }
     }
 
+    // fork:watch-along - the film companion: timed, spoiler-free notes on the TV and the phone (WatchAlongSettings).
+    item {
+        SettingsSection(title = "Watch-along", isTablet = isTablet) {
+            WatchAlongSettingsGroup(isTablet)
+        }
+    }
+
     item {
         SettingsSection(
             title = stringResource(Res.string.settings_theme_song_section),

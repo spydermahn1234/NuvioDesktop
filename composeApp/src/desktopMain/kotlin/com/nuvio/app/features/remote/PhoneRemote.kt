@@ -81,6 +81,7 @@ internal object PhoneRemote {
     private var liveTvWatch: Job? = null // fork:phone-remote live-tv
     private var homeWatch: Job? = null // fork:phone-remote shelf-home
     private var scoreWatch: Job? = null // fork:live-scores
+    private var alongWatch: Job? = null // fork:watch-along
 
     @Synchronized
     fun ensureLoaded() {
@@ -159,6 +160,7 @@ internal object PhoneRemote {
         watchLiveTv(created)
         watchShelfHome(created)
         watchScores(created)
+        watchAlong(created)
         _state.update { it.copy(listening = created.port != null, port = created.port, addresses = localAddresses()) }
     }
 
@@ -177,6 +179,8 @@ internal object PhoneRemote {
         homeWatch = null
         scoreWatch?.cancel()
         scoreWatch = null
+        alongWatch?.cancel()
+        alongWatch = null
         server?.stop()
         server = null
         _state.update { it.copy(listening = false, port = null, connectedDevices = emptyList()) }
@@ -443,6 +447,17 @@ internal object PhoneRemote {
                 .map(PhoneRemoteLibraryLines::liveTvLine)
                 .distinctUntilChanged()
                 .collect(target::publishLiveTv)
+        }
+    }
+
+    /** fork:watch-along: the film companion for the phone's Along tab, whenever something new is revealed. */
+    private fun watchAlong(target: PhoneRemoteServer) {
+        alongWatch?.cancel()
+        alongWatch = CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+            com.nuvio.app.features.watchalong.WatchAlongLive.remote
+                .map(PhoneRemoteLibraryLines::alongLine)
+                .distinctUntilChanged()
+                .collect(target::publishAlong)
         }
     }
 

@@ -360,6 +360,24 @@ internal object PhoneRemoteLibraryLines {
     }
 
     /**
+     * fork:watch-along: `ALONG 0` while nothing with a companion plays, else
+     * `ALONG 1 <status> <title> <total> <fromAi> <moments> <people>`. Status is building, ready or none; moments
+     * (at most 40, oldest first, only those the film has reached) are `atMs,kind,title,text`; people (only those the
+     * film has reached) are `character,actor,photo,firstMs,note,now`. Mirrored by `parseAlong` in the app's LibraryLines.kt.
+     */
+    fun alongLine(along: com.nuvio.app.features.watchalong.RemoteWatchAlong?): String {
+        if (along == null) return "ALONG 0"
+        return listOf(
+            "ALONG", "1",
+            along.status.wire, text(along.title), along.total.toString(), flag(along.fromAi),
+            records(along.moments.takeLast(40)) { m -> listOf(m.atMs.toString(), text(m.kind.label), text(m.title), text(m.text)) },
+            records(along.people.take(20)) { p ->
+                listOf(text(p.character), text(p.actor), url(p.photo), p.firstMs.toString(), text(p.note), flag(p.character in along.aroundNow))
+            },
+        ).joinToString(" ")
+    }
+
+    /**
      * fork:phone-remote shelf-home: `HOME 0` while the shelf home is not on screen, else
      * `HOME 1 <mode> <tabId> <tabTitle> <shelfKey> <rowTitle> <row> <rows> <index> <count> <from> <title> <facts> <art>
      * <view> <cards>`: row and index from 0; cards (at most 20, the first at `from` in the row) are `title,poster`.

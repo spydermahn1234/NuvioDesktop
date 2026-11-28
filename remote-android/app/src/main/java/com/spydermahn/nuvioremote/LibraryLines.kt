@@ -724,6 +724,46 @@ object LibraryLines {
         return ServerLine.Shelves(rows)
     }
 
+    /**
+     * fork:watch-along: `ALONG 0`, or `ALONG 1 <status> <title> <total> <fromAi> <moments> <people>`; moments
+     * `atMs,kind,title,text`, people `character,actor,photo,firstMs,note,now`. Mirrors `alongLine` in the PC's
+     * PhoneRemoteLibraryLines.kt; the PC only ever sends what the film has already reached.
+     */
+    fun parseAlong(line: String): ServerLine? {
+        val parts = line.trim().split(' ')
+        if (parts.size < 2 || parts[0] != "ALONG") return null
+        if (parts[1] != "1") return ServerLine.Along(null)
+        if (parts.size < 8) return null
+        val notes = records(parts[6]).mapNotNull { r ->
+            AlongNote(
+                atMs = r.getOrNull(0)?.toLongOrNull() ?: return@mapNotNull null,
+                kind = r.getOrNull(1) ?: "Trivia",
+                title = r.getOrNull(2).orEmpty(),
+                text = r.getOrNull(3) ?: return@mapNotNull null,
+            )
+        }
+        val people = records(parts[7]).mapNotNull { r ->
+            AlongCastInfo(
+                character = r.getOrNull(0) ?: return@mapNotNull null,
+                actor = r.getOrNull(1).orEmpty(),
+                photo = r.getOrNull(2),
+                firstMs = r.getOrNull(3)?.toLongOrNull() ?: -1L,
+                note = r.getOrNull(4).orEmpty(),
+                aroundNow = r.getOrNull(5) == "1",
+            )
+        }
+        return ServerLine.Along(
+            AlongInfo(
+                status = parts[2],
+                title = field(parts[3]).orEmpty(),
+                total = parts[4].toIntOrNull() ?: 0,
+                fromAi = parts[5] == "1",
+                notes = notes,
+                people = people,
+            ),
+        )
+    }
+
     /** Each record's fields, decoded; `-` becomes null. */
     private fun records(field: String?): List<List<String?>> {
         if (field == null || field == "-" || field.isEmpty()) return emptyList()

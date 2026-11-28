@@ -1082,6 +1082,8 @@ fun main(args: Array<String>) {
                 com.nuvio.app.features.livescores.LiveScoreEngine.start()
                 // fork:beat-lights - flashes a WiZ bulb on the music's kicks; idle unless Settings > Lights out > Beat lights is on.
                 com.nuvio.app.features.music.beatlights.BeatLightsEngine.start()
+                // fork:watch-along - the film companion's settings and its cards on the player's HUD.
+                com.nuvio.app.features.watchalong.WatchAlongDesktop.start()
                 // fork:live-tv-departure - reminders ("Tune in at"); over a playing video the HUD's pill says it.
                 com.nuvio.app.features.iptv.IptvReminderEngine.playerPill = { title, line, durationMs ->
                     val handles = runCatching { com.nuvio.app.features.player.desktop.NativeAudioDuck.liveHandles() }.getOrDefault(emptyList())

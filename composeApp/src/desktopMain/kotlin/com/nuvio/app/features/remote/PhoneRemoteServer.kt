@@ -195,6 +195,15 @@ internal class PhoneRemoteServer(
     @Volatile
     private var lastShelves: String? = null
 
+    @Volatile
+    private var lastAlong: String? = null
+
+    /** fork:watch-along: the film companion as the phone's Along tab shows it (PhoneRemoteLibraryLines.alongLine). */
+    fun publishAlong(line: String) {
+        lastAlong = line
+        clients.forEach { session -> if (session.subscribed) session.trySend(line) }
+    }
+
     /** fork:phone-remote shelf-home: the shelf home as the phone mirrors it (PhoneRemoteLibraryLines.homeLine). */
     fun publishHome(line: String) {
         lastHome = line
@@ -364,6 +373,7 @@ internal class PhoneRemoteServer(
                                 lastLiveTv?.let(::send)
                                 lastShelves?.let(::send)
                                 lastHome?.let(::send)
+                                lastAlong?.let(::send) // fork:watch-along
                                 wakeLine?.let(::send)
                             }
                             is RemoteMessage.Seek -> listener.onSeek(message.positionMs)
