@@ -71,4 +71,21 @@ class ShelfLiveRulesTest {
         assertEquals("Until T120", ShelfLiveRules.until(now, null, clock))
         assertNull(ShelfLiveRules.until(null, next, clock))
     }
+
+    @Test
+    fun filmChannelsCountAsFilmsWhenTheGuideSaysNothing() {
+        val untagged = IptvEpgEntry(title = "Spider-Man", startMs = 0L, endMs = 1L)
+        assertTrue(ShelfLiveRules.isFilm(untagged, "Sky Cinema Hits"))
+        assertTrue(ShelfLiveRules.isFilm(untagged, "UK: Film4 HD"))
+        assertTrue(ShelfLiveRules.isFilm(untagged.copy(kind = IptvProgrammeKind.FILM), "BBC One"))
+        assertFalse(ShelfLiveRules.isFilm(untagged, "BBC One London"))
+        assertFalse(ShelfLiveRules.isFilm(untagged.copy(kind = IptvProgrammeKind.NEWS), "Sky Cinema Hits"))
+        assertFalse(ShelfLiveRules.isFilm(null, "Sky Cinema Hits"))
+    }
+
+    @Test
+    fun theHeroAsksForTheSharperBackdrop() {
+        assertEquals("https://image.tmdb.org/t/p/w1280/a.jpg", ShelfLiveRules.sharper("https://image.tmdb.org/t/p/w780/a.jpg"))
+        assertNull(ShelfLiveRules.sharper(null))
+    }
 }

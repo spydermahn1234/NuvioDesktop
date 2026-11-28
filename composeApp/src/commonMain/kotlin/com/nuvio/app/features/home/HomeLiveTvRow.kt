@@ -8,6 +8,7 @@ import com.nuvio.app.features.iptv.IptvEpgRepository
 import com.nuvio.app.features.iptv.IptvPlaybackRequests
 import com.nuvio.app.features.iptv.IptvPlaylist
 import com.nuvio.app.features.iptv.IptvPlaylistContent
+import com.nuvio.app.features.iptv.IptvPlaylistType
 import com.nuvio.app.features.iptv.IptvRepository
 import com.nuvio.app.features.iptv.iptvStreamCandidates
 import com.nuvio.app.features.iptv.requestHeaders
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * fork:home-live-tv - Live TV favourites as a row on Home: one card per favourite channel, with what is on now from
@@ -60,13 +62,23 @@ internal object LiveTvHomeRules {
         if (colon <= 0) return@mapNotNull null
         val content = contents[ref.substring(0, colon)] ?: return@mapNotNull null
         val channel = content.byKey[ref.substring(colon + 1)] ?: return@mapNotNull null
-        val entries = guide(content.playlist, channel)
-        val onNow = entries.firstOrNull { it.startMs <= now && it.endMs > now }
-        val after = entries.filter { it.startMs >= (onNow?.endMs ?: now) }.minByOrNull { it.startMs }
-        LiveTvHomeCard(
+        card(
             ref = ref,
             name = channel.name.ifBlank { "Channel ${channel.num}" },
-            logo = channel.logo?.takeIf { it.isNotBlank() },
+            logo = channel.logo,
+            entries = guide(content.playlist, channel),
+            now = now,
+        )
+    }
+
+    /** One favourite's card from its programmes: what is on at [now] and the one after it. */
+    fun card(ref: String, name: String, logo: String?, entries: List<IptvEpgEntry>, now: Long): LiveTvHomeCard {
+        val onNow = entries.firstOrNull { it.startMs <= now && it.endMs > now }
+        val after = entries.filter { it.startMs >= (onNow?.endMs ?: now) }.minByOrNull { it.startMs }
+        return LiveTvHomeCard(
+            ref = ref,
+            name = name,
+            logo = logo?.takeIf { it.isNotBlank() },
             nowTitle = onNow?.title?.takeIf { it.isNotBlank() },
             nowEndMs = onNow?.endMs,
             nowImage = onNow?.image?.takeIf { it.isNotBlank() },
@@ -74,6 +86,12 @@ internal object LiveTvHomeRules {
             next = after,
         )
     }
+
+    /** The programmes worth keeping for a favourite: not over yet, starting within [KEEP_AHEAD_MS]. */
+    fun keepable(entries: List<IptvEpgEntry>, now: Long): List<IptvEpgEntry> =
+        entries.filter { it.endMs > now && it.startMs < now + KEEP_AHEAD_MS }.sortedBy { it.startMs }
+
+    const val KEEP_AHEAD_MS = 12 * 60 * 60 * 1000L
 
     /** "Match of the Day · until 11:20 PM", the card's line; null when the guide has nothing on now. */
     fun nowLine(card: LiveTvHomeCard): String? {
@@ -119,6 +137,19 @@ object HomeLiveTvRow {
 
     private const val TICK_MS = 60_000L
 
+    /*
+     * fork:shelf-home live-tv - Nick, Nov 28: "no tmdb look up working for live channels". The row only read guides
+     * already in memory, so on Home (Live TV never opened, or its guides released five minutes after leaving the tab)
+     * a favourite had no programme on now: the hero said LIVE TV and never asked TMDB for the film. Now the row loads
+     * the favourites' guides itself (disk first), keeps each favourite's next twelve hours so the idle release does
+     * not blank it, and asks the provider's short EPG for an Xtream/Stalker channel the XMLTV guide has nothing for.
+     */
+    private class Kept(val name: String, val logo: String?, val entries: List<IptvEpgEntry>)
+
+    private val kept = ConcurrentHashMap<String, Kept>()
+    private val askedAt = ConcurrentHashMap<String, Long>()
+    private const val ASK_AGAIN_MS = 30 * 60 * 1000L
+
     fun start() {
         if (job != null) return
         job = scope.launch {
@@ -132,6 +163,7 @@ object HomeLiveTvRow {
                         ids.forEach { id ->
                             runCatching { IptvRepository.refresh(id) }
                                 .onFailure { if (it is CancellationException) throw it; log.w { "Live TV row: $id did not load: ${it.message}" } }
+                            loadGuide(id)
                             rebuild()
                         }
                     }
@@ -154,12 +186,58 @@ object HomeLiveTvRow {
         val contents = settings.playlists.mapNotNull { playlist ->
             IptvRepository.contentState(playlist.id).value.content?.let { playlist.id to it }
         }.toMap()
-        _cards.value = LiveTvHomeRules.cards(
+        val now = System.currentTimeMillis()
+        val built = LiveTvHomeRules.cards(
             favourites = settings.favourites,
             contents = contents,
-            guide = { playlist, channel -> IptvEpgRepository.cached(playlist, channel).orEmpty() },
-            now = System.currentTimeMillis(),
-        )
+            guide = { playlist, channel ->
+                val ref = "${playlist.id}:${channel.key}"
+                val fresh = LiveTvHomeRules.keepable(IptvEpgRepository.cached(playlist, channel).orEmpty(), now)
+                if (fresh.isNotEmpty()) {
+                    kept[ref] = Kept(channel.name.ifBlank { "Channel ${channel.num}" }, channel.logo, fresh)
+                    fresh
+                } else {
+                    kept[ref]?.entries?.let { LiveTvHomeRules.keepable(it, now) }.orEmpty()
+                }
+            },
+            now = now,
+        ).associateBy { it.ref }
+        // A playlist released from memory (off the Live TV tab) keeps its favourites from what was kept.
+        _cards.value = settings.favourites.mapNotNull { ref ->
+            built[ref] ?: kept[ref]?.let { LiveTvHomeRules.card(ref, it.name, it.logo, LiveTvHomeRules.keepable(it.entries, now), now) }
+        }
+        _cards.value.filter { it.now == null }.forEach { askFor(it.ref, contents, now) }
+    }
+
+    /** The playlist's guides into memory (disk first, a download only when due), then released again off the tab. */
+    private suspend fun loadGuide(playlistId: String) {
+        val content = IptvRepository.contentState(playlistId).value.content ?: return
+        runCatching { IptvEpgRepository.refresh(content) }
+            .onFailure { if (it is CancellationException) throw it; log.w { "Live TV row: guide for $playlistId did not load: ${it.message}" } }
+        IptvRepository.scheduleIdleEvictionIfOffTab()
+    }
+
+    /**
+     * A favourite with nothing on now: load its playlist's guide if it is not in memory, and for Xtream/Stalker ask
+     * the provider's short EPG. At most once per [ASK_AGAIN_MS] per favourite; an answer bumps the guide's version,
+     * which rebuilds the row.
+     */
+    private fun askFor(ref: String, contents: Map<String, IptvPlaylistContent>, now: Long) {
+        val last = askedAt[ref]
+        if (last != null && now - last < ASK_AGAIN_MS) return
+        askedAt[ref] = now
+        val playlistId = ref.substringBefore(':', "")
+        scope.launch {
+            val content = contents[playlistId] ?: IptvRepository.contentForBackgroundUse(playlistId) ?: return@launch
+            val channel = content.byKey[ref.substringAfter(':')] ?: return@launch
+            if (IptvEpgRepository.guideState(playlistId).value.guide == null) loadGuide(playlistId)
+            if (IptvEpgRepository.cached(content.playlist, channel).isNullOrEmpty() && content.playlist.type != IptvPlaylistType.M3u) {
+                val entries = IptvEpgRepository.nowAndNext(content.playlist, channel)
+                if (entries.isEmpty()) log.i { "Live TV row: no guide for ${channel.name}" }
+            }
+            IptvRepository.scheduleIdleEvictionIfOffTab()
+            rebuild()
+        }
     }
 
     /**

@@ -68,4 +68,25 @@ class LiveTvHomeRowTest {
         )
         assertEquals(listOf(LIVE_TV_HOME_SECTION_KEY, "addon:top"), items.map { it.key })
     }
+
+    @Test
+    fun keptProgrammesStillGiveWhatIsOnAfterTheGuideIsReleased() {
+        val later = now + 3 * 60 * 60_000L
+        val kept = LiveTvHomeRules.keepable(
+            listOf(
+                IptvEpgEntry(title = "Over", startMs = now - 5_000, endMs = now - 1),
+                IptvEpgEntry(title = "Heat", startMs = later, endMs = later + 60_000),
+                IptvEpgEntry(title = "Spider-Man", startMs = now - 1_000, endMs = later),
+                IptvEpgEntry(title = "Tomorrow", startMs = now + LiveTvHomeRules.KEEP_AHEAD_MS + 1, endMs = now + LiveTvHomeRules.KEEP_AHEAD_MS + 60_000),
+            ),
+            now,
+        )
+        assertEquals(listOf("Spider-Man", "Heat"), kept.map { it.title })
+        val card = LiveTvHomeRules.card("p1:sky", "Sky Cinema Hits", " ", kept, now)
+        assertEquals("Spider-Man", card.now?.title)
+        assertEquals("Heat", card.next?.title)
+        assertNull(card.logo)
+        // Three hours on, the kept list has moved on by itself.
+        assertEquals("Heat", LiveTvHomeRules.card("p1:sky", "Sky Cinema Hits", null, kept, later + 1).now?.title)
+    }
 }

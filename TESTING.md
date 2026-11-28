@@ -1200,7 +1200,10 @@ From the review of the Logos screenshot (Nathan For You, Continue watching).
 
 ## Shelf home, Live TV hero (Nov 28)
 
-- [ ] (must) On the shelf home's Live TV row, a channel showing a film (a Sky Cinema channel) has the film's backdrop behind it, not the plain purple
+- [ ] **BROKEN** On the shelf home's Live TV row, a channel showing a film (a Sky Cinema channel) has the film's backdrop behind it, not the plain purple (2026-11-28): no TMDB look-up for live channels; Sky Cinema Hits showed only LIVE TV and the sky
+  - [ ] (must) Re-check: straight after starting Nuvio (Live TV not opened), Sky Cinema Hits on the shelf home shows the film on now: its TMDB backdrop, "ON NOW", its name and "Until ..." under the logo
+  - [ ] Re-check: open Live TV, go back to Home and wait over 5 minutes: the Live TV hero still shows what is on now (not LIVE TV)
+  - [ ] A film channel whose guide does not mark films (Film4, Sky Cinema) still gets the film's backdrop, and the backdrop looks sharp on the TV
 - [ ] Under the channel's logo: "ON NOW · FILM · 2014" (or similar), the film's name, then a progress bar and "Until 09:10 · Next: ..." that match the guide
 - [ ] A channel with no guide picture and no TMDB match shows a sky that suits the time of day (rose and blue in the morning, amber around 18:30, navy at night) with a glow in the channel's colour, and the slashes take that colour too (Sky Cinema red)
 - [ ] With Settings > Lights > Follow the home's art on, the bulbs take the channel's colour while you move along the Live TV row

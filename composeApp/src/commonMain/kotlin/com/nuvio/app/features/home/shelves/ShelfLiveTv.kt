@@ -37,6 +37,8 @@ import com.nuvio.app.features.iptv.IptvPlaybackSession
 import com.nuvio.app.features.iptv.IptvPreviewCover
 import com.nuvio.app.features.iptv.IptvProgrammeKind
 import com.nuvio.app.features.iptv.IptvShowArt
+import com.nuvio.app.features.iptv.IptvChannelKind
+import com.nuvio.app.features.iptv.IptvTriageRules
 import com.nuvio.app.features.tonight.clockLabel
 import kotlinx.coroutines.delay
 
@@ -139,6 +141,23 @@ internal object ShelfLiveRules {
         }
     }
 
+    /**
+     * A film: the guide says so, or (Nick, Nov 28: Spider-Man on Sky Cinema Hits had no TMDB art) the guide gives no
+     * kind and the channel's name is a film channel's ("Sky Cinema Hits", "Film4", "Movies 24").
+     */
+    fun isFilm(entry: IptvEpgEntry?, channelName: String?): Boolean {
+        if (entry == null) return false
+        if (entry.kind == IptvProgrammeKind.FILM) return true
+        if (entry.kind != null) return false
+        return IptvTriageRules.kindOf(channelName.orEmpty()) == IptvChannelKind.Films ||
+            FILM_CHANNEL.containsMatchIn(channelName.orEmpty().lowercase())
+    }
+
+    private val FILM_CHANNEL = Regex("""\b(film4|filmfour|tcm|great!? movies|movies24|sky ?cinema)""")
+
+    /** TMDB's w780 backdrops look soft across a TV; the hero asks for the 1280 one. */
+    fun sharper(url: String?): String? = url?.replace("/t/p/w780/", "/t/p/w1280/")
+
     /** True when the programme deserves a look-up of a series' art (not news, sport or shopping). */
     fun wantsShowArt(entry: IptvEpgEntry): Boolean =
         entry.kind != IptvProgrammeKind.NEWS && entry.kind != IptvProgrammeKind.SPORT && !IptvGuideText.isShopping(entry.title)
@@ -165,20 +184,22 @@ internal fun rememberShelfLiveCards(): Map<String, LiveTvHomeCard> {
 internal fun rememberShelfLiveBackdrop(live: LiveTvHomeCard?): String? {
     val entry = live?.now
     val title = ShelfLiveRules.title(entry).orEmpty()
-    val film = entry?.kind == IptvProgrammeKind.FILM
+    val film = ShelfLiveRules.isFilm(entry, live?.name)
     val guidePicture = entry?.image?.takeIf { it.isNotBlank() }
     val initial = when {
         entry == null -> null
-        film -> IptvFilmArt.peek(title)?.backdrop ?: guidePicture
+        film -> ShelfLiveRules.sharper(IptvFilmArt.peek(title)?.backdrop) ?: guidePicture
         guidePicture != null -> guidePicture
-        else -> IptvShowArt.peek(title)?.picture
+        else -> IptvShowArt.peek(title)?.picture ?: ShelfLiveRules.sharper(IptvFilmArt.peek(title)?.backdrop)
     }
     return produceState(initial, title, film, guidePicture) {
         if (entry == null || title.isBlank()) return@produceState
         value = when {
-            film -> IptvFilmArt.find(title)?.backdrop ?: guidePicture
+            film -> ShelfLiveRules.sharper(IptvFilmArt.find(title)?.backdrop) ?: guidePicture
             guidePicture != null -> guidePicture
-            ShelfLiveRules.wantsShowArt(entry) -> IptvShowArt.find(title)?.picture
+            // A series first (exact name), then a film by the same name: a guide without kinds hides films.
+            ShelfLiveRules.wantsShowArt(entry) ->
+                IptvShowArt.find(title)?.picture ?: ShelfLiveRules.sharper(IptvFilmArt.find(title)?.backdrop)
             else -> null
         }
     }.value
