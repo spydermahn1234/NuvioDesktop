@@ -1220,6 +1220,7 @@ Settings > Pre-show > Watch-along on; Nuvio Remote needs the new build for the A
 - [ ] Along tab with nothing playing (or Watch-along off) explains how to turn it on instead of an empty screen
 - [ ] An episode of a show gets its own notes; Live TV, trailers and YouTube videos get none
 - [ ] (must) With the Gemini key set in Settings > Music, a film you have not watched before gets its notes from Gemini: nuvio.log has "WatchAlong: <title>: asking Gemini for a track" then "Gemini gave N moments"
+  - [ ] (must) Re-check after the fix (a 60s cut-off and Google's "high demand" 503 stopped it): a long film waits up to three minutes for Gemini, and a 503 line is followed by "trying the next" rather than the offline track
 - [ ] Settings > Pre-show > Watch-along > Write it with AI says Gemini (the key in Settings > Music) writes the notes, and switches on without asking for the Discover AI consent
 
 ## Shelf home, Paper logos and Live TV (Nov 28)

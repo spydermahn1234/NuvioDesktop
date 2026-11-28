@@ -99,6 +99,10 @@ internal object GeminiSearch {
                     log.i { "$model is not offered to this key; trying the next" }
                     continue
                 }
+                500, 503 -> {
+                    log.w { "$model is overloaded (HTTP ${response.status}); trying the next" }
+                    continue
+                }
                 429 -> {
                     val waitMs = retryDelayMs(response.body) ?: DEFAULT_WAIT_MS
                     limitedUntilMs = now() + waitMs

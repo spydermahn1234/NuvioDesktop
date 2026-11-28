@@ -118,6 +118,9 @@ actual suspend fun httpRequestRaw(
                 // OkHttp's own whole-call ceiling. Unlike readTimeout it is not refreshed by
                 // traffic, so it is the only one of these that bounds a call that never finishes.
                 if (callTimeoutMs > 0) callTimeout(callTimeoutMs, TimeUnit.MILLISECONDS)
+                // A server that says nothing until its whole answer is ready (Gemini writing a watch-along track)
+                // would hit the shared 60s readTimeout first, so a longer call ceiling lifts it to match.
+                if (callTimeoutMs > 60_000) readTimeout(callTimeoutMs, TimeUnit.MILLISECONDS)
                 if (connectTimeoutMs > 0) connectTimeout(connectTimeoutMs, TimeUnit.MILLISECONDS)
             }
             .build()
