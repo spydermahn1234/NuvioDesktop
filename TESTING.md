@@ -1215,6 +1215,7 @@ Settings > Pre-show > Watch-along on; Nuvio Remote needs the new build for the A
 - [ ] Settings > Watch-along > How many cards: A few / Some / Lots changes how often cards appear on the TV (the phone still has every note)
 - [ ] Cards on the TV off: no cards on the film, but the pause panel and the phone still work
 - [ ] Write it with AI off (or no AI provider): the cast are introduced as their names are first said ("Played by ..."), and the pre-show's facts, if it had some, are spread through the film
+  - [ ] (must) Re-check after the fix (Nov 28: Pirates got 8 cast cards and no facts): when a film gets the offline track, its Along tab has FACT notes as well as cast, and nuvio.log's "WatchAlong: <title>: offline track" line shows more than 0 facts
 - [ ] The same film a second time starts its notes straight away (the AI track is kept, not asked for again)
 - [ ] Nuvio Remote's Along tab: the title, "N of M so far", the people the film has reached (those around now ringed first; tap one for their note and when they were first seen) and every note so far, newest at the top, each with its time
 - [ ] Along tab with nothing playing (or Watch-along off) explains how to turn it on instead of an empty screen

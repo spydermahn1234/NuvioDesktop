@@ -10,6 +10,7 @@ import com.nuvio.app.features.discover.DiscoverAiSettingsRepository
 import com.nuvio.app.features.music.booklet.GeminiSearch
 import com.nuvio.app.features.player.PlayerSubtitleCueParser
 import com.nuvio.app.features.preroll.TriviaRepository
+import com.nuvio.app.features.preroll.TriviaWikipedia
 import com.nuvio.app.features.preroll.retryDelayMs
 import com.nuvio.app.features.settings.ThemeSettingsRepository
 import kotlinx.coroutines.CancellationException
@@ -78,7 +79,14 @@ object WatchAlongRepository {
             log.w { "$title: AI track failed; building the offline one" }
         }
 
-        val facts = meta?.let { runCatching { TriviaRepository.peek(it) }.getOrNull() }?.slides?.map { it.text }.orEmpty()
+        // The pre-show's AI pack if it has one, else its Wikipedia pack (free and keyless, so fetched now if the
+        // pre-show did not run); without this the offline track was cast only whenever Discover AI was not set up.
+        val facts = meta?.let { m ->
+            runCatching { TriviaRepository.peek(m) }.getOrNull()
+                ?: runCatching { withTimeoutOrNull(20_000) { TriviaWikipedia.packFor(m) } }
+                    .onFailure { if (it is CancellationException) throw it }
+                    .getOrNull()
+        }?.slides?.map { it.text }.orEmpty()
         val offline = WatchAlongRules.offline(
             title = title,
             cast = cast,
@@ -86,7 +94,7 @@ object WatchAlongRepository {
             facts = facts,
             durationMs = request.durationMs,
         )
-        log.i { "$title: offline track, ${offline.people.size} people, ${offline.moments.size} moments, ${cues.size} cues" }
+        log.i { "$title: offline track, ${offline.people.size} people, ${offline.moments.size} moments, ${facts.size} facts, ${cues.size} cues" }
         return if (offline.isEmpty) null else AlongBuilt(offline, fromCache = false)
     }
 
