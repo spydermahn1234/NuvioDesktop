@@ -2397,6 +2397,7 @@ private fun settingsSearchEntries(
         PlaybackSearchRow("home-shelf-evening-start", resolve(Res.string.settings_home_shelf_evening_start), resolve(Res.string.settings_home_shelf_evening_start_description)), // fork:shelf-home
         PlaybackSearchRow("home-shelf-trailers", resolve(Res.string.settings_home_shelf_trailers), resolve(Res.string.settings_home_shelf_trailers_description)), // fork:shelf-home
         PlaybackSearchRow("home-shelf-theme-tunes", resolve(Res.string.settings_home_shelf_theme_tunes), resolve(Res.string.settings_home_shelf_theme_tunes_description)), // fork:shelf-home
+        PlaybackSearchRow("home-shelf-live-preview", resolve(Res.string.settings_home_shelf_live_preview), resolve(Res.string.settings_home_shelf_live_preview_description)), // fork:shelf-home live-tv
         PlaybackSearchRow("home-collection-gifs-on-focus", resolve(Res.string.settings_search_animate_collection_gifs_on_focus_only), resolve(Res.string.settings_search_collection_gifs_play_only_on_the)),
         PlaybackSearchRow("home-catalog-provider-tag", resolve(Res.string.settings_home_catalog_provider_tag), resolve(Res.string.settings_search_tag_each_catalog_row_with_the)),
         PlaybackSearchRow("hero-backdrop-crossfade", resolve(Res.string.settings_hero_backdrop_crossfade), resolve(Res.string.settings_search_how_long_the_hero_backdrop_takes)),

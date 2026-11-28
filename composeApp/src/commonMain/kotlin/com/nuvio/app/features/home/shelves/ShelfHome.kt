@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -552,6 +553,11 @@ internal fun ShelfHome(
     }
     // fork:shelf-home v3 - the art set (textless first, several per title) and the colour taken from it.
     val art = rememberShelfArt(artCard, enabled = extras.textlessArt)
+    // fork:shelf-home live-tv - a Live TV favourite: what is on now, its art, and the channel's logo for the colour.
+    val liveCards = rememberShelfLiveCards()
+    val artIsLive = ShelfLiveRules.isLive(artCard)
+    val liveBackdrop = rememberShelfLiveBackdrop(ShelfLiveRules.ref(artCard)?.let(liveCards::get))
+    val shownBackdrop = if (artIsLive) liveBackdrop else art.backdrop
     // fork:shelf-home v3 - the focused show's theme, quietly (ShelfThemeTunes.kt).
     val themePlaying = ShelfThemeTune(
         card = artCard,
@@ -561,7 +567,7 @@ internal fun ShelfHome(
         if (extras.textlessArt) cards.getOrNull(cardIndex + 1)?.let { runCatching { ShelfArtSets.load(it) } }
     }
     val artAccent by rememberShelfAccent(
-        imageUrl = art.current,
+        imageUrl = if (artIsLive) ShelfLiveRules.logo(artCard) ?: liveBackdrop else art.current,
         enabled = extras.artAccent && shelfTheme == ShelfThemeMode.Dark,
         fallback = MaterialTheme.nuvio.colors.accent,
     )
@@ -577,7 +583,7 @@ internal fun ShelfHome(
     DisposableEffect(Unit) { onDispose { ShelfArtLights.release() } }
     val artLit by ShelfArtLights.lit.collectAsStateWithLifecycle()
     // fork:phone-remote shelf-home - the phone's mirror (v3 phase 9): what the home shows, and the phone's taps.
-    val artUrlForPhone = art.backdrop ?: artCard?.posterUrl()
+    val artUrlForPhone = shownBackdrop ?: artCard?.posterUrl()
     val remoteScreen = remember(mode, contentTabs, tab, rowIndex, cards, cardIndex, viewMode, artUrlForPhone, nowMinute, covered, inTopBar, editorOpen) {
         if (covered || inTopBar || editorOpen) {
             null
@@ -734,11 +740,11 @@ internal fun ShelfHome(
                     },
             ) {
                 Crossfade(
-                    targetState = ShelfArtFrame(artCard, art.backdrop),
+                    targetState = ShelfArtFrame(artCard, shownBackdrop),
                     animationSpec = tween(ShelfMotion.ART_FADE_MS),
                     modifier = Modifier.fillMaxSize(),
                     label = "shelfArt",
-                ) { frame -> ShelfArt(frame.card, frame.backdrop) }
+                ) { frame -> ShelfArt(frame.card, frame.backdrop, nowMinute) }
             }
 
             // The scrims: from the left, where the words are, and along the bottom, where the row is: a band that
@@ -801,6 +807,14 @@ internal fun ShelfHome(
                 topInset = topShift,
                 onFocusEscaped = { if (!covered) rootFocus.requestFocusLogged() },
             )
+            // fork:shelf-home live-tv - the focused favourite playing, muted, in the same open part (ShelfLiveTv.kt).
+            val liveShowing = ShelfLivePreviewLayer(
+                card = artCard,
+                active = extras.livePreview && browsing && !idle && !covered && mode == ShelfScreenMode.Browse &&
+                    artCard?.stableId() == focusedCard?.stableId(),
+                modifier = Modifier.fillMaxSize(),
+                topInset = topShift,
+            )
 
             // ---- Browse ----
             if (browseAlpha > 0f) {
@@ -848,7 +862,12 @@ internal fun ShelfHome(
                         ),
                         label = "shelfTitle",
                     ) { view ->
-                        TitleBlock(view, nowMinute, if (isEveningShelf) tonightSettings.bedMinuteOfDay else null)
+                        TitleBlock(
+                            view,
+                            nowMinute,
+                            if (isEveningShelf) tonightSettings.bedMinuteOfDay else null,
+                            live = ShelfLiveRules.ref(view.card)?.let(liveCards::get),
+                        )
                     }
 
                     // The row: header and cards, swapped in place on Up/Down.
@@ -990,6 +1009,12 @@ internal fun ShelfHome(
                             color = ink.copy(alpha = 0.7f),
                             maxLines = 1,
                         )
+                    }
+                }
+                if (liveShowing) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Box(Modifier.size(8.dp).background(Color(0xFFE5484D), androidx.compose.foundation.shape.CircleShape))
+                        Text("LIVE · MUTED", fontSize = 14.sp, letterSpacing = 3.64.sp, color = ink.copy(alpha = 0.75f), maxLines = 1)
                     }
                 }
                 if (trailer.showing) {
@@ -1179,12 +1204,15 @@ private fun scrimOf(palette: ShelfPalette, alpha: Float): Color =
  * backdrop still leaves a picture (never black). Nothing at all (no poster either): a soft accent wash.
  */
 @Composable
-private fun ShelfArt(card: ShelfCard?, fanart: String?) {
+private fun ShelfArt(card: ShelfCard?, fanart: String?, nowMinute: Int) {
     val palette = LocalShelfPalette.current
     if (palette.backdropAlpha <= 0f) return
     Box(Modifier.fillMaxSize().alpha(palette.backdropAlpha)) {
         val poster = card?.posterUrl()
-        if (poster != null) {
+        if (ShelfLiveRules.isLive(card)) {
+            // fork:shelf-home live-tv - a channel: the time of day's sky in the channel's colour, under what is on now.
+            ShelfLiveSky(nowMinute, palette.accent)
+        } else if (poster != null) {
             NuvioAsyncImage(
                 model = poster,
                 contentDescription = null,
@@ -1234,16 +1262,26 @@ private fun ShelfClock(nowMinute: Int, hourSize: Int, minuteSize: Int, color: Co
  * even when empty, so no line ever moves when the card changes.
  */
 @Composable
-private fun TitleBlock(view: ShelfTitleView, nowMinute: Int, bedMinute: Int? = null) {
+private fun TitleBlock(
+    view: ShelfTitleView,
+    nowMinute: Int,
+    bedMinute: Int? = null,
+    live: com.nuvio.app.features.home.LiveTvHomeCard? = null,
+) {
     val ink = LocalShelfPalette.current.ink
     val accent = LocalShelfPalette.current.accentInk
     val card = view.card
+    // fork:shelf-home live-tv - a channel's lines: what is on, how far through, what is next (same heights).
+    val isLive = ShelfLiveRules.isLive(card)
+    val liveNow = live?.now?.takeIf { isLive }
+    val liveUntil = if (isLive) ShelfLiveRules.until(liveNow, live?.next, ::shelfLiveClock) else null
+    val liveProgress = remember(liveNow, nowMinute) { liveNow?.progress(System.currentTimeMillis()) }
     // fork:shelf-home v3 - Fits before bed: "· 37 min to spare" after the end time.
     val spare = bedMinute?.let { bed ->
         (card as? ShelfCard.Meta)?.item?.let { ShelfEveningRules.spare(ShelfEveningRules.runtimeOf(it), nowMinute, bed) }
     }?.let(ShelfEveningRules::spareLabel)
-    val facts = card?.let(ShelfFrameRules::facts).orEmpty()
-    val episodeTitle = card?.let(ShelfFrameRules::episodeTitle).orEmpty()
+    val facts = if (isLive) ShelfLiveRules.facts(liveNow) else card?.let(ShelfFrameRules::facts).orEmpty()
+    val episodeTitle = if (isLive) ShelfLiveRules.title(liveNow).orEmpty() else card?.let(ShelfFrameRules::episodeTitle).orEmpty()
     val ends = card?.let { ShelfFrameRules.ends(it, nowMinute) { m -> clockLabel(m) } }
     Column(Modifier.width(if (view.mode == ShelfViewMode.Logos) 900.dp else 1000.dp)) {
         if (view.mode == ShelfViewMode.Logos) {
@@ -1285,7 +1323,35 @@ private fun TitleBlock(view: ShelfTitleView, nowMinute: Int, bedMinute: Int? = n
             modifier = Modifier.height(36.dp),
         )
         Spacer(Modifier.height(4.dp))
-        Text(
+        if (isLive) {
+            // fork:shelf-home live-tv - [progress bar] Until 09:10 · Next: Heat, on the "ends" line's 32.
+            Row(Modifier.height(32.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (liveProgress != null) {
+                    Box(
+                        Modifier
+                            .width(ShelfLiveRules.BAR_W.dp)
+                            .height(ShelfLiveRules.BAR_H.dp)
+                            .background(ink.copy(alpha = 0.22f), androidx.compose.foundation.shape.RoundedCornerShape(2.dp)),
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(liveProgress)
+                                .background(accent, androidx.compose.foundation.shape.RoundedCornerShape(2.dp)),
+                        )
+                    }
+                    Spacer(Modifier.width(18.dp))
+                }
+                Text(
+                    liveUntil.orEmpty(),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Light,
+                    color = ink.copy(alpha = 0.85f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        } else Text(
             buildAnnotatedString {
                 if (ends != null) {
                     append(ends.first)
@@ -1303,7 +1369,7 @@ private fun TitleBlock(view: ShelfTitleView, nowMinute: Int, bedMinute: Int? = n
         if (view.mode == ShelfViewMode.Posters) {
             Spacer(Modifier.height(12.dp))
             Text(
-                card?.let(ShelfFrameRules::description).orEmpty(),
+                (if (isLive) liveNow?.desc else card?.let(ShelfFrameRules::description)).orEmpty(),
                 fontSize = 19.sp,
                 fontWeight = FontWeight.Light,
                 lineHeight = 28.sp,

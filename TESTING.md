@@ -18,7 +18,17 @@ What has been tried on the TV, and what is left. Nick tests; Claude keeps this f
 - **Must test** (Nov 22): `- [ ] (must) check` marks the few checks that matter most (re-checks of BROKEN lines,
   the core of each new feature, a sanity check after a merge). The phone asks them first, in a Must test section, and
   sessions offer them first. Tag one or two per new feature, not every line; keep the tag when recording a result.
-- `# Archived (not testing)` at the bottom holds checks set aside by Nick. Nothing below it is asked; move a line back
+- `## Shelf home, Live TV hero (Nov 28)
+
+- [ ] (must) On the shelf home's Live TV row, a channel showing a film (a Sky Cinema channel) has the film's backdrop behind it, not the plain purple
+- [ ] Under the channel's logo: "ON NOW · FILM · 2014" (or similar), the film's name, then a progress bar and "Until 09:10 · Next: ..." that match the guide
+- [ ] A channel with no guide picture and no TMDB match shows a sky that suits the time of day (rose and blue in the morning, amber around 18:30, navy at night) with a glow in the channel's colour, and the slashes take that colour too (Sky Cinema red)
+- [ ] With Settings > Lights > Follow the home's art on, the bulbs take the channel's colour while you move along the Live TV row
+- [ ] (must) Settings > Home screen > **Live picture on Live TV favourites** on: after under a second on a channel it plays, muted, in the open part of the picture, with "LIVE · MUTED" at the top; moving on stops it and the next channel starts
+- [ ] The live picture never plays while a channel is already playing full screen, and OK on a channel still plays it full screen as before
+- [ ] Films and shows on the other rows still have their own art, trailers and colours (nothing changed there)
+
+# Archived (not testing)` at the bottom holds checks set aside by Nick. Nothing below it is asked; move a line back
   up to test it again.
 - A fix for a broken or follow-up line adds a fresh `- [ ]` re-check under it rather than ticking it.
 

@@ -24,6 +24,8 @@ data class ShelfExtrasSettings(
     val themeTunes: Boolean = false,
     /** Phase 7: the chosen bulbs take the art's colour while browsing. */
     val artLights: Boolean = false,
+    /** fork:shelf-home live-tv: a Live TV favourite plays, muted, beside the art after 0.7 s on it (one stream). */
+    val livePreview: Boolean = false,
 )
 
 /** The stored form: one `key=value` per line; unknown keys and bad values are skipped (defaults kept). */
@@ -36,6 +38,7 @@ internal object ShelfExtrasCodec {
         "trailers=${s.trailers}",
         "themeTunes=${s.themeTunes}",
         "artLights=${s.artLights}",
+        "livePreview=${s.livePreview}",
     ).joinToString("\n")
 
     fun decode(text: String?): ShelfExtrasSettings {
@@ -54,6 +57,7 @@ internal object ShelfExtrasCodec {
                 "trailers" -> bool?.let { s.copy(trailers = it) } ?: s
                 "themeTunes" -> bool?.let { s.copy(themeTunes = it) } ?: s
                 "artLights" -> bool?.let { s.copy(artLights = it) } ?: s
+                "livePreview" -> bool?.let { s.copy(livePreview = it) } ?: s
                 else -> s
             }
         }

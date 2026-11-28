@@ -86,7 +86,7 @@ internal object ShelfTrailerRules {
     /** The title to ask about, or null for cards that have no trailer (folders, collections, music, live TV). */
     fun subject(card: ShelfCard?): ShelfTrailerSubject? = when (card) {
         null -> null
-        is ShelfCard.Meta -> card.item.takeIf { it.id.isNotBlank() && it.type.isNotBlank() && !it.isOffCatalogHeroItem() }
+        is ShelfCard.Meta -> card.item.takeIf { it.id.isNotBlank() && it.type.isNotBlank() && !it.isOffCatalogHeroItem() && !ShelfLiveRules.isLive(card) }
             ?.let { ShelfTrailerSubject(it.type, it.id) }
         // An episode's card plays its show's trailer (the lookup keeps to season 1, so no spoilers).
         is ShelfCard.Progress -> card.item.takeIf { it.parentMetaId.isNotBlank() && it.parentMetaType.isNotBlank() }

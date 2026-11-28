@@ -1,6 +1,7 @@
 package com.nuvio.app.features.home
 
 import co.touchlab.kermit.Logger
+import com.nuvio.app.features.iptv.IPTV_DEFAULT_HEADERS
 import com.nuvio.app.features.iptv.IptvChannel
 import com.nuvio.app.features.iptv.IptvEpgEntry
 import com.nuvio.app.features.iptv.IptvEpgRepository
@@ -8,6 +9,8 @@ import com.nuvio.app.features.iptv.IptvPlaybackRequests
 import com.nuvio.app.features.iptv.IptvPlaylist
 import com.nuvio.app.features.iptv.IptvPlaylistContent
 import com.nuvio.app.features.iptv.IptvRepository
+import com.nuvio.app.features.iptv.iptvStreamCandidates
+import com.nuvio.app.features.iptv.requestHeaders
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,6 +43,9 @@ internal data class LiveTvHomeCard(
     val nowTitle: String?,
     val nowEndMs: Long?,
     val nowImage: String?,
+    /** fork:shelf-home live-tv - the guide's programme on now and the one after it, for the shelf home's hero. */
+    val now: IptvEpgEntry? = null,
+    val next: IptvEpgEntry? = null,
 )
 
 internal object LiveTvHomeRules {
@@ -54,7 +60,9 @@ internal object LiveTvHomeRules {
         if (colon <= 0) return@mapNotNull null
         val content = contents[ref.substring(0, colon)] ?: return@mapNotNull null
         val channel = content.byKey[ref.substring(colon + 1)] ?: return@mapNotNull null
-        val onNow = guide(content.playlist, channel).firstOrNull { it.startMs <= now && it.endMs > now }
+        val entries = guide(content.playlist, channel)
+        val onNow = entries.firstOrNull { it.startMs <= now && it.endMs > now }
+        val after = entries.filter { it.startMs >= (onNow?.endMs ?: now) }.minByOrNull { it.startMs }
         LiveTvHomeCard(
             ref = ref,
             name = channel.name.ifBlank { "Channel ${channel.num}" },
@@ -62,6 +70,8 @@ internal object LiveTvHomeRules {
             nowTitle = onNow?.title?.takeIf { it.isNotBlank() },
             nowEndMs = onNow?.endMs,
             nowImage = onNow?.image?.takeIf { it.isNotBlank() },
+            now = onNow,
+            next = after,
         )
     }
 
@@ -150,6 +160,22 @@ object HomeLiveTvRow {
             guide = { playlist, channel -> IptvEpgRepository.cached(playlist, channel).orEmpty() },
             now = System.currentTimeMillis(),
         )
+    }
+
+    /**
+     * fork:shelf-home live-tv - the favourite [ref]'s first stream address and its headers, for the muted live picture
+     * on the shelf home (the front door's preview does the same); null when it cannot be found or is not http.
+     */
+    fun previewSource(ref: String): Pair<String, Map<String, String>>? {
+        val settings = IptvRepository.settings.value
+        val playlistId = ref.substringBefore(':', "")
+        val playlist = settings.playlists.firstOrNull { it.id == playlistId } ?: return null
+        val content = IptvRepository.contentState(playlistId).value.content ?: return null
+        val channel = content.byKey[ref.substringAfter(':')] ?: return null
+        val allowed = content.account?.allowedFormats.orEmpty()
+        return iptvStreamCandidates(playlist, channel, settings.preferredFormat, allowed).firstOrNull()
+            ?.url?.takeIf { it.startsWith("http", ignoreCase = true) }
+            ?.let { it to (IPTV_DEFAULT_HEADERS + channel.requestHeaders()) }
     }
 
     /** Plays the favourite [ref] with the other favourites as its channel up/down list. False when it cannot be found. */

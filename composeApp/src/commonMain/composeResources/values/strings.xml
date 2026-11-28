@@ -3883,6 +3883,8 @@
     <string name="settings_home_shelf_trailers_description">On the shelf home, staying on a title for 4 seconds plays its trailer, muted, in the open part of the picture. Any key stops it.</string>
     <string name="settings_home_shelf_theme_tunes">Theme tunes</string>
     <string name="settings_home_shelf_theme_tunes_description">On the shelf home, a show's theme plays quietly while it is focused (at the theme song volume), and fades when you move on.</string>
+    <string name="settings_home_shelf_live_preview">Live picture on Live TV favourites</string>
+    <string name="settings_home_shelf_live_preview_description">On the shelf home, staying on a Live TV favourite plays the channel, muted, in the open part of the picture. Uses one of your provider's connections while it shows.</string>
     <string name="settings_home_catalog_provider_tag">Show catalog provider</string>
     <string name="settings_home_catalog_provider_tag_description">Tags each catalog row with the addon that supplies it.</string>
     <string name="settings_home_release_status_unavailable_only">Only show unavailable release status</string>

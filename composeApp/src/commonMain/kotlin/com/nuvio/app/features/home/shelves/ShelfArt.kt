@@ -81,7 +81,8 @@ internal object ShelfArtRules {
 
     /** The id and type TMDB is asked with, or null for a card that is not a title (a folder). */
     fun lookup(card: ShelfCard): Pair<String, String>? = when (card) {
-        is ShelfCard.Meta -> card.item.id to card.item.type
+        // fork:shelf-home live-tv - a Live TV favourite is no title: its art comes from the guide (ShelfLiveTv.kt).
+        is ShelfCard.Meta -> if (ShelfLiveRules.isLive(card)) null else card.item.id to card.item.type
         is ShelfCard.Progress -> card.item.parentMetaId to card.item.parentMetaType
         is ShelfCard.Folder -> null
     }?.takeIf { (id, type) -> id.isNotBlank() && type.isNotBlank() }
