@@ -807,6 +807,14 @@ internal fun ShelfHome(
                 topInset = topShift,
                 onFocusEscaped = { if (!covered) rootFocus.requestFocusLogged() },
             )
+            // fork:shelf-home live-tv - Paper: what is on now as a framed picture in the open part (no backdrop there).
+            if (palette.backdropAlpha <= 0f && artIsLive) {
+                ShelfLivePaperPicture(
+                    url = liveBackdrop.takeIf { artCard?.stableId() == focusedCard?.stableId() },
+                    modifier = Modifier.fillMaxSize().alpha(browseAlpha),
+                    topInset = topShift,
+                )
+            }
             // fork:shelf-home live-tv - the focused favourite playing, muted, in the same open part (ShelfLiveTv.kt).
             val liveShowing = ShelfLivePreviewLayer(
                 card = artCard,

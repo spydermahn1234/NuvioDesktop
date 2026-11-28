@@ -313,7 +313,8 @@ private fun RowLogo(
                 contentDescription = card.title(),
                 contentScale = ContentScale.Fit,
                 alignment = Alignment.CenterStart,
-                colorFilter = greyed,
+                // fork:shelf-home paper-logos - a pale logo in ink on Paper.
+                colorFilter = rememberPaperLogoFilter(url, greyed),
                 onSuccess = { state ->
                     aspects[url] = rules.aspect(state.result.image.width, state.result.image.height)
                 },
@@ -382,6 +383,7 @@ private fun TitleLogoContent(card: ShelfCard) {
             contentDescription = card.title(),
             contentScale = ContentScale.Fit,
             alignment = Alignment.BottomStart,
+            colorFilter = rememberPaperLogoFilter(url, null), // fork:shelf-home paper-logos
             onError = { failed = true },
             modifier = Modifier.fillMaxSize(),
         )

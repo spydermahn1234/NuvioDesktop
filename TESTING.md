@@ -18,7 +18,15 @@ What has been tried on the TV, and what is left. Nick tests; Claude keeps this f
 - **Must test** (Nov 22): `- [ ] (must) check` marks the few checks that matter most (re-checks of BROKEN lines,
   the core of each new feature, a sanity check after a merge). The phone asks them first, in a Must test section, and
   sessions offer them first. Tag one or two per new feature, not every line; keep the tag when recording a result.
-- `# Archived (not testing)` at the bottom holds checks set aside by Nick. Nothing below it is asked; move a line back
+- `## Shelf home, Paper logos and Live TV (Nov 28)
+
+- [ ] (must) In the Paper look, on Continue watching in Logos, white logos (Ellie & Natasia, You Can See Everything, Nova, Mourinho) are now dark ink and easy to read
+- [ ] A logo with real colour in it (Sally4Ever's red 4) keeps its colours in Paper
+- [ ] The big title logo above the facts line follows the same rule (a white one is ink, a coloured one is not)
+- [ ] Switching back to Dark, every logo is in its own colours again
+- [ ] In Paper, on the Live TV row, a channel showing a film has the film's picture in a thin frame in the open part of the page; moving to another channel changes it
+
+# Archived (not testing)` at the bottom holds checks set aside by Nick. Nothing below it is asked; move a line back
   up to test it again.
 - A fix for a broken or follow-up line adds a fresh `- [ ]` re-check under it rather than ticking it.
 

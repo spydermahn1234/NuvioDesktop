@@ -206,6 +206,36 @@ internal fun ShelfLiveSky(nowMinute: Int, glow: Color, modifier: Modifier = Modi
 }
 
 /**
+ * fork:shelf-home live-tv - Paper has no backdrop layer, so there what is on now is a picture printed on the page: the
+ * programme's art in the trailers' window, with a hairline frame (Nick chose this on Nov 28). Nothing when there is no
+ * art. Place it full size inside ShelfHome's frame, before [ShelfLivePreviewLayer].
+ */
+@Composable
+internal fun ShelfLivePaperPicture(url: String?, modifier: Modifier = Modifier, topInset: Dp = 0.dp) {
+    val ink = LocalShelfPalette.current.ink
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val window = ShelfTrailerRules.window(maxWidth.value, maxHeight.value, topInset.value) ?: return@BoxWithConstraints
+        androidx.compose.animation.Crossfade(
+            targetState = url,
+            animationSpec = tween(ShelfTrailerRules.FADE_MS),
+            modifier = Modifier.offset(window.left.dp, window.top.dp).size(window.width.dp, window.height.dp),
+            label = "shelfLivePaper",
+        ) { shown ->
+            if (shown != null) {
+                Box(Modifier.fillMaxSize().border(1.dp, ink.copy(alpha = 0.18f)).padding(1.dp)) {
+                    com.nuvio.app.core.ui.NuvioAsyncImage(
+                        model = shown,
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
  * Layer 4: the focused channel playing, muted, in the open part of the art (the trailers' window). Place it full size
  * inside ShelfHome's frame, beside the trailer layer. Returns true while the picture is up ("LIVE · MUTED").
  */
