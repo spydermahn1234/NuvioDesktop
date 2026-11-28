@@ -203,6 +203,30 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      # fork:screen-changelog - the tests above already draw screens and save PNGs (build/test-screenshots and a few
+      # previews). Keep them: the screen-changelog job below compares them with the last build's and makes a before/after reel.
+      - name: Collect screen gallery
+        if: always()
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force screens | Out-Null
+          foreach ($d in @('composeApp/build/test-screenshots', 'composeApp/build/test-artifacts', 'composeApp/build')) {
+            if (Test-Path $d) { Get-ChildItem -Path $d -Filter *.png -File | ForEach-Object { Copy-Item $_.FullName (Join-Path screens $_.Name) -Force } }
+          }
+          $n = (Get-ChildItem screens -Filter *.png -ErrorAction SilentlyContinue).Count
+          Write-Host "$n screens collected"
+
+      - name: Upload screen gallery
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: screen-gallery
+          path: screens/*.png
+          if-no-files-found: ignore
+          retention-days: 7
+
       # fork:huge-methods - which compiled methods are too big for HotSpot to JIT (over 8000 bytes of bytecode; they would run
       # interpreted all session). Information only: it lists them in the run summary so a change to the JVM flags or a split of
       # a giant composable can be judged on numbers.
@@ -351,3 +375,65 @@ jobs:
           name: NuvioHTPC-msi
           path: composeApp/build/compose/binaries/**/*.msi
           if-no-files-found: ignore
+
+  # fork:screen-changelog - what changed on screen in this build. Compares the screen gallery with the one kept on the
+  # rolling "Screens" prerelease, then replaces it: screens.zip (the baseline for next time), reel.mp4 (before/after film),
+  # compare-*.png and changes.md (also the release notes and this run's summary). The Nightly's notes get a line linking it.
+  # Never blocks anything: the Nightly is already out by the time this runs. Script: scripts/screen-changelog/changelog.py.
+  screen-changelog:
+    needs: build
+    if: github.ref == 'refs/heads/Spyder'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/screen-changelog
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: screen-gallery
+          path: new
+
+      - name: Last build's screens
+        run: |
+          mkdir -p old
+          if gh release download Screens -R "$REPO" -p screens.zip -D prev 2>/dev/null; then
+            unzip -q prev/screens.zip -d old
+            echo "Baseline: $(ls old/*.png | wc -l) screens from $(cat old/BUILD.txt 2>/dev/null)"
+          else
+            echo "No baseline yet: this build becomes the first."
+          fi
+
+      - name: Compare and make the reel
+        run: |
+          pip install --quiet --disable-pip-version-check pillow numpy
+          python3 scripts/screen-changelog/changelog.py --new new --old old --out out \
+            --sha "$GITHUB_SHA" --old-sha "$(cat old/BUILD.txt 2>/dev/null)" \
+            --assets "https://github.com/$REPO/releases/download/Screens/"
+          cat out/changes.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish
+        run: |
+          count=$(ls new/*.png 2>/dev/null | wc -l)
+          if [ "$count" -eq 0 ]; then echo "No screens this build; keeping the last gallery."; exit 0; fi
+          echo "$GITHUB_SHA" > new/BUILD.txt
+          (cd new && zip -q ../screens.zip *.png BUILD.txt)
+          files="screens.zip out/changes.md"
+          [ -f out/reel.mp4 ] && files="$files out/reel.mp4"
+          for f in out/compare-*.png; do [ -f "$f" ] && files="$files $f"; done
+          gh release delete Screens -R "$REPO" --cleanup-tag --yes 2>/dev/null || true
+          gh release create Screens $files -R "$REPO" --prerelease --target "$GITHUB_SHA" \
+            --title "Screens (Spyder ${GITHUB_SHA::7})" --notes-file out/changes.md
+          if [ -f out/reel.mp4 ]; then
+            line=$(head -1 out/changes.md | sed 's/^### //')
+            body=$(gh release view Nightly -R "$REPO" --json body -q .body)
+            note="**$line.** Before/after reel and side-by-sides: https://github.com/$REPO/releases/tag/Screens"
+            gh release edit Nightly -R "$REPO" --notes "$body"$'\n\n'"$note" || true
+          fi

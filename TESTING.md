@@ -1183,6 +1183,13 @@ From the review of the Logos screenshot (Nathan For You, Continue watching).
 - [ ] (must) Logos: moving Left/Right, the row glides so the focused logo settles on the left edge without overshooting past it and springing back
 - [ ] (must) Logos, a title with no logo (The Class of '92): its name in the big title spot is shown whole, smaller and on two lines if it needs to, never cut to "THE CLAS..." and never split inside a word
 
+## Screen changelog (Nov 28)
+
+- [ ] (must) After the next Windows build, the **Screens** release on GitHub has reel.mp4, and it plays on the phone: a "First look" title card, then each screen from the tests fading in
+- [ ] From the build after that, the Nightly's release notes end with a line like "Screens: 2 changed, 0 new..." that opens the Screens release
+- [ ] After a build that changes how a screen looks, the reel shows that screen going from before to after with the change ringed in red, and its compare picture on the Screens page shows the two side by side
+- [ ] Screens that did not change are listed under "The same" and are not in the reel
+
 # Archived (not testing)
 
 Set aside on 2026-11-22 (Nick): upstream merge checks for upstream's own features, and the old Live TV views that Stage replaced. Kept for the record; the phone's Checks tab asks nothing below this heading. To test one again, move it back up.
