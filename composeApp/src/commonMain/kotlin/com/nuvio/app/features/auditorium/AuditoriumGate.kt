@@ -174,17 +174,33 @@ fun auditoriumGate(
         }
     }
 
+    // Only the stage is read here: auditoriumGate returns a value, so it is not a restart scope of its own and
+    // every state it reads recomposes its caller (App.kt's player route). The per-frame values (elapsedMs) are read
+    // inside HallGateScreen, which recomposes alone.
     val stage = state.stage
     if (stage == HallStage.Done) {
         return if (state.preshowPlayed) AuditoriumGateResult.ClearedPreshowPlayed else AuditoriumGateResult.Cleared
     }
+    HallGateScreen(launchKey = launchKey, state = state, preshow = preshow)
+    return AuditoriumGateResult.Holding
+}
 
+/** The hall on screen while the gate holds: the per-frame part, its own restart scope. */
+@Composable
+private fun HallGateScreen(
+    launchKey: String,
+    state: HallState,
+    preshow: @Composable (onDone: () -> Unit) -> Unit,
+) {
+    val stage = state.stage
     val focus = remember(launchKey) { FocusRequester() }
     // Focus on the hall, so its keys land; again after the pre-show (whose own box held focus) leaves the screen.
     LaunchedEffect(launchKey, stage) {
         if (stage != HallStage.Preshow) runCatching { focus.requestFocus() }
     }
     val frame = state.frame()
+    // Declared with its type so it is certainly a composable lambda.
+    val preshowOnScreen: @Composable () -> Unit = { preshow { state.preshowFinished() } }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -216,12 +232,7 @@ fun auditoriumGate(
             modifier = Modifier.fillMaxSize(),
             // Only while the hall is settled (camera 0, curtains open): the pre-show's native trailer surface is
             // laid out on the screen's real bounds there, and must be gone before the camera moves.
-            screenContent = if (stage == HallStage.Preshow && frame.camera == 0f && frame.curtain == 1f) {
-                { preshow { state.preshowFinished() } }
-            } else {
-                null
-            },
+            screenContent = if (stage == HallStage.Preshow && frame.camera == 0f && frame.curtain == 1f) preshowOnScreen else null,
         )
     }
-    return AuditoriumGateResult.Holding
 }

@@ -18,15 +18,7 @@ What has been tried on the TV, and what is left. Nick tests; Claude keeps this f
 - **Must test** (Nov 22): `- [ ] (must) check` marks the few checks that matter most (re-checks of BROKEN lines,
   the core of each new feature, a sanity check after a merge). The phone asks them first, in a Must test section, and
   sessions offer them first. Tag one or two per new feature, not every line; keep the tag when recording a result.
-- `## Shelf home, Paper logos and Live TV (Nov 28)
-
-- [ ] (must) In the Paper look, on Continue watching in Logos, white logos (Ellie & Natasia, You Can See Everything, Nova, Mourinho) are now dark ink and easy to read
-- [ ] A logo with real colour in it (Sally4Ever's red 4) keeps its colours in Paper
-- [ ] The big title logo above the facts line follows the same rule (a white one is ink, a coloured one is not)
-- [ ] Switching back to Dark, every logo is in its own colours again
-- [ ] In Paper, on the Live TV row, a channel showing a film has the film's picture in a thin frame in the open part of the page; moving to another channel changes it
-
-# Archived (not testing)` at the bottom holds checks set aside by Nick. Nothing below it is asked; move a line back
+- `# Archived (not testing)` at the bottom holds checks set aside by Nick. Nothing below it is asked; move a line back
   up to test it again.
 - A fix for a broken or follow-up line adds a fresh `- [ ]` re-check under it rather than ticking it.
 
@@ -1226,6 +1218,30 @@ Settings > Pre-show > Watch-along on; Nuvio Remote needs the new build for the A
 - [ ] Nuvio Remote's Along tab: the title, "N of M so far", the people the film has reached (those around now ringed first; tap one for their note and when they were first seen) and every note so far, newest at the top, each with its time
 - [ ] Along tab with nothing playing (or Watch-along off) explains how to turn it on instead of an empty screen
 - [ ] An episode of a show gets its own notes; Live TV, trailers and YouTube videos get none
+
+## Shelf home, Paper logos and Live TV (Nov 28)
+
+- [ ] (must) In the Paper look, on Continue watching in Logos, white logos (Ellie & Natasia, You Can See Everything, Nova, Mourinho) are now dark ink and easy to read
+- [ ] A logo with real colour in it (Sally4Ever's red 4) keeps its colours in Paper
+- [ ] The big title logo above the facts line follows the same rule (a white one is ink, a coloured one is not)
+- [ ] Switching back to Dark, every logo is in its own colours again
+- [ ] In Paper, on the Live TV row, a channel showing a film has the film's picture in a thin frame in the open part of the page; moving to another channel changes it
+
+## The Auditorium (Nov 28)
+
+Settings > Pre-show > The Auditorium on (off until switched on).
+
+- [ ] (must) Play a film from the start: the hall fades in, the house lights dim, the beam comes on, the curtains part on the film's picture, then the camera glides into the screen and the film starts with no flash or jump
+- [ ] (must) With the pre-show on and "Pre-show on the hall's screen" on: the trailers, clips and trivia play on the hall's screen (curtains open, hall around them), then the glide, then the film; the pre-show is not played a second time
+- [ ] "Pre-show on the hall's screen" off: the hall opens and glides in first, then the pre-show plays full screen as before, then the film
+- [ ] OK / Enter during the opening jumps ahead a stage; Back / Escape skips the hall straight to what comes next (the pre-show or the film)
+- [ ] Hall: Picture palace (red velvet, gold arch, sconces), Modern big screen (dark panels, LED lines) and Drive-in (night sky, car roofs, the screen lighting up) each look right; "A different hall per film" gives the same film the same hall every time
+- [ ] A film that plays right to the end (or past the credits): the picture comes back on the screen, the camera pulls back, the curtains close, the lights come up, then back on the film's page
+- [ ] Back during that closing goes straight to the film's page; leaving a film part way with Back gets no closing
+- [ ] Resuming a film part way, a series episode (with "Series episodes too" off), a playlist and a trailer get no hall at all
+- [ ] Length Short makes both sequences about half as long
+- [ ] The hall runs smoothly (no stutter in the dust and haze) at 4K on the TV
+- [ ] The Auditorium off: pressing Play is exactly as before
 
 # Archived (not testing)
 

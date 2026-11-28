@@ -79,8 +79,8 @@ uniform float2 stageRadius;
 uniform float sconce;
 uniform float3 sconceTint;
 uniform float sconceReach;
-uniform float sconceX[4];
-uniform float sconceY[4];
+uniform float4 sconceX;
+uniform float4 sconceY;
 uniform float openAbove;
 
 half4 main(float2 p) {
@@ -226,7 +226,7 @@ half4 main(float2 p) {
  * smoothness, and the hem picks up the footlights.
  */
 internal const val AUDITORIUM_VELVET_SKSL = AUDITORIUM_NOISE_SKSL + """
-uniform float outer;
+uniform float outerEdge;
 uniform float leadTop;
 uniform float leadBottom;
 uniform float top;
@@ -242,11 +242,11 @@ uniform float px;
 half4 main(float2 p) {
     float t = clamp((p.y - top) / max(bottom - top, 1.0), 0.0, 1.0);
     float lead = mix(leadTop, leadBottom, t);
-    float den = lead - outer;
+    float den = lead - outerEdge;
     if (abs(den) < 1.0) {
         den = den < 0.0 ? -1.0 : 1.0;
     }
-    float u = clamp((p.x - outer) / den, 0.0, 1.0);
+    float u = clamp((p.x - outerEdge) / den, 0.0, 1.0);
     float k = u * folds;
     float ph = k * 6.2831853 + 0.9 * sin(k * 1.37 + 0.7) + 0.4 * sin(k * 3.1 + 2.0) + t * 0.8 * sin(k * 0.9 + 1.3);
     float c = cos(ph);
@@ -386,8 +386,13 @@ private data class LightMapBrush(val map: AuditoriumLightMap) : ShaderBrush() {
         b.color3("sconceTint", m.sconceTint)
         b.uniform("sconceReach", m.sconceReach)
         val far = Offset(-100_000f, -100_000f)
-        b.uniform("sconceX", FloatArray(4) { (m.sconces.getOrNull(it) ?: far).x })
-        b.uniform("sconceY", FloatArray(4) { (m.sconces.getOrNull(it) ?: far).y })
+        // float4 rather than float[4]: set with the plain four-float setter the repo already uses elsewhere.
+        val s0 = m.sconces.getOrNull(0) ?: far
+        val s1 = m.sconces.getOrNull(1) ?: far
+        val s2 = m.sconces.getOrNull(2) ?: far
+        val s3 = m.sconces.getOrNull(3) ?: far
+        b.uniform("sconceX", s0.x, s1.x, s2.x, s3.x)
+        b.uniform("sconceY", s0.y, s1.y, s2.y, s3.y)
         b.uniform("openAbove", m.openAbove)
         return b.makeShader().asComposeShader()
     }
@@ -488,7 +493,7 @@ private data class VelvetBrush(
 ) : ShaderBrush() {
     override fun createShader(size: Size): Shader {
         val b = RuntimeShaderBuilder(velvetEffect)
-        b.uniform("outer", outerX)
+        b.uniform("outerEdge", outerX)
         b.uniform("leadTop", leadTopX)
         b.uniform("leadBottom", leadBottomX)
         b.uniform("top", top)

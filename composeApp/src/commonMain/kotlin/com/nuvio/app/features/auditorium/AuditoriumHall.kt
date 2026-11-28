@@ -254,12 +254,12 @@ private class HallGeometry(val w: Float, val h: Float, val theme: AuditoriumThem
         0f to Color(0xFF3E2806), 0.22f to Color(0xFF94701F), 0.45f to Color(0xFFE4C26F),
         0.55f to Color(0xFFFFF0BE), 0.7f to Color(0xFFB7892F), 1f to Color(0xFF4E330A),
     )
-    val goldVertical = Brush.verticalGradient(colorStops = goldStops, startY = archOuter.top, endY = opening.top)
-    val goldLeft = Brush.horizontalGradient(colorStops = goldStops, startX = archOuter.left, endX = opening.left)
-    val goldRight = Brush.horizontalGradient(colorStops = goldStops, startX = opening.right, endX = archOuter.right)
+    val goldVertical = Brush.verticalGradient(*goldStops, startY = archOuter.top, endY = opening.top)
+    val goldLeft = Brush.horizontalGradient(*goldStops, startX = archOuter.left, endX = opening.left)
+    val goldRight = Brush.horizontalGradient(*goldStops, startX = opening.right, endX = archOuter.right)
     val crown1 = Rect(cx - w * 0.21f, archOuter.top - h * 0.012f, cx + w * 0.21f, archOuter.top + 1f)
     val crown2 = Rect(cx - w * 0.15f, archOuter.top - h * 0.024f, cx + w * 0.15f, crown1.top + 1f)
-    val goldCrown = Brush.verticalGradient(colorStops = goldStops, startY = crown2.top, endY = archOuter.top)
+    val goldCrown = Brush.verticalGradient(*goldStops, startY = crown2.top, endY = archOuter.top)
     val signRect = when (theme) {
         AuditoriumTheme.DriveIn -> Rect(w * 0.03f, h * 0.27f, w * 0.175f, h * 0.50f)
         else -> Rect(cx - w * 0.125f, h * 0.006f, cx + w * 0.125f, h * 0.068f)
