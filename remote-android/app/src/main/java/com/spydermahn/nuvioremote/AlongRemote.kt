@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -73,7 +74,8 @@ internal fun alongStatusLine(info: AlongInfo): String = when (info.status) {
 
 /** The people row: those around now first, then everyone else the film has reached, latest first. */
 internal fun alongPeopleOrder(people: List<AlongCastInfo>): List<AlongCastInfo> =
-    people.filter { it.aroundNow } + people.filterNot { it.aroundNow }.sortedByDescending { it.firstMs }
+    (people.filter { it.aroundNow } + people.filterNot { it.aroundNow }.sortedByDescending { it.firstMs })
+        .distinctBy { it.character }
 
 /**
  * The Along tab: who's in the scene, and every note so far, newest at the top, as the film on the TV reaches them.
@@ -146,9 +148,7 @@ fun AlongScreen(state: UiState) {
         if (info.notes.isNotEmpty()) {
             item { GlassLabel("So far", color = g.textMuted, size = 11) }
             val newestFirst = info.notes.reversed()
-            items(newestFirst, key = { "${it.atMs}|${it.title}" }) { note ->
-                AlongNoteCard(note, newest = note === newestFirst.first())
-            }
+            itemsIndexed(newestFirst) { index, note -> AlongNoteCard(note, newest = index == 0) }
         } else if (info.status != "none") {
             item {
                 Text(

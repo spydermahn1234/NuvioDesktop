@@ -148,7 +148,7 @@ object WatchAlongLive {
                                 "character" to JsonPrimitive(p.character),
                                 "actor" to JsonPrimitive(p.actor),
                                 "note" to JsonPrimitive(p.note),
-                                "photo" to (p.photo?.let(::JsonPrimitive) ?: JsonNull),
+                                "photo" to (p.photo?.let { JsonPrimitive(it) } ?: JsonNull),
                             ),
                         )
                     },
