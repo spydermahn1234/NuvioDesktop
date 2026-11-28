@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.features.discover.DiscoverAiSettingsRepository
+import com.nuvio.app.features.music.library.MusicLibraryRepository
 import com.nuvio.app.features.watchalong.AlongDensity
 import com.nuvio.app.features.watchalong.WatchAlongSettingsRepository
 
@@ -17,6 +18,8 @@ import com.nuvio.app.features.watchalong.WatchAlongSettingsRepository
 internal fun WatchAlongSettingsGroup(isTablet: Boolean) {
     val settings by WatchAlongSettingsRepository.state.collectAsStateWithLifecycle()
     val ai by DiscoverAiSettingsRepository.uiState.collectAsStateWithLifecycle()
+    val music by MusicLibraryRepository.state.collectAsStateWithLifecycle()
+    val hasGemini = music.settings.geminiApiKey.isNotBlank()
     var consentPromptFor by remember { mutableStateOf<AiConsentTarget?>(null) }
     SettingsGroup(isTablet = isTablet, modifier = Modifier.settingsSearchAnchors("watch-along")) {
         SettingsSwitchRow(
@@ -32,9 +35,14 @@ internal fun WatchAlongSettingsGroup(isTablet: Boolean) {
             SettingsGroupDivider(isTablet)
             SettingsSwitchRow(
                 title = "Write it with AI",
-                description = if (ai.apiKey.isBlank()) {
-                    "No AI provider is set up (Discover, then AI), so you get the cast as they turn up and the pre-show's " +
-                        "facts. With one, each film's notes are written once from its subtitles before it starts and kept."
+                description = if (hasGemini) {
+                    "Gemini (the key in Settings > Music) writes each film's notes once, from its subtitles, before it " +
+                        "starts; they are kept, so a film is never asked for twice. Your Discover AI provider is the " +
+                        "fallback. Off uses the cast and the pre-show's facts only."
+                } else if (ai.apiKey.isBlank()) {
+                    "No AI is set up (a Gemini key in Settings > Music, or Discover, then AI), so you get the cast as " +
+                        "they turn up and the pre-show's facts. With one, each film's notes are written once from its " +
+                        "subtitles before it starts and kept."
                 } else {
                     "Your AI provider writes each film's notes once, from its subtitles, before it starts; they are kept, " +
                         "so a film is never asked for twice. Off uses the cast and the pre-show's facts only."
@@ -44,6 +52,7 @@ internal fun WatchAlongSettingsGroup(isTablet: Boolean) {
                 onCheckedChange = { wanted ->
                     when {
                         !wanted -> WatchAlongSettingsRepository.setUseAi(false)
+                        hasGemini -> WatchAlongSettingsRepository.setUseAi(true)
                         ai.apiKey.isNotBlank() && !ai.consentGiven -> consentPromptFor = AiConsentTarget.WatchAlong
                         else -> WatchAlongSettingsRepository.setUseAi(true)
                     }

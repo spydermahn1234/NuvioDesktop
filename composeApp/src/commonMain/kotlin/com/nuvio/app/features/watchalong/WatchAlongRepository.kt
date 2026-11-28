@@ -7,6 +7,7 @@ import com.nuvio.app.features.details.MetaDetails
 import com.nuvio.app.features.details.MetaDetailsRepository
 import com.nuvio.app.features.discover.DiscoverAiClient
 import com.nuvio.app.features.discover.DiscoverAiSettingsRepository
+import com.nuvio.app.features.music.booklet.GeminiSearch
 import com.nuvio.app.features.player.PlayerSubtitleCueParser
 import com.nuvio.app.features.preroll.TriviaRepository
 import com.nuvio.app.features.preroll.retryDelayMs
@@ -43,6 +44,9 @@ data class AlongBuilt(val track: AlongTrack, val fromCache: Boolean)
 object WatchAlongRepository {
     private val log = Logger.withTag("WatchAlong")
 
+    /** A whole film's subtitles in and a track out takes Flash longer than a song story. */
+    private const val GEMINI_TIMEOUT_MS = 180_000L
+
     suspend fun build(request: AlongRequest): AlongBuilt? {
         val meta = MetaDetailsRepository.peekAny(request.type, request.metaId)
             ?: withTimeoutOrNull(15_000) { runCatching { MetaDetailsRepository.fetch(request.type, request.metaId) }.getOrNull() }
@@ -51,9 +55,12 @@ object WatchAlongRepository {
         val cues = request.subtitleUrl?.let { readCues(it) }.orEmpty()
         val ai = DiscoverAiSettingsRepository.snapshot()
         val language = ThemeSettingsRepository.selectedAppLanguage.value.code
-        val wantsAi = WatchAlongSettingsRepository.state.value.useAi && ai.isConfigured
+        // The Gemini key from Settings > Music comes first; the Discover > AI provider is the fallback.
+        val gemini = GeminiSearch.hasKey()
+        val wantsAi = WatchAlongSettingsRepository.state.value.useAi && (gemini || ai.isConfigured)
+        val model = if (gemini) "gemini" else ai.effectiveModel
         val key = listOf(
-            "along", "p$WATCH_ALONG_PROMPT_VERSION", request.metaId, request.videoId.orEmpty(), ai.effectiveModel, language,
+            "along", "p$WATCH_ALONG_PROMPT_VERSION", request.metaId, request.videoId.orEmpty(), model, language,
         ).joinToString("|")
 
         if (wantsAi) {
@@ -105,7 +112,20 @@ object WatchAlongRepository {
             },
         )
         val prompt = buildWatchAlongPrompt(source, cues, language)
+        if (GeminiSearch.available()) {
+            log.i { "$title: asking Gemini for a track (${cues.size} cues)" }
+            val outcome = GeminiSearch.complete(prompt.system, prompt.user, search = false, timeoutMs = GEMINI_TIMEOUT_MS)
+            outcome.getOrNull()?.let { raw ->
+                val track = parseWatchAlong(raw, title, request.durationMs, timedBySubtitles = cues.isNotEmpty())
+                if (track != null) {
+                    log.i { "$title: Gemini gave ${track.moments.size} moments, ${track.people.size} people" }
+                    return WatchAlongRules.settle(track, cues)
+                }
+                log.w { "$title: Gemini's reply did not parse" }
+            } ?: log.w { "$title: Gemini failed (${outcome.exceptionOrNull()?.message})" }
+        }
         val settings = DiscoverAiSettingsRepository.snapshot()
+        if (!settings.isConfigured) return null
         log.i { "$title: asking ${settings.effectiveModel} for a track (${cues.size} cues)" }
         var attempt = 0
         while (true) {

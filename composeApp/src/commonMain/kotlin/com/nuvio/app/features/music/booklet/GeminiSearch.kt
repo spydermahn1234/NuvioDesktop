@@ -44,11 +44,22 @@ internal object GeminiSearch {
 
     private val key: String get() = MusicLibraryRepository.state.value.settings.geminiApiKey.trim()
 
+    /** A key is set (Settings > Music), whether or not Google has just said to wait. */
+    fun hasKey(): Boolean = key.isNotEmpty()
+
     /** A key is set and Google has not just said to wait. */
     fun available(): Boolean = key.isNotEmpty() && now() >= limitedUntilMs
 
-    /** The model's text answer to [prompt] under [system], having searched Google for it; a failure says why. */
-    suspend fun complete(system: String, prompt: String): Result<String> {
+    /**
+     * The model's text answer to [prompt] under [system], having searched Google for it when [search] is on; a failure
+     * says why. fork:watch-along asks with [search] off and a longer [timeoutMs]: its input is a whole film's subtitles.
+     */
+    suspend fun complete(
+        system: String,
+        prompt: String,
+        search: Boolean = true,
+        timeoutMs: Long = CALL_TIMEOUT_MS,
+    ): Result<String> {
         val apiKey = key.ifEmpty { return Result.failure(IllegalStateException("no Gemini key")) }
         if (now() < limitedUntilMs) return Result.failure(IllegalStateException("Gemini rate limited"))
         val body = buildJsonObject {
@@ -59,7 +70,7 @@ internal object GeminiSearch {
                     putJsonArray("parts") { add(buildJsonObject { put("text", prompt) }) }
                 })
             }
-            putJsonArray("tools") { add(buildJsonObject { putJsonObject("google_search") {} }) }
+            if (search) putJsonArray("tools") { add(buildJsonObject { putJsonObject("google_search") {} }) }
         }.toString()
         for (model in MODELS) {
             val startedAt = now()
@@ -69,7 +80,7 @@ internal object GeminiSearch {
                     url = "$BASE$model:generateContent",
                     headers = mapOf("Content-Type" to "application/json", "x-goog-api-key" to apiKey),
                     body = body,
-                    callTimeoutMs = CALL_TIMEOUT_MS,
+                    callTimeoutMs = timeoutMs,
                 )
             } catch (error: CancellationException) {
                 throw error
