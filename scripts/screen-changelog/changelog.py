@@ -20,6 +20,7 @@ usage: changelog.py --new DIR [--old DIR] --out DIR [--sha SHA] [--old-sha SHA] 
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -184,10 +185,19 @@ def ease(t):
     return t * t * (3 - 2 * t)
 
 
+def ffmpeg():
+    """ffmpeg on the PATH, else the static build from the imageio-ffmpeg wheel (CI runners don't all have one)."""
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    import imageio_ffmpeg
+    return imageio_ffmpeg.get_ffmpeg_exe()
+
+
 class Reel:
     def __init__(self, path):
         self.p = subprocess.Popen(
-            ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
+            [ffmpeg(), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
              "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-movflags", "+faststart", path],
             stdin=subprocess.PIPE,
         )

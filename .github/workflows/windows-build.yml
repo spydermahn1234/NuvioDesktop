@@ -414,7 +414,7 @@ jobs:
 
       - name: Compare and make the reel
         run: |
-          pip install --quiet --disable-pip-version-check pillow numpy
+          pip install --quiet --disable-pip-version-check pillow numpy imageio-ffmpeg
           python3 scripts/screen-changelog/changelog.py --new new --old old --out out \
             --sha "$GITHUB_SHA" --old-sha "$(cat old/BUILD.txt 2>/dev/null)" \
             --assets "https://github.com/$REPO/releases/download/Screens/"
